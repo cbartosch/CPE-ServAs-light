@@ -8,15 +8,57 @@
   "source": "customer_call",
   "valid": true,
   "common_cause": false,
-  "topology": {"customer": "CUST-8001", "service": "SVC-8001", "cpe": "GW-8001", "tap": "TAP-SJU-21-05", "node": "NODE-SJU-21"},
+  "topology": {
+    "customer": "CUST-8001",
+    "service": "SVC-8001",
+    "cpe": "GW-8001",
+    "tap": "TAP-SJU-21-05",
+    "node": "NODE-SJU-21"
+  },
   "evidence": [
-    {"kind": "wifi_channel", "source": "Gateway", "subject": "GW-8001", "value": {"channel_utilization": 0.92}, "quality": 0.97, "summary": "Wi-Fi channel utilization is very high while the WAN path is healthy."},
-    {"kind": "wan_health", "source": "NXT", "subject": "GW-8001", "value": {"wan_healthy": true}, "quality": 0.99, "summary": "The broadband access path is healthy."}
+    {
+      "kind": "wifi_channel",
+      "source": "Gateway",
+      "subject": "GW-8001",
+      "value": {
+        "channel_utilization": 0.92
+      },
+      "quality": 0.97,
+      "summary": "Wi-Fi channel utilization is very high while the WAN path is healthy."
+    },
+    {
+      "kind": "wan_health",
+      "source": "NXT",
+      "subject": "GW-8001",
+      "value": {
+        "wan_healthy": true
+      },
+      "quality": 0.99,
+      "summary": "The broadband access path is healthy."
+    }
   ],
-  "deterministic_rca": {"domain": "wifi_or_home", "confidence": 0.94, "cause": "The fault is isolated to the in-home Wi-Fi environment."},
-  "llm_rca": {"domain": "wifi_or_home", "confidence": 0.92, "cause": "Guided channel and placement steps are appropriate and low risk."},
-  "action_sequence": ["self_help"],
-  "execution_outcomes": {"self_help": ["succeeded"]},
-  "verification_outcomes": [true],
-  "expected_outcome": "Guided self-help restores service with no truck roll."
+  "deterministic_rca": {
+    "domain": "wifi_or_home",
+    "confidence": 0.94,
+    "cause": "The fault is isolated to the in-home Wi-Fi environment."
+  },
+  "llm_rca": {
+    "domain": "wifi_or_home",
+    "confidence": 0.92,
+    "cause": "Guided channel and placement steps are appropriate and low risk."
+  },
+  "action_sequence": [
+    "self_help"
+  ],
+  "execution_outcomes": {
+    "self_help": [
+      "succeeded"
+    ]
+  },
+  "verification_outcomes": [
+    true
+  ],
+  "expected_outcome": "Guided self-help restores service with no truck roll.",
+  "true_domain": "wifi_or_home",
+  "true_domain_basis": "guided self-help restored service"
 }

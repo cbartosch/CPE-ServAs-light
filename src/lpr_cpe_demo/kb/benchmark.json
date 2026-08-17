@@ -1,0 +1,205 @@
+{
+  "version": "1.3.0",
+  "description": "RCA gate benchmark. Scores the fusion and gating decision only, not the full workflow.",
+  "scope": "Each case gives an evidence signature, the deterministic classifier result, and the domain that turned out to be true.",
+  "cases": [
+    {
+      "case_id": "B-01",
+      "technology": "HFC",
+      "signature": "Modem reachable, downstream power and MER nominal, subscribed tier does not match the active config file",
+      "deterministic": {
+        "domain": "provisioning",
+        "confidence": 0.93
+      },
+      "true_domain": "provisioning",
+      "note": "rules correct, easy"
+    },
+    {
+      "case_id": "B-02",
+      "technology": "HFC",
+      "signature": "Gateway reboots every few minutes, firmware behind current approved build, plant levels clean",
+      "deterministic": {
+        "domain": "cpe",
+        "confidence": 0.88
+      },
+      "true_domain": "cpe",
+      "note": "rules correct, easy"
+    },
+    {
+      "case_id": "B-03",
+      "technology": "HFC",
+      "signature": "Wired throughput meets tier, wireless is poor in distant rooms, 2.4GHz airtime saturated",
+      "deterministic": {
+        "domain": "wifi_or_home",
+        "confidence": 0.91
+      },
+      "true_domain": "wifi_or_home",
+      "note": "rules correct, easy"
+    },
+    {
+      "case_id": "B-04",
+      "technology": "HFC",
+      "signature": "Upstream ingress noise observed on four subscribers sharing one tap, aerial plant near the coast, fittings green with corrosion",
+      "deterministic": {
+        "domain": "drop",
+        "confidence": 0.86
+      },
+      "true_domain": "hfc_tap",
+      "note": "rules WRONG: multi-subscriber ingress is tap, not drop"
+    },
+    {
+      "case_id": "B-05",
+      "technology": "HFC",
+      "signature": "Low upstream power at a single premise, levels at the tap measured correct, weathered drop cable with cracked jacket",
+      "deterministic": {
+        "domain": "drop",
+        "confidence": 0.84
+      },
+      "true_domain": "drop",
+      "note": "rules correct, hard boundary"
+    },
+    {
+      "case_id": "B-06",
+      "technology": "HFC",
+      "signature": "Downstream power measured low at the tap port itself, amplifier upstream reads nominal, several premises affected",
+      "deterministic": {
+        "domain": "drop",
+        "confidence": 0.81
+      },
+      "true_domain": "hfc_tap",
+      "note": "rules WRONG: measured low AT the tap"
+    },
+    {
+      "case_id": "B-07",
+      "technology": "HFC",
+      "signature": "Intermittent MER dips at one address only, neighbours on the same tap unaffected, ground block oxidised",
+      "deterministic": {
+        "domain": "drop",
+        "confidence": 0.79
+      },
+      "true_domain": "drop",
+      "note": "rules correct, hard boundary"
+    },
+    {
+      "case_id": "B-08",
+      "technology": "HFC",
+      "signature": "Simultaneous errors across most CPEs on one node, node utilisation pinned at capacity all evening",
+      "deterministic": {
+        "domain": "shared_network",
+        "confidence": 0.96
+      },
+      "true_domain": "shared_network",
+      "note": "rules correct, easy"
+    },
+    {
+      "case_id": "B-09",
+      "technology": "HFC",
+      "signature": "Amplifier alarm and degraded levels across an entire node leg after overnight storm, mains supply fault",
+      "deterministic": {
+        "domain": "plant",
+        "confidence": 0.9
+      },
+      "true_domain": "plant",
+      "note": "rules correct, easy"
+    },
+    {
+      "case_id": "B-10",
+      "technology": "PON",
+      "signature": "ONT registered, optical Rx inside budget, service VLAN wrong following a tariff change",
+      "deterministic": {
+        "domain": "provisioning",
+        "confidence": 0.92
+      },
+      "true_domain": "provisioning",
+      "note": "rules correct, easy"
+    },
+    {
+      "case_id": "B-11",
+      "technology": "PON",
+      "signature": "ONT reports dying gasp then re-registers, local mains unstable, optical levels nominal throughout",
+      "deterministic": {
+        "domain": "cpe",
+        "confidence": 0.87
+      },
+      "true_domain": "cpe",
+      "note": "rules correct, easy"
+    },
+    {
+      "case_id": "B-12",
+      "technology": "PON",
+      "signature": "Optical Rx marginal at one ONT, reading at the drop terminal within budget, patch cord kinked behind the unit",
+      "deterministic": {
+        "domain": "drop",
+        "confidence": 0.85
+      },
+      "true_domain": "drop",
+      "note": "rules correct, hard boundary"
+    },
+    {
+      "case_id": "B-13",
+      "technology": "PON",
+      "signature": "Optical Rx degraded for six ONTs behind a single splitter port, port face contaminated",
+      "deterministic": {
+        "domain": "drop",
+        "confidence": 0.83
+      },
+      "true_domain": "pon_odp",
+      "note": "rules WRONG: group behind one ODP port"
+    },
+    {
+      "case_id": "B-14",
+      "technology": "PON",
+      "signature": "Loss of signal across every ONT on one distribution point, feeder fibre cut by third-party excavation",
+      "deterministic": {
+        "domain": "pon_odp",
+        "confidence": 0.94
+      },
+      "true_domain": "pon_odp",
+      "note": "rules correct, easy"
+    },
+    {
+      "case_id": "B-15",
+      "technology": "PON",
+      "signature": "Measured ODN loss at the distribution point exceeds design budget, individual premise drops all within spec",
+      "deterministic": {
+        "domain": "drop",
+        "confidence": 0.8
+      },
+      "true_domain": "pon_odp",
+      "note": "rules WRONG: loss measured AT the ODP"
+    },
+    {
+      "case_id": "B-16",
+      "technology": "PON",
+      "signature": "Single ONT optical Rx low, distribution point within budget, drop fibre crushed beneath a driveway conduit",
+      "deterministic": {
+        "domain": "drop",
+        "confidence": 0.86
+      },
+      "true_domain": "drop",
+      "note": "rules correct, hard boundary"
+    },
+    {
+      "case_id": "B-17",
+      "technology": "PON",
+      "signature": "OLT PON port alarm affecting all ONTs on the port, transceiver diagnostics degraded",
+      "deterministic": {
+        "domain": "plant",
+        "confidence": 0.93
+      },
+      "true_domain": "plant",
+      "note": "rules correct, easy"
+    },
+    {
+      "case_id": "B-18",
+      "technology": "PON",
+      "signature": "Optical path clean end to end, ONT Ethernet negotiates fine, wireless coverage poor upstairs",
+      "deterministic": {
+        "domain": "wifi_or_home",
+        "confidence": 0.9
+      },
+      "true_domain": "wifi_or_home",
+      "note": "rules correct, easy"
+    }
+  ]
+}

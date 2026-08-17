@@ -20,6 +20,7 @@ docker/certs/README.md
 docker/mcp.Dockerfile
 docker-compose.low-resource.yml
 docker-compose.yml
+docs/AB_MEASUREMENT.md
 docs/API.md
 docs/ARCHITECTURE.md
 docs/COMPARISON_AND_IMPROVEMENTS.md
@@ -55,6 +56,7 @@ scripts/check_streamlit_runtime.py
 scripts/install-host-ca.ps1
 scripts/install-host-ca.sh
 scripts/preflight.py
+scripts/run_ab_matrix.py
 scripts/run_scenario_matrix.py
 scripts/smoke_test.py
 scripts/stage-ca.ps1
@@ -73,6 +75,7 @@ scripts/vendor-wheels.sh
 scripts/verify_docker.ps1
 scripts/verify_docker.sh
 src/lpr_cpe_demo/__init__.py
+src/lpr_cpe_demo/ab_metrics.py
 src/lpr_cpe_demo/api/__init__.py
 src/lpr_cpe_demo/api/main.py
 src/lpr_cpe_demo/config.py
@@ -88,6 +91,8 @@ src/lpr_cpe_demo/fixtures/hfc_self_help_success.json
 src/lpr_cpe_demo/fixtures/pon_odp_handover.json
 src/lpr_cpe_demo/fixtures/pon_reverse_handover.json
 src/lpr_cpe_demo/fixtures/rca_disagreement_gate.json
+src/lpr_cpe_demo/kb/benchmark.json
+src/lpr_cpe_demo/kb/prior_cases.json
 src/lpr_cpe_demo/llm/__init__.py
 src/lpr_cpe_demo/llm/service.py
 src/lpr_cpe_demo/mcp_client/__init__.py
@@ -99,6 +104,7 @@ src/lpr_cpe_demo/mcp_server/store.py
 src/lpr_cpe_demo/mcp_server/tools.py
 src/lpr_cpe_demo/persistence/__init__.py
 src/lpr_cpe_demo/persistence/repository.py
+src/lpr_cpe_demo/retrieval.py
 src/lpr_cpe_demo/ui/__init__.py
 src/lpr_cpe_demo/ui/app.py
 src/lpr_cpe_demo/ui/client.py
@@ -123,4 +129,5 @@ tests/test_controls.py
 tests/test_llm_boundary.py
 tests/test_mcp_controls.py
 tests/test_mcp_http.py
+tests/test_retrieval_ab.py
 tests/test_workflow.py

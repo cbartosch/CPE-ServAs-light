@@ -1,5 +1,50 @@
 # Changelog
 
+## 1.3.0 - make the model and retrieval contribution measurable
+
+### Added
+- `src/lpr_cpe_demo/retrieval.py`: BM25 retrieval over a prior-case knowledge
+  base, standard library only. `vote_domain` derives a domain and a confidence
+  from a score-weighted vote of retrieved neighbours.
+- `src/lpr_cpe_demo/kb/prior_cases.json`: 24 resolved prior cases and 6
+  responsibility-boundary procedures.
+- `src/lpr_cpe_demo/kb/benchmark.json`: 18 RCA cases with ground truth. Four are
+  cases where the deterministic classifier is wrong.
+- `src/lpr_cpe_demo/ab_metrics.py`: gate precision, dissent precision and recall,
+  avoided and missed misdispatch, interruption cost, citation validity.
+- `scripts/run_ab_matrix.py`: three-arm comparison across deterministic,
+  deterministic plus scripted model, and deterministic plus retrieval.
+- `true_domain` and `true_domain_basis` on the workflow fixtures, derived from
+  each scenario's own expected outcome. Left null for `bounded_remote_failure`,
+  which escalates without resolving.
+- `docs/AB_MEASUREMENT.md`.
+- `tests/test_retrieval_ab.py`: 32 tests, including three that guard against a
+  benchmark rigged to flatter retrieval.
+
+### Changed
+- `controls.fuse_and_gate` now holds the RCA fusion and gating rule.
+  `WorkflowEngine._fusion` delegates to it, so the engine and the harness
+  evaluate one implementation rather than two. Behaviour is unchanged: the
+  approved domain is always deterministic, fused confidence is the minimum, and
+  either low confidence or domain disagreement raises a human review.
+
+### Findings
+- **The shipped default contributes nothing measurable.** With
+  `MODEL_PROVIDER=fake` the model echoes the deterministic domain, so the
+  disagreement gate never fires. The scripted arm is identical to the
+  deterministic arm on every operational metric: zero gates, four missed
+  misdispatches out of eighteen cases.
+- **Retrieval catches all four rules errors, at a cost.** Recall 1.0 and four
+  avoided misdispatches, against three false alarms. Gate precision is 0.571, so
+  about two in five interruptions were justified.
+- Retrieval confuses `cpe` with `provisioning` on two cases; those domains are
+  lexically close in the corpus.
+
+### Notes
+- The harness measures the fusion and gating decision only, not the full
+  workflow. It has been executed; the numbers above are real output.
+- Still not executed anywhere: the Docker build and the runtime services.
+
 ## 1.2.1 - build resilience on intercepted and restricted networks
 
 ### Fixed

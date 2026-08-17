@@ -8,17 +8,74 @@
   "source": "auto_detect",
   "valid": true,
   "common_cause": false,
-  "topology": {"customer": "CUST-3001", "service": "SVC-3001", "cpe": "ONT-3001", "odp": "ODP-UTU-04-02", "olt": "OLT-UTU-04", "splitter": "SPL-UTU-04-02"},
+  "topology": {
+    "customer": "CUST-3001",
+    "service": "SVC-3001",
+    "cpe": "ONT-3001",
+    "odp": "ODP-UTU-04-02",
+    "olt": "OLT-UTU-04",
+    "splitter": "SPL-UTU-04-02"
+  },
   "evidence": [
-    {"kind": "optical_power", "source": "NXT", "subject": "ONT-3001", "value": {"rx_dbm": -29.8}, "quality": 0.99, "summary": "ONT receive power is below the normal operating band."},
-    {"kind": "peer_optics", "source": "OLT", "subject": "ODP-UTU-04-02", "value": {"affected_peers": 1}, "quality": 0.95, "summary": "The condition is localized and not a port-wide outage."}
+    {
+      "kind": "optical_power",
+      "source": "NXT",
+      "subject": "ONT-3001",
+      "value": {
+        "rx_dbm": -29.8
+      },
+      "quality": 0.99,
+      "summary": "ONT receive power is below the normal operating band."
+    },
+    {
+      "kind": "peer_optics",
+      "source": "OLT",
+      "subject": "ODP-UTU-04-02",
+      "value": {
+        "affected_peers": 1
+      },
+      "quality": 0.95,
+      "summary": "The condition is localized and not a port-wide outage."
+    }
   ],
-  "deterministic_rca": {"domain": "pon_odp", "confidence": 0.92, "cause": "Weak optical signal is localized at the ODP boundary."},
-  "llm_rca": {"domain": "pon_odp", "confidence": 0.90, "cause": "The evidence supports an ODP or upstream optical impairment."},
-  "post_failure_rca": {"domain": "pon_odp", "confidence": 0.95, "cause": "Clean Boots measurements prove the fault beyond the ODP delimiter."},
-  "action_sequence": ["clean_boots", "dirty_boots_mr"],
-  "execution_outcomes": {"clean_boots": ["failed"], "dirty_boots_mr": ["succeeded"]},
-  "verification_outcomes": [false, true],
-  "handover": {"delimiter": "ODP-UTU-04-02", "last_clean_point": "premise fiber", "first_failed_point": "ODP output", "evidence_complete": true},
-  "expected_outcome": "Clean Boots evidence is accepted, one jTrack MR is created, Dirty Boots restores service."
+  "deterministic_rca": {
+    "domain": "pon_odp",
+    "confidence": 0.92,
+    "cause": "Weak optical signal is localized at the ODP boundary."
+  },
+  "llm_rca": {
+    "domain": "pon_odp",
+    "confidence": 0.9,
+    "cause": "The evidence supports an ODP or upstream optical impairment."
+  },
+  "post_failure_rca": {
+    "domain": "pon_odp",
+    "confidence": 0.95,
+    "cause": "Clean Boots measurements prove the fault beyond the ODP delimiter."
+  },
+  "action_sequence": [
+    "clean_boots",
+    "dirty_boots_mr"
+  ],
+  "execution_outcomes": {
+    "clean_boots": [
+      "failed"
+    ],
+    "dirty_boots_mr": [
+      "succeeded"
+    ]
+  },
+  "verification_outcomes": [
+    false,
+    true
+  ],
+  "handover": {
+    "delimiter": "ODP-UTU-04-02",
+    "last_clean_point": "premise fiber",
+    "first_failed_point": "ODP output",
+    "evidence_complete": true
+  },
+  "expected_outcome": "Clean Boots evidence is accepted, one jTrack MR is created, Dirty Boots restores service.",
+  "true_domain": "pon_odp",
+  "true_domain_basis": "ODP work by dirty boots restored service"
 }

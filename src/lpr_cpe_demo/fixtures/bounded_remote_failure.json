@@ -8,16 +8,68 @@
   "source": "auto_detect",
   "valid": true,
   "common_cause": false,
-  "topology": {"customer": "CUST-7001", "service": "SVC-7001", "cpe": "CM-7001", "tap": "TAP-VIE-01-02", "node": "NODE-VIE-01"},
+  "topology": {
+    "customer": "CUST-7001",
+    "service": "SVC-7001",
+    "cpe": "CM-7001",
+    "tap": "TAP-VIE-01-02",
+    "node": "NODE-VIE-01"
+  },
   "evidence": [
-    {"kind": "cpe_state", "source": "NXT", "subject": "CM-7001", "value": {"reachable": true, "flaps": 6}, "quality": 0.91, "summary": "CPE is reachable but unstable."},
-    {"kind": "remote_access", "source": "GIS", "subject": "VIEQUES", "value": {"same_day_field": false}, "quality": 1.0, "summary": "Remote access makes premature dispatch costly."}
+    {
+      "kind": "cpe_state",
+      "source": "NXT",
+      "subject": "CM-7001",
+      "value": {
+        "reachable": true,
+        "flaps": 6
+      },
+      "quality": 0.91,
+      "summary": "CPE is reachable but unstable."
+    },
+    {
+      "kind": "remote_access",
+      "source": "GIS",
+      "subject": "VIEQUES",
+      "value": {
+        "same_day_field": false
+      },
+      "quality": 1.0,
+      "summary": "Remote access makes premature dispatch costly."
+    }
   ],
-  "deterministic_rca": {"domain": "cpe", "confidence": 0.78, "cause": "A recoverable CPE state remains plausible."},
-  "llm_rca": {"domain": "cpe", "confidence": 0.76, "cause": "Try the two approved reversible remote actions before escalation."},
-  "post_failure_rca": {"domain": "cpe", "confidence": 0.72, "cause": "The first remote action failed; one different reversible action remains."},
-  "action_sequence": ["remote_reprovision", "remote_reboot"],
-  "execution_outcomes": {"remote_reprovision": ["failed"], "remote_reboot": ["failed"]},
-  "verification_outcomes": [false, false],
-  "expected_outcome": "Escalated after two bounded remote attempts; no unbounded RCA loop."
+  "deterministic_rca": {
+    "domain": "cpe",
+    "confidence": 0.78,
+    "cause": "A recoverable CPE state remains plausible."
+  },
+  "llm_rca": {
+    "domain": "cpe",
+    "confidence": 0.76,
+    "cause": "Try the two approved reversible remote actions before escalation."
+  },
+  "post_failure_rca": {
+    "domain": "cpe",
+    "confidence": 0.72,
+    "cause": "The first remote action failed; one different reversible action remains."
+  },
+  "action_sequence": [
+    "remote_reprovision",
+    "remote_reboot"
+  ],
+  "execution_outcomes": {
+    "remote_reprovision": [
+      "failed"
+    ],
+    "remote_reboot": [
+      "failed"
+    ]
+  },
+  "verification_outcomes": [
+    false,
+    false
+  ],
+  "expected_outcome": "Escalated after two bounded remote attempts; no unbounded RCA loop.",
+  "true_domain": null,
+  "true_domain_basis": "escalated without resolution; true domain never established"
 }

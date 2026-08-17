@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime
 from hashlib import sha256
 import re
-from typing import Literal
+from typing import NamedTuple, Literal
 
 _ALLOWED_KEY_PART = re.compile(r"^[A-Za-z0-9._:@/+-]*$")
 
@@ -99,3 +99,59 @@ def sla_authority_label(
     if sla_mode == "paused":
         return "paused"
     return "own clock"
+
+# ---------------------------------------------------------------------------
+# RCA fusion and gating (v1.3)
+#
+# Extracted from WorkflowEngine._fusion so that the engine and the A/B harness
+# in scripts/run_ab_matrix.py evaluate the identical rule. The engine now calls
+# this; the harness calls it without needing pydantic, LangGraph or a database.
+#
+# The rule is unchanged from v1.2:
+#   - the approved domain is ALWAYS the deterministic one; the model never decides
+#   - fused confidence is min(deterministic, model), so the model can only lower it
+#   - below threshold  -> human review, reason low_confidence
+#   - domains disagree -> human review, reason domain_disagreement
+# ---------------------------------------------------------------------------
+
+GATE_PROCEED = "proceed"
+GATE_HUMAN_REVIEW = "human_review"
+
+
+class GateOutcome(NamedTuple):
+    route: str                  # proceed | human_review
+    gate_reason: str            # none | low_confidence | domain_disagreement
+    approved_domain: str        # always the deterministic domain
+    fused_confidence: float
+    domain_agreement: str | None  # agree | disagree | None when no model arm
+
+
+def fuse_and_gate(
+    *,
+    deterministic_domain: str,
+    deterministic_confidence: float,
+    model_domain: str | None = None,
+    model_confidence: float | None = None,
+    threshold: float,
+) -> GateOutcome:
+    """Fuse a deterministic result with an optional model proposal and gate.
+
+    Passing ``model_domain=None`` evaluates the deterministic-only arm: there is
+    no agreement signal, so only the confidence threshold can raise a gate.
+    """
+    if model_domain is None:
+        confidence = float(deterministic_confidence)
+        agreement = None
+    else:
+        if model_confidence is None:
+            raise ValueError("model_confidence is required when model_domain is given")
+        confidence = min(float(deterministic_confidence), float(model_confidence))
+        agreement = "agree" if deterministic_domain == model_domain else "disagree"
+
+    if confidence < threshold:
+        return GateOutcome(GATE_HUMAN_REVIEW, "low_confidence",
+                           deterministic_domain, confidence, agreement)
+    if agreement == "disagree":
+        return GateOutcome(GATE_HUMAN_REVIEW, "domain_disagreement",
+                           deterministic_domain, confidence, agreement)
+    return GateOutcome(GATE_PROCEED, "none", deterministic_domain, confidence, agreement)

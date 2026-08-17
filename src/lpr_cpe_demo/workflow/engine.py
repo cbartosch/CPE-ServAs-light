@@ -4,7 +4,8 @@ from datetime import UTC, datetime, timedelta
 from typing import Any, Callable
 
 from lpr_cpe_demo.config import Settings, get_settings
-from lpr_cpe_demo.controls import derive_action_key, derive_approval_id
+from lpr_cpe_demo.controls import (derive_action_key, derive_approval_id,
+                                   fuse_and_gate)
 from lpr_cpe_demo.domain import (
     ActionCandidate,
     ActionResult,
@@ -271,11 +272,18 @@ class PortableWorkflowEngine:
         model = state.llm_rca
         if deterministic is None or model is None:
             return self._escalate(state, "RCA fusion inputs are incomplete")
-        state.domain_agreement = (
-            "agree" if deterministic.recommended_domain == model.recommended_domain else "disagree"
+        # v1.3: the rule lives in controls.fuse_and_gate so the engine and the
+        # A/B harness in scripts/run_ab_matrix.py evaluate exactly the same logic.
+        gate = fuse_and_gate(
+            deterministic_domain=deterministic.recommended_domain.value,
+            deterministic_confidence=deterministic.confidence,
+            model_domain=model.recommended_domain.value,
+            model_confidence=model.confidence,
+            threshold=self.settings.rca_confidence_threshold,
         )
-        confidence = min(deterministic.confidence, model.confidence)
-        if confidence < self.settings.rca_confidence_threshold:
+        state.domain_agreement = gate.domain_agreement
+        confidence = gate.fused_confidence
+        if gate.gate_reason == "low_confidence":
             state.gate_reason = "low_confidence"
             return self._prepare_approval(
                 state,
@@ -288,7 +296,7 @@ class PortableWorkflowEngine:
                     "gate_reason": state.gate_reason,
                 },
             )
-        if state.domain_agreement == "disagree":
+        if gate.gate_reason == "domain_disagreement":
             state.gate_reason = "domain_disagreement"
             return self._prepare_approval(
                 state,

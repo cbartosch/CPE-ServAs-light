@@ -60,5 +60,7 @@
     true
   ],
   "expected_outcome": "Attached to parent incident; plant action avoids customer-premises dispatch.",
-  "parent_sla_hours": 6
+  "parent_sla_hours": 6,
+  "true_domain": "shared_network",
+  "true_domain_basis": "plant action on a shared resource resolved it"
 }

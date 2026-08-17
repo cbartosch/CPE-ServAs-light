@@ -21,7 +21,10 @@
       "kind": "hfc_rf",
       "source": "NXT",
       "subject": "CM-9001",
-      "value": {"upstream_mer_db": 24.1, "uncorrectables": 834},
+      "value": {
+        "upstream_mer_db": 24.1,
+        "uncorrectables": 834
+      },
       "quality": 0.98,
       "summary": "The modem shows severe upstream impairment and uncorrectable codewords."
     },
@@ -29,7 +32,10 @@
       "kind": "delimiter_test",
       "source": "Clean Boots",
       "subject": "TAP-ARE-09-04",
-      "value": {"last_clean_point": "drop input", "first_failed_point": "tap output"},
+      "value": {
+        "last_clean_point": "drop input",
+        "first_failed_point": "tap output"
+      },
       "quality": 0.99,
       "summary": "Clean Boots evidence places the fault at or beyond the HFC tap."
     }
@@ -49,14 +55,27 @@
     "confidence": 0.96,
     "cause": "The first plant action did not clear the original RF signature; new measurements justify an updated MR and second targeted attempt."
   },
-  "action_sequence": ["dirty_boots_mr", "dirty_boots_mr"],
-  "execution_outcomes": {"dirty_boots_mr": ["failed", "succeeded"]},
-  "verification_outcomes": [false, true],
+  "action_sequence": [
+    "dirty_boots_mr",
+    "dirty_boots_mr"
+  ],
+  "execution_outcomes": {
+    "dirty_boots_mr": [
+      "failed",
+      "succeeded"
+    ]
+  },
+  "verification_outcomes": [
+    false,
+    true
+  ],
   "handover": {
     "delimiter": "TAP-ARE-09-04",
     "last_clean_point": "drop input",
     "first_failed_point": "tap output",
     "evidence_complete": true
   },
-  "expected_outcome": "The first plant attempt fails, new evidence forces re-RCA, the existing MR is updated rather than duplicated, and the second attempt closes after verification."
+  "expected_outcome": "The first plant attempt fails, new evidence forces re-RCA, the existing MR is updated rather than duplicated, and the second attempt closes after verification.",
+  "true_domain": "hfc_tap",
+  "true_domain_basis": "MR updated rather than abandoned; tap was correct, execution failed"
 }

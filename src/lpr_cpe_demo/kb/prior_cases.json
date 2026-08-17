@@ -1,0 +1,276 @@
+{
+  "version": "1.3.0",
+  "description": "Prior resolved CPE cases and responsibility-boundary procedures.",
+  "documents": [
+    {
+      "doc_id": "PC-1001",
+      "kind": "prior_case",
+      "technology": "HFC",
+      "signature": "Modem online after reboot but service profile mismatched account tier; config file stale",
+      "resolved_domain": "cpe",
+      "resolution": "Re-provisioned modem, pushed correct config file",
+      "delimiter_type": ""
+    },
+    {
+      "doc_id": "PC-1002",
+      "kind": "prior_case",
+      "technology": "HFC",
+      "signature": "CPE reachable, downstream power and SNR within spec, provisioned tier differs from service record",
+      "resolved_domain": "provisioning",
+      "resolution": "Corrected provisioning, no dispatch",
+      "delimiter_type": ""
+    },
+    {
+      "doc_id": "PC-1003",
+      "kind": "prior_case",
+      "technology": "HFC",
+      "signature": "Repeated modem reboots, uptime under ten minutes, firmware two builds behind",
+      "resolved_domain": "cpe",
+      "resolution": "Firmware upgrade cleared the reboot loop",
+      "delimiter_type": ""
+    },
+    {
+      "doc_id": "PC-1004",
+      "kind": "prior_case",
+      "technology": "HFC",
+      "signature": "Wired speed test passes at tier, wireless throughput poor, channel utilisation high, many clients",
+      "resolved_domain": "wifi_or_home",
+      "resolution": "Wi-Fi band steering and channel change, self help",
+      "delimiter_type": ""
+    },
+    {
+      "doc_id": "PC-1101",
+      "kind": "prior_case",
+      "technology": "HFC",
+      "signature": "Elevated codeword errors and low upstream power at CPE, levels correct at the tap, drop cable weathered",
+      "resolved_domain": "drop",
+      "resolution": "Replaced drop and fittings",
+      "delimiter_type": ""
+    },
+    {
+      "doc_id": "PC-1102",
+      "kind": "prior_case",
+      "technology": "HFC",
+      "signature": "Intermittent SNR dips at one premise only, neighbours on same tap unaffected, ground block corroded",
+      "resolved_domain": "drop",
+      "resolution": "Re-terminated drop at ground block",
+      "delimiter_type": ""
+    },
+    {
+      "doc_id": "PC-1103",
+      "kind": "prior_case",
+      "technology": "HFC",
+      "signature": "Codeword errors and ingress at several premises on the same tap, tap port oxidised",
+      "resolved_domain": "hfc_tap",
+      "resolution": "Replaced tap port, MR raised",
+      "delimiter_type": "tap"
+    },
+    {
+      "doc_id": "PC-1104",
+      "kind": "prior_case",
+      "technology": "HFC",
+      "signature": "Upstream ingress visible across multiple subscribers sharing the tap, coastal aerial plant, salt corrosion",
+      "resolved_domain": "hfc_tap",
+      "resolution": "Tap and hardline connector replacement",
+      "delimiter_type": "tap"
+    },
+    {
+      "doc_id": "PC-1105",
+      "kind": "prior_case",
+      "technology": "HFC",
+      "signature": "Low downstream power at the tap itself, not only at the CPE, amplifier upstream reading normal",
+      "resolved_domain": "hfc_tap",
+      "resolution": "Tap replaced by plant crew",
+      "delimiter_type": "tap"
+    },
+    {
+      "doc_id": "PC-1106",
+      "kind": "prior_case",
+      "technology": "HFC",
+      "signature": "Single premise low power, tap reading nominal, splitter in home degraded",
+      "resolved_domain": "drop",
+      "resolution": "Removed faulty splitter, replaced drop",
+      "delimiter_type": ""
+    },
+    {
+      "doc_id": "PC-1201",
+      "kind": "prior_case",
+      "technology": "HFC",
+      "signature": "Simultaneous alarms across many CPEs on one node, node utilisation at ceiling",
+      "resolved_domain": "shared_network",
+      "resolution": "Node split scheduled, no customer dispatch",
+      "delimiter_type": ""
+    },
+    {
+      "doc_id": "PC-1202",
+      "kind": "prior_case",
+      "technology": "HFC",
+      "signature": "Amplifier alarm and degraded levels for entire node leg after storm, power supply fault",
+      "resolved_domain": "plant",
+      "resolution": "Plant crew restored amplifier power",
+      "delimiter_type": ""
+    },
+    {
+      "doc_id": "PC-2001",
+      "kind": "prior_case",
+      "technology": "PON",
+      "signature": "ONT online, optical Rx within budget, service VLAN mismatched after plan change",
+      "resolved_domain": "cpe",
+      "resolution": "Re-provisioned ONT profile",
+      "delimiter_type": ""
+    },
+    {
+      "doc_id": "PC-2002",
+      "kind": "prior_case",
+      "technology": "PON",
+      "signature": "ONT dying gasp then recovery, local power unstable, optical levels nominal",
+      "resolved_domain": "cpe",
+      "resolution": "Replaced ONT power supply",
+      "delimiter_type": ""
+    },
+    {
+      "doc_id": "PC-2003",
+      "kind": "prior_case",
+      "technology": "PON",
+      "signature": "OMCI state inconsistent after tariff change, optical Rx and Tx nominal",
+      "resolved_domain": "provisioning",
+      "resolution": "Corrected ONT provisioning remotely",
+      "delimiter_type": ""
+    },
+    {
+      "doc_id": "PC-2004",
+      "kind": "prior_case",
+      "technology": "PON",
+      "signature": "Optical path clean, ONT Ethernet fine, wireless coverage poor in far rooms",
+      "resolved_domain": "wifi_or_home",
+      "resolution": "Wi-Fi placement guidance, self help",
+      "delimiter_type": ""
+    },
+    {
+      "doc_id": "PC-2101",
+      "kind": "prior_case",
+      "technology": "PON",
+      "signature": "Optical Rx low at ONT, level correct at the drop terminal, patch cord bent past radius",
+      "resolved_domain": "drop",
+      "resolution": "Replaced patch cord and drop fibre",
+      "delimiter_type": ""
+    },
+    {
+      "doc_id": "PC-2102",
+      "kind": "prior_case",
+      "technology": "PON",
+      "signature": "Single subscriber optical Rx degraded, ODP port reading nominal, connector dirty at premise",
+      "resolved_domain": "drop",
+      "resolution": "Cleaned and re-tested premise connector",
+      "delimiter_type": ""
+    },
+    {
+      "doc_id": "PC-2103",
+      "kind": "prior_case",
+      "technology": "PON",
+      "signature": "Optical Rx low for several subscribers on the same ODP, splitter port contaminated",
+      "resolved_domain": "pon_odp",
+      "resolution": "ODP splitter port cleaned and re-tested, MR raised",
+      "delimiter_type": "odp"
+    },
+    {
+      "doc_id": "PC-2104",
+      "kind": "prior_case",
+      "technology": "PON",
+      "signature": "Loss of signal LOS for a group of ONTs behind one ODP, feeder fibre damaged",
+      "resolved_domain": "pon_odp",
+      "resolution": "Feeder fibre spliced, MR closed by plant",
+      "delimiter_type": "odp"
+    },
+    {
+      "doc_id": "PC-2105",
+      "kind": "prior_case",
+      "technology": "PON",
+      "signature": "High ODN loss measured at the ODP itself, individual drops within spec",
+      "resolved_domain": "pon_odp",
+      "resolution": "ODP splitter replaced",
+      "delimiter_type": "odp"
+    },
+    {
+      "doc_id": "PC-2106",
+      "kind": "prior_case",
+      "technology": "PON",
+      "signature": "Optical Rx marginal at one ONT only, ODP within budget, drop fibre crushed under conduit",
+      "resolved_domain": "drop",
+      "resolution": "Drop fibre replaced",
+      "delimiter_type": ""
+    },
+    {
+      "doc_id": "PC-2201",
+      "kind": "prior_case",
+      "technology": "PON",
+      "signature": "OLT PON port alarm affecting every ONT on the port, transceiver degraded",
+      "resolved_domain": "plant",
+      "resolution": "OLT transceiver replaced",
+      "delimiter_type": ""
+    },
+    {
+      "doc_id": "PC-2202",
+      "kind": "prior_case",
+      "technology": "PON",
+      "signature": "Many ONTs on one OLT report simultaneous errors, upstream transport congested",
+      "resolved_domain": "shared_network",
+      "resolution": "Transport capacity added, no dispatch",
+      "delimiter_type": ""
+    },
+    {
+      "doc_id": "PR-3001",
+      "kind": "procedure",
+      "technology": "ANY",
+      "signature": "Confirm delimiter before raising an MR: measure at the tap or ODP, not only at the CPE",
+      "resolved_domain": "",
+      "resolution": "Delimiter evidence is mandatory for MR creation",
+      "delimiter_type": ""
+    },
+    {
+      "doc_id": "PR-3002",
+      "kind": "procedure",
+      "technology": "ANY",
+      "signature": "Do not repeat a remote action without new evidence; return to RCA instead",
+      "resolved_domain": "",
+      "resolution": "Bounded retry procedure",
+      "delimiter_type": ""
+    },
+    {
+      "doc_id": "PR-3003",
+      "kind": "procedure",
+      "technology": "HFC",
+      "signature": "Ingress affecting multiple subscribers on one tap is plant responsibility, not the drop",
+      "resolved_domain": "",
+      "resolution": "Responsibility boundary for HFC tap",
+      "delimiter_type": ""
+    },
+    {
+      "doc_id": "PR-3004",
+      "kind": "procedure",
+      "technology": "PON",
+      "signature": "Optical loss measured at the ODP that exceeds design budget is plant responsibility",
+      "resolved_domain": "",
+      "resolution": "Responsibility boundary for PON ODP",
+      "delimiter_type": ""
+    },
+    {
+      "doc_id": "PR-3005",
+      "kind": "procedure",
+      "technology": "ANY",
+      "signature": "Link every work order to one incident so the thirty day repeat window stays measurable",
+      "resolved_domain": "",
+      "resolution": "Work order linkage procedure",
+      "delimiter_type": ""
+    },
+    {
+      "doc_id": "PR-3006",
+      "kind": "procedure",
+      "technology": "ANY",
+      "signature": "Clean boots handover to dirty boots requires evidence, exclusions, skills, parts and access",
+      "resolved_domain": "",
+      "resolution": "Handover contract contents",
+      "delimiter_type": ""
+    }
+  ]
+}

@@ -16,13 +16,51 @@
     "node": "NODE-SJU-17"
   },
   "evidence": [
-    {"kind": "cpe_health", "source": "NXT", "subject": "CM-1001", "value": {"reachable": true, "rf_normal": true}, "quality": 0.98, "summary": "CPE reachable; RF levels normal."},
-    {"kind": "profile_diff", "source": "Provisioning", "subject": "SVC-1001", "value": {"assigned": "200M", "expected": "500M"}, "quality": 1.0, "summary": "Assigned service profile differs from the customer product."}
+    {
+      "kind": "cpe_health",
+      "source": "NXT",
+      "subject": "CM-1001",
+      "value": {
+        "reachable": true,
+        "rf_normal": true
+      },
+      "quality": 0.98,
+      "summary": "CPE reachable; RF levels normal."
+    },
+    {
+      "kind": "profile_diff",
+      "source": "Provisioning",
+      "subject": "SVC-1001",
+      "value": {
+        "assigned": "200M",
+        "expected": "500M"
+      },
+      "quality": 1.0,
+      "summary": "Assigned service profile differs from the customer product."
+    }
   ],
-  "deterministic_rca": {"domain": "provisioning", "confidence": 0.93, "cause": "Provisioned service profile does not match the customer product."},
-  "llm_rca": {"domain": "provisioning", "confidence": 0.90, "cause": "Evidence is consistent with a recoverable provisioning mismatch."},
-  "action_sequence": ["remote_reprovision"],
-  "execution_outcomes": {"remote_reprovision": ["succeeded"]},
-  "verification_outcomes": [true],
-  "expected_outcome": "Resolved remotely with no field dispatch."
+  "deterministic_rca": {
+    "domain": "provisioning",
+    "confidence": 0.93,
+    "cause": "Provisioned service profile does not match the customer product."
+  },
+  "llm_rca": {
+    "domain": "provisioning",
+    "confidence": 0.9,
+    "cause": "Evidence is consistent with a recoverable provisioning mismatch."
+  },
+  "action_sequence": [
+    "remote_reprovision"
+  ],
+  "execution_outcomes": {
+    "remote_reprovision": [
+      "succeeded"
+    ]
+  },
+  "verification_outcomes": [
+    true
+  ],
+  "expected_outcome": "Resolved remotely with no field dispatch.",
+  "true_domain": "provisioning",
+  "true_domain_basis": "resolved by re-provisioning alone"
 }
