@@ -3,8 +3,9 @@ from __future__ import annotations
 import streamlit as st
 
 from lpr_cpe_demo.ui.common import ROLES
-from lpr_cpe_demo.ui.pages import (cockpit, decisions, footprint, incident,
-                                   model_monitor, scenarios, simulator, system)
+from lpr_cpe_demo.ui.pages import (cockpit, control_tower, decisions,
+                                   footprint, incident, model_monitor,
+                                   scenarios, simulator, system)
 
 # DEMONSTRATION MODE: the Human Decision Center controls simulated actions only.
 
@@ -41,6 +42,8 @@ with st.sidebar:
 
 pages = {
     "Operate": [
+        st.Page(control_tower.render, title="Control Tower", icon="🛰️",
+                url_path="control-tower"),
         st.Page(scenarios.render, title="Scenario Launcher", icon="▶️", url_path="scenarios"),
         st.Page(cockpit.render, title="Operations Cockpit", icon="📊", url_path="cockpit", default=True),
         st.Page(incident.render, title="Incident Workbench", icon="🔎", url_path="incident"),

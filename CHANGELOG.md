@@ -1,5 +1,66 @@
 # Changelog
 
+## 1.12.0 - control tower in the supplied dashboard format
+
+Adopts the block structure, dark theme and accent palette of
+`e2e_fixed_access_assurance_orchestration_dashboard.json` as a new **Control
+Tower** page: hero with badges, control strip, KPI row, charts, hotspot table,
+closed-loop confidence and playbook backlog.
+
+### Added
+- `src/lpr_cpe_demo/dashboard.py` builds the spec from the live model, with a
+  `provenance` on every block.
+- `src/lpr_cpe_demo/ui/theme_dark.py`: slate-to-indigo gradient, `bg-white/8`
+  glass cards, the six neon accents, transparent Plotly layout.
+- `src/lpr_cpe_demo/ui/pages/control_tower.py`.
+- `tests/test_dashboard.py`: 32 tests.
+
+### The palette was measured before it was adopted
+Neon on dark is easy to get wrong. Against the glass-card composite `#222A3B`:
+cyan 7.95, amber 8.60, green 7.47, blue 5.65, red 5.34, violet 5.28 — all clear
+WCAG AA for body text. One rule falls out: `slate-500` reaches only 3.02, so it is
+large-text-only and `MUTED` is `slate-400` at 5.60 instead. A test asserts that.
+Tables are forced opaque, since transparent data over a gradient is unreadable.
+
+### Two deliberate departures from the supplied file
+**Areas are Puerto Rico, not Dubai.** The template's hotspots sit in Jumeirah,
+Business Bay, DIFC, Marina and Palm. Hotspots are now generated from the footprint
+model, so they land in real municipios with a real dispatch hub behind each, and
+severity follows blast radius: a drop fault is one household, a tap four to eight,
+a node several hundred. A test asserts no template area leaks through.
+
+**Numbers are computed where a model exists, and labelled where not.** The
+template asserts "Truck rolls avoided: 128, +18%". That figure is not supportable;
+the KPI now reads `6-27 / 1k` with the two unmeasured parameters named. Every block
+carries one of three provenance chips, shown in the UI:
+
+| provenance | blocks | meaning |
+|---|---|---|
+| computed | 4 | derived from this repository and reproducible |
+| assumed | 3 | a stated parameter, replaceable in one place |
+| synthetic | 1 | shape only, because no telemetry source exists |
+
+`service_health_by_layer` is the synthetic one and says SHAPE ONLY in its note.
+In the autonomy funnel only Diagnose is model-derived — the human share equals the
+rate at which the RCA gate routes to a person — and the other five stages are
+marked `assumed` per row.
+
+Closed-loop confidence comes out at 77% against the template's asserted 86%,
+because two guardrails score low honestly: inventory lineage at 58% (synthetic
+plant identifiers, not OSS records) and rollback safe at 45% (no rollback path is
+implemented).
+
+### Fixed
+- `cost_by_archetype` averaged wasted-visit cost over all incidents, so a small
+  island sample drawing mostly remote-fixable faults read as `$0`, which looks
+  free. It now averages over **dispatched** incidents and returns `None` rather
+  than zero when nothing dispatched. The island separation is now visible: $655
+  against $212 in metro.
+
+### Note
+- 279 stdlib tests pass. The page itself has not been rendered: no Streamlit or
+  Plotly here, so the Plotly figures are unverified beyond layout construction.
+
 ## 1.11.0 - dispatches on real roads, and a Puerto Rico identity that stays readable
 
 ### Added: road routing
