@@ -3,6 +3,7 @@
 .env.example
 .gitignore
 BUILD_TEST_REPORT.txt
+BUNDLE_CONTENTS.txt
 CHANGELOG.md
 Dockerfile
 LICENSE.txt
@@ -14,12 +15,12 @@ START_DEMO_MAC_LINUX.sh
 START_DEMO_WINDOWS.ps1
 START_HERE.md
 data/.gitkeep
-docker-compose.low-resource.yml
-docker-compose.yml
 docker/app.Dockerfile
 docker/certs/.gitkeep
 docker/certs/README.md
 docker/mcp.Dockerfile
+docker-compose.low-resource.yml
+docker-compose.yml
 docs/API.md
 docs/ARCHITECTURE.md
 docs/COMPARISON_AND_IMPROVEMENTS.md
@@ -44,6 +45,8 @@ requirements-dev.txt
 requirements-mcp.txt
 requirements.txt
 scripts/api_workflow_smoke.py
+scripts/capture-ca.ps1
+scripts/capture-ca.sh
 scripts/check_environment.py
 scripts/check_framework_imports.py
 scripts/check_langgraph_runtime.py
@@ -66,6 +69,8 @@ scripts/test_bundle.sh
 scripts/tls-doctor.ps1
 scripts/tls-doctor.sh
 scripts/validate_compose.py
+scripts/vendor-wheels.ps1
+scripts/vendor-wheels.sh
 scripts/verify_docker.ps1
 scripts/verify_docker.sh
 src/lpr_cpe_demo/__init__.py

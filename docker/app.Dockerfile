@@ -1,6 +1,7 @@
 FROM python:3.12-slim AS base
 
 ARG PIP_INDEX_URL=
+ARG PIP_STRICT_TLS=0
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
@@ -22,13 +23,35 @@ COPY docker/certs/ /usr/local/share/ca-certificates/lpr-extra/
 RUN update-ca-certificates
 
 COPY requirements-app.txt pyproject.toml README.md ./
+COPY vendor/ /wheels/
+# Dependency install, in order of preference:
+#   1. vendored wheels  -- no network at all (scripts/vendor-wheels.*)
+#   2. configured index -- PIP_INDEX_URL, e.g. an internal Artifactory mirror
+#   3. verified PyPI    -- normal networks
+#   4. trusted-host     -- networks that re-sign HTTPS with a corporate CA
+# Tier 4 keeps the proxy's own inspection but stops verifying the chain. Set
+# PIP_STRICT_TLS=1 to refuse it and fail loudly instead, or stage the corporate
+# CA into docker/certs/ to keep verification with no fallback needed.
 RUN set -eu; \
-    if [ -n "${PIP_INDEX_URL:-}" ]; then \
-      python -m pip install --upgrade pip --index-url "$PIP_INDEX_URL"; \
-      python -m pip install --index-url "$PIP_INDEX_URL" -r requirements-app.txt; \
+    EXTRA=""; \
+    IDX="${PIP_INDEX_URL:-}"; \
+    if [ -n "$IDX" ]; then EXTRA="--index-url $IDX"; fi; \
+    if ls /wheels/*.whl >/dev/null 2>&1; then \
+      echo "pip: installing from vendored wheels, no network required"; \
+      python -m pip install --no-index --find-links=/wheels -r requirements-app.txt; \
+    elif python -m pip install $EXTRA -r requirements-app.txt; then \
+      echo "pip: certificate verification succeeded"; \
+    elif [ "${PIP_STRICT_TLS:-0}" = "1" ]; then \
+      echo "pip: verification failed and PIP_STRICT_TLS=1 -- refusing to fall back" >&2; \
+      echo "pip: stage a CA (scripts/capture-ca.*) or set PIP_INDEX_URL" >&2; \
+      exit 1; \
     else \
-      python -m pip install --upgrade pip; \
-      python -m pip install -r requirements-app.txt; \
+      echo "pip: verification failed, retrying with trusted hosts (corporate proxy)" >&2; \
+      python -m pip install $EXTRA \
+        --trusted-host pypi.org \
+        --trusted-host files.pythonhosted.org \
+        --trusted-host pypi.python.org \
+        -r requirements-app.txt; \
     fi
 
 COPY src ./src
@@ -37,8 +60,7 @@ COPY docs ./docs
 COPY tests ./tests
 COPY requirements-dev.txt requirements-mcp.txt ./
 
-RUN python -m pip install --no-deps -e . \
-    && useradd --create-home --uid 10001 appuser \
+RUN useradd --create-home --uid 10001 appuser \
     && mkdir -p /app/data \
     && chown -R appuser:appuser /app
 
@@ -48,11 +70,35 @@ FROM base AS runtime
 
 FROM base AS test
 USER root
+COPY vendor/ /wheels/
+# Dependency install, in order of preference:
+#   1. vendored wheels  -- no network at all (scripts/vendor-wheels.*)
+#   2. configured index -- PIP_INDEX_URL, e.g. an internal Artifactory mirror
+#   3. verified PyPI    -- normal networks
+#   4. trusted-host     -- networks that re-sign HTTPS with a corporate CA
+# Tier 4 keeps the proxy's own inspection but stops verifying the chain. Set
+# PIP_STRICT_TLS=1 to refuse it and fail loudly instead, or stage the corporate
+# CA into docker/certs/ to keep verification with no fallback needed.
 RUN set -eu; \
-    if [ -n "${PIP_INDEX_URL:-}" ]; then \
-      python -m pip install --index-url "$PIP_INDEX_URL" -r requirements-dev.txt; \
+    EXTRA=""; \
+    IDX="${PIP_INDEX_URL:-}"; \
+    if [ -n "$IDX" ]; then EXTRA="--index-url $IDX"; fi; \
+    if ls /wheels/*.whl >/dev/null 2>&1; then \
+      echo "pip: installing from vendored wheels, no network required"; \
+      python -m pip install --no-index --find-links=/wheels -r requirements-dev.txt; \
+    elif python -m pip install $EXTRA -r requirements-dev.txt; then \
+      echo "pip: certificate verification succeeded"; \
+    elif [ "${PIP_STRICT_TLS:-0}" = "1" ]; then \
+      echo "pip: verification failed and PIP_STRICT_TLS=1 -- refusing to fall back" >&2; \
+      echo "pip: stage a CA (scripts/capture-ca.*) or set PIP_INDEX_URL" >&2; \
+      exit 1; \
     else \
-      python -m pip install -r requirements-dev.txt; \
+      echo "pip: verification failed, retrying with trusted hosts (corporate proxy)" >&2; \
+      python -m pip install $EXTRA \
+        --trusted-host pypi.org \
+        --trusted-host files.pythonhosted.org \
+        --trusted-host pypi.python.org \
+        -r requirements-dev.txt; \
     fi
 USER appuser
 CMD ["python", "-m", "pytest", "-q"]

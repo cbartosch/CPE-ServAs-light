@@ -1,5 +1,37 @@
 # Changelog
 
+## 1.2.1 - build resilience on intercepted and restricted networks
+
+### Fixed
+- `docker/app.Dockerfile` and `docker/mcp.Dockerfile` now install dependencies in
+  four tiers: vendored wheels, then `PIP_INDEX_URL`, then verified PyPI, then
+  trusted-host. Previously a network that re-signs HTTPS failed the build with
+  `CERTIFICATE_VERIFY_FAILED` and no recovery path existed.
+- Removed `pip install --no-deps -e .` from the app image. It triggered build
+  isolation, which fetched `setuptools>=75` from the index before any dependency
+  was resolved, and was redundant because `PYTHONPATH=/app/src` is already set
+  and no console scripts are declared.
+- Removed `pip install --upgrade pip`, an extra unguarded network call.
+
+### Added
+- `scripts/capture-ca.ps1` and `scripts/capture-ca.sh` capture the CA chain the
+  network presents and stage it into `docker/certs/`. `stage-ca.*` and
+  `install-host-ca.*` both require a `.crt` the operator must already have
+  exported by hand; these do not.
+- `scripts/vendor-wheels.ps1` and `scripts/vendor-wheels.sh` populate `vendor/`
+  with linux wheels matching the Docker architecture.
+- `vendor/` directory, empty by default.
+- `PIP_STRICT_TLS` build argument. Set to `1` to refuse the trusted-host tier and
+  fail the build instead.
+
+### Notes
+- Tier 4 stops verifying the chain for PyPI only. The proxy performing the
+  interception already inspects that traffic, so it changes who validates the
+  chain rather than who can read it. Prefer `capture-ca.*` or `PIP_INDEX_URL`.
+- Not executed: no Docker Engine was available in the environment where this
+  change was authored. The tier-selection shell logic was tested against a stub
+  pip across five branches; the image build itself was not run.
+
 ## 1.2.0 — comparison and laptop-hardening revision
 
 ### Added

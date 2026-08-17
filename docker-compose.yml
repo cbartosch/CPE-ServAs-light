@@ -2,6 +2,7 @@ name: ${COMPOSE_PROJECT_NAME:-lpr-cpe-demo}
 
 x-build-args: &build-args
   PIP_INDEX_URL: ${PIP_INDEX_URL:-}
+  PIP_STRICT_TLS: ${PIP_STRICT_TLS:-0}
   HTTP_PROXY: ${HTTP_PROXY:-}
   HTTPS_PROXY: ${HTTPS_PROXY:-}
   NO_PROXY: ${NO_PROXY:-}
