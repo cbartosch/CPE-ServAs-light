@@ -264,3 +264,76 @@ class TestGeneratedMap(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
+
+
+class TestNoDispatchIsFree(unittest.TestCase):
+    """A hub sits on its municipio centroid, and so does the site.
+
+    `travel_plan` measured base to centroid, so any fault in a hub's own
+    municipio returned exactly 0 km and was billed 0 minutes and no vehicle cost.
+    Six of the 23 modelled sites host a hub, so this affected a large share of
+    metro volume — and it is why the v1.9.0 benchmark reconciliation put metro at
+    0.6x the published band.
+    """
+
+    HUB_SITES = ("PR-BAY", "PR-CAR", "PR-CAG", "PR-PON", "PR-MAY", "PR-AGU")
+
+    def test_no_site_reports_zero_one_way_travel(self):
+        for site in sites_in_cpe_footprint():
+            plan = select_base(site, crew_type="dirty").plan
+            self.assertGreater(plan.total_minutes, 0, site.municipio)
+
+    def test_a_hub_serving_its_own_municipio_still_bills_the_floor(self):
+        from lpr_cpe_demo.geography import MIN_ONE_WAY_MINUTES
+        for site_id in self.HUB_SITES:
+            site = SITE_BY_ID[site_id]
+            plan = select_base(site, crew_type="dirty").plan
+            self.assertGreaterEqual(plan.total_minutes,
+                                    MIN_ONE_WAY_MINUTES[site.archetype],
+                                    site.municipio)
+
+    def test_the_floor_is_higher_in_metro_than_on_the_coast(self):
+        """Congestion, not distance, dominates a short metro journey."""
+        from lpr_cpe_demo.geography import MIN_ONE_WAY_MINUTES
+        self.assertGreater(MIN_ONE_WAY_MINUTES["metro"],
+                           MIN_ONE_WAY_MINUTES["coastal"])
+
+    def test_travel_uses_the_destination_when_one_is_given(self):
+        site = SITE_BY_ID["PR-ARE"]
+        near = select_base(site, crew_type="dirty",
+                           destination=(site.lat, site.lon)).plan.total_minutes
+        far = select_base(site, crew_type="dirty",
+                          destination=(site.lat + 0.25, site.lon)).plan.total_minutes
+        self.assertGreater(far, near)
+
+    def test_the_floor_does_not_mask_a_genuinely_long_journey(self):
+        plan = select_base(SITE_BY_ID["PR-UTU"], crew_type="dirty").plan
+        self.assertGreater(plan.total_minutes, 40)
+
+    def test_island_road_leg_to_the_terminal_also_clears_the_floor(self):
+        for site_id in ("PR-VQS", "PR-CUL"):
+            plan = select_base(SITE_BY_ID[site_id], crew_type="dirty").plan
+            road = next(leg for leg in plan.legs if leg.kind == "road")
+            self.assertGreater(road.minutes, 0, site_id)
+
+    def test_the_applied_floor_is_stated_in_the_leg_description(self):
+        """An operator reading the ledger should see why it is 22 minutes."""
+        plan = select_base(SITE_BY_ID["PR-BAY"], crew_type="dirty").plan
+        self.assertIn("minimum applied", plan.legs[0].description)
+
+
+class TestGeneratedFaultsPriceTheRealJourney(unittest.TestCase):
+    def test_no_generated_fault_has_zero_travel(self):
+        from lpr_cpe_demo.fault_generator import generate_faults
+        for fault in generate_faults(400, seed=20260817):
+            self.assertGreater(fault.travel_minutes, 0, fault.fault_id)
+
+    def test_every_dispatched_fault_bills_travel_and_vehicle_cost(self):
+        from lpr_cpe_demo.fault_generator import generate_faults
+        for fault in generate_faults(120, seed=515):
+            if not fault.truck_rolls:
+                continue
+            travel = [r for r in fault.ledger_rows if r["step"] == "travel"]
+            self.assertTrue(travel, fault.fault_id)
+            self.assertGreater(travel[0]["minutes"], 0, fault.fault_id)
+            self.assertGreater(travel[0]["cost_usd"], 0.0, fault.fault_id)

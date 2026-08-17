@@ -55,6 +55,20 @@ DETOUR_FACTOR = 1.35
 # scheduled sailing, since cargo and passenger slots are limited.
 FERRY_MINUTES: dict[str, int] = {"VIEQUES": 65 + 90, "CULEBRA": 90 + 120}
 
+# Minimum one-way travel for any dispatch, in minutes.
+#
+# A hub is modelled at its municipio centroid, and a site is the same point, so a
+# fault in a hub's own municipio measured exactly 0 km and was billed 0 minutes and
+# no vehicle cost. No dispatch takes zero travel: the crew still leaves the depot,
+# crosses the municipio, finds the address and parks. Metro is highest because
+# congestion, not distance, dominates there.
+#
+# This is also why the v1.9.0 benchmark reconciliation put metro at 0.6x the
+# published band. The symptom was recorded; the cause was this.
+MIN_ONE_WAY_MINUTES: dict[str, int] = {
+    "metro": 22, "coastal": 16, "mountain": 20, "remote_island": 14,
+}
+
 
 @dataclass(frozen=True, slots=True)
 class Site:
@@ -230,28 +244,43 @@ class TravelPlan(NamedTuple):
 
 
 def travel_plan(base: DispatchBase, site: Site,
-                *, shift_minutes: int = 480, on_site_minutes: int = 90) -> TravelPlan:
+                *, shift_minutes: int = 480, on_site_minutes: int = 90,
+                destination: tuple[float, float] | None = None) -> TravelPlan:
     """Road time, plus a ferry leg when the site is an island municipio.
+
+    `destination` is the actual work location as (lat, lon) -- a household, a tap
+    or an ODP, which sits some kilometres from the municipio centroid. Passing it
+    prices the real journey. Omitting it falls back to the centroid, which
+    under-prices any fault in a hub's own municipio to zero.
 
     Same-day feasibility assumes a round trip plus the on-site work must fit one
     shift. This is what makes the remote-island archetype expensive: the ferry
     leg alone can exceed the shift budget.
     """
+    target_lat, target_lon = destination if destination else (site.lat, site.lon)
     legs: list[Leg] = []
     if site.island and site.ferry_from:
         embark = SITE_BY_ID[site.ferry_from]
         road_km = haversine_km(base.lat, base.lon, embark.lat, embark.lon) * DETOUR_FACTOR
         road_min = int(round(60 * road_km / ROAD_SPEED_KMH[embark.archetype]))
-        # No hub is modelled at the terminal, so the drive is always real.
+        # No hub is modelled at the terminal, so the drive is always real, but a
+        # hub in the terminal's own municipio would still measure zero.
+        road_min = max(road_min, MIN_ONE_WAY_MINUTES[embark.archetype])
         legs.append(Leg("road", f"{base.name} to the {embark.municipio} ferry terminal",
                         road_min))
         ferry_min = FERRY_MINUTES.get(site.municipio.upper(), 120)
         legs.append(Leg("ferry", f"{embark.municipio} to {site.municipio} "
                                  "including mean wait for the next sailing", ferry_min))
     else:
-        road_km = haversine_km(base.lat, base.lon, site.lat, site.lon) * DETOUR_FACTOR
+        road_km = haversine_km(base.lat, base.lon, target_lat,
+                              target_lon) * DETOUR_FACTOR
         road_min = int(round(60 * road_km / ROAD_SPEED_KMH[site.archetype]))
-        legs.append(Leg("road", f"{base.name} to {site.municipio}", road_min))
+        floor = MIN_ONE_WAY_MINUTES[site.archetype]
+        if road_min < floor:
+            legs.append(Leg("road", f"{base.name} within {site.municipio}, "
+                                    f"{floor} min minimum applied", floor))
+        else:
+            legs.append(Leg("road", f"{base.name} to {site.municipio}", road_min))
 
     one_way = sum(l.minutes for l in legs)
     requires_ferry = any(l.kind == "ferry" for l in legs)
@@ -270,7 +299,8 @@ class BaseSelection(NamedTuple):
 def select_base(site: Site, *, crew_type: CrewType,
                 required_skills: Iterable[str] = (),
                 required_parts: Iterable[str] = (),
-                bases: Iterable[DispatchBase] | None = None) -> BaseSelection:
+                bases: Iterable[DispatchBase] | None = None,
+                destination: tuple[float, float] | None = None) -> BaseSelection:
     """Nearest base by travel time that can actually do the work.
 
     Skills and parts filter first; travel time only orders what remains. A
@@ -294,7 +324,8 @@ def select_base(site: Site, *, crew_type: CrewType,
             f"no {crew_type} base can serve {site.site_id} with skills {sorted(skills)} "
             f"and parts {sorted(parts)}")
 
-    ranked = sorted(((travel_plan(b, site), b) for b in viable),
+    ranked = sorted(((travel_plan(b, site, destination=destination), b)
+                     for b in viable),
                     key=lambda pair: (pair[0].total_minutes, pair[1].base_id))
     plan, base = ranked[0]
     return BaseSelection(base, plan, len(pool), tuple(no_skills), tuple(no_parts))

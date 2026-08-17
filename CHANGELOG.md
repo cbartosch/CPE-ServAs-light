@@ -1,5 +1,61 @@
 # Changelog
 
+## 1.14.1 - fix zero-minute travel, and price the journey to where the work is
+
+You spotted a one-way travel time of 0 minutes. Two defects behind it.
+
+### Fixed: a hub serving its own municipio billed nothing
+A `DispatchBase` carries the coordinates of its host `Site`, and `travel_plan`
+measured base to **site centroid**. When a fault's municipio hosts the hub those
+are the same point, so haversine returned exactly 0 and the ledger billed 0 minutes
+and no vehicle cost. Six of the 23 modelled sites host a hub, so this affected a
+large share of metro volume.
+
+`MIN_ONE_WAY_MINUTES` per archetype now applies a floor: metro 22, mountain 20,
+coastal 16, island 14. No dispatch takes zero travel — the crew still leaves the
+depot, crosses the municipio, finds the address and parks. Metro is highest because
+congestion rather than distance dominates a short journey there. The leg
+description states when the floor was applied, so an operator can see why it reads
+22 minutes.
+
+### Fixed: travel ignored the actual work location
+`fault_generator` jitters a household, delimiter and intervention point several
+kilometres from the centroid — that is what spreads the pins on the map — but
+`travel_plan` and `select_base` used the centroid regardless. A fault 4.67 km
+outside Aguadilla was priced as if it were at the town hall.
+
+`travel_plan`, `select_base`, `simulate_resolution` and `false_negative_cost` now
+accept a `destination`, and the generator passes the intervention point to all of
+them, so the map, the ledger and the false-negative cost price the same journey.
+
+### This closes a gap I recorded and failed to trace
+The v1.9.0 benchmark reconciliation put metro at **0.6x** the published band and I
+wrote it off as "a hub is co-located and the bottom-up model bills almost no
+travel". That was the symptom of this bug, not an explanation of it. After the fix:
+
+| site | bottom-up | benchmark | ratio | was |
+|---|---|---|---|---|
+| Bayamon | $185 | $212 | **0.87x** | 0.6x |
+| Arecibo | $354 | $212 | 1.67x | 1.7x |
+| Utuado | $330 | $255 | 1.29x | 1.3x |
+| Culebra | $1,071 | $655 | 1.63x | 1.6x |
+
+Metro moved into a defensible range. The other archetypes barely moved, which is
+the expected result: their journeys were already real.
+
+### Added
+Ten tests in `tests/test_geography.py`: no site reports zero travel, every hub
+serving its own municipio clears the floor, the floor does not mask a genuinely
+long journey, a supplied destination changes the answer, the island road leg to the
+terminal clears the floor, and no generated fault has zero travel or zero vehicle
+cost.
+
+Fixtures, the footprint map and `docs/control_tower.html` regenerated. The v1.4.0
+fixture-drift guard caught the stale travel numbers, as it did for the plant
+identifiers in v1.13.2.
+
+382 stdlib tests pass.
+
 ## 1.14.0 - the control tower as a standalone drill-down HTML page
 
 ### Added

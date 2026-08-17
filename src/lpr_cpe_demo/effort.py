@@ -124,11 +124,12 @@ def _labour(role_hour_key: str, minutes: int) -> float:
 
 def _visit(ledger: EffortLedger, *, crew: Literal["clean", "dirty"], site_id: str,
            required_skills: tuple[str, ...] = (), required_parts: tuple[str, ...] = (),
-           parts_cost_key: str | None = None, label: str = "") -> None:
+           parts_cost_key: str | None = None, label: str = "",
+           destination: tuple[float, float] | None = None) -> None:
     """One truck roll: planning, travel both ways, on-site work, parts."""
     site = SITE_BY_ID[site_id]
     sel = select_base(site, crew_type=crew, required_skills=required_skills,
-                      required_parts=required_parts)
+                      required_parts=required_parts, destination=destination)
     hour_key = "clean_boots_hour" if crew == "dirty" and False else (
         "clean_boots_hour" if crew == "clean" else "dirty_boots_hour")
 
@@ -160,8 +161,8 @@ def _visit(ledger: EffortLedger, *, crew: Literal["clean", "dirty"], site_id: st
 
 def simulate_resolution(*, incident_id: str, site_id: str, technology: str,
                         true_domain: str, remote_attempts_failed: int = 0,
-                        gate_raised: bool = False,
-                        misdispatch: bool = False) -> EffortLedger:
+                        gate_raised: bool = False, misdispatch: bool = False,
+                        destination: tuple[float, float] | None = None) -> EffortLedger:
     """Walk one incident to closure and record what it consumed.
 
     `remote_attempts_failed` bills each unsuccessful remote attempt before the
@@ -195,7 +196,8 @@ def simulate_resolution(*, incident_id: str, site_id: str, technology: str,
     if misdispatch:
         # The wasted visit: wrong crew, finds nothing in its domain.
         wrong = "clean" if crew_needed == "dirty" else "dirty"
-        _visit(ledger, crew=wrong, site_id=site_id, label=f"{wrong} (wasted)")
+        _visit(ledger, crew=wrong, site_id=site_id, label=f"{wrong} (wasted)",
+               destination=destination)
         ledger.add("handover package", f"{wrong} boots", DURATIONS["handover_package"],
                    _labour("clean_boots_hour" if wrong == "clean" else "dirty_boots_hour",
                            DURATIONS["handover_package"]),
@@ -212,7 +214,8 @@ def simulate_resolution(*, incident_id: str, site_id: str, technology: str,
         skills = ("fibre_splice",) if true_domain == "pon_odp" else ()
         parts = ("splice_kit",) if true_domain == "pon_odp" else ()
         _visit(ledger, crew=crew_needed, site_id=site_id, required_skills=skills,
-               required_parts=parts, parts_cost_key=parts_key)
+               required_parts=parts, parts_cost_key=parts_key,
+               destination=destination)
 
     ledger.add("verification", "noc analyst", DURATIONS["verification"],
                _labour("noc_analyst_hour", DURATIONS["verification"]))
@@ -240,7 +243,8 @@ def false_positive_cost() -> ErrorCost:
                      "L2 review plus re-planning; the SLA clock keeps running")
 
 
-def false_negative_cost(site_id: str, true_domain: str) -> ErrorCost:
+def false_negative_cost(site_id: str, true_domain: str,
+                        destination: tuple[float, float] | None = None) -> ErrorCost:
     """No gate fired and the rules were wrong, so the wrong crew went out.
 
     The avoidable portion is the wasted visit plus the handover: what a correctly
@@ -252,7 +256,7 @@ def false_negative_cost(site_id: str, true_domain: str) -> ErrorCost:
     wrong = "clean" if needs_dirty else "dirty"
     hour_key = "clean_boots_hour" if wrong == "clean" else "dirty_boots_hour"
 
-    sel = select_base(site, crew_type=wrong)
+    sel = select_base(site, crew_type=wrong, destination=destination)
     travel = sel.plan.total_minutes * 2
     on_site = DURATIONS["clean_boots_on_site" if wrong == "clean"
                         else "dirty_boots_on_site"]

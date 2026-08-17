@@ -68,15 +68,15 @@
     "base_id": "BASE-CAR",
     "name": "Carolina dispatch hub",
     "likelihood": "high",
-    "travel_minutes": 0,
+    "travel_minutes": 22,
     "requires_ferry": false,
     "same_day_feasible": true,
     "assumed_location": true,
     "legs": [
       {
         "kind": "road",
-        "minutes": 0,
-        "description": "Carolina dispatch hub to Carolina"
+        "minutes": 22,
+        "description": "Carolina dispatch hub within Carolina, 22 min minimum applied"
       }
     ]
   },

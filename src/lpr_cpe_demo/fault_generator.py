@@ -209,11 +209,16 @@ def generate_faults(count: int = 25, *, seed: int = 20260817,
                             site.lat + up_dlat, site.lon + up_dlon)
 
         crew = "clean" if kind in {"household", "drop"} else "dirty"
-        selection = select_base(site, crew_type=crew)
+        # Price the journey to where the work actually happens, not to the
+        # municipio centroid. Ignoring the jittered intervention point billed a
+        # fault in a hub's own municipio at zero travel.
+        selection = select_base(site, crew_type=crew,
+                                destination=(intervention[2], intervention[3]))
+        where = (intervention[2], intervention[3])
         ledger: EffortLedger = simulate_resolution(
             incident_id=f"SIM-{index + 1:04d}", site_id=site.site_id,
-            technology=technology, true_domain=domain)
-        missed = false_negative_cost(site.site_id, domain)
+            technology=technology, true_domain=domain, destination=where)
+        missed = false_negative_cost(site.site_id, domain, destination=where)
         rc = roll_cost(site.archetype, technology, island=site.island)
 
         faults.append(GeneratedFault(
