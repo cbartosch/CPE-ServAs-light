@@ -42,6 +42,7 @@ reference/LPR_CPE_Service_Assurance_Mockup_Implementation_Guideline_v1_1_Audit_H
 reference/README.md
 requirements-app.txt
 requirements-dev.txt
+requirements-map.txt
 requirements-mcp.txt
 requirements.txt
 scripts/api_workflow_smoke.py
@@ -92,6 +93,7 @@ src/lpr_cpe_demo/fixtures/hfc_self_help_success.json
 src/lpr_cpe_demo/fixtures/pon_odp_handover.json
 src/lpr_cpe_demo/fixtures/pon_reverse_handover.json
 src/lpr_cpe_demo/fixtures/rca_disagreement_gate.json
+src/lpr_cpe_demo/geo_layers.py
 src/lpr_cpe_demo/geography.py
 src/lpr_cpe_demo/kb/benchmark.json
 src/lpr_cpe_demo/kb/prior_cases.json
@@ -130,6 +132,7 @@ tests/conftest.py
 tests/test_api.py
 tests/test_assets.py
 tests/test_controls.py
+tests/test_geo_layers.py
 tests/test_geography.py
 tests/test_llm_boundary.py
 tests/test_mcp_controls.py

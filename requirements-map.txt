@@ -1,0 +1,4 @@
+# Optional: richer OSM rendering via folium. The default pydeck path
+# needs nothing here, because pydeck ships with Streamlit.
+folium>=0.17,<1
+streamlit-folium>=0.22,<1

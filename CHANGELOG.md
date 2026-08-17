@@ -1,5 +1,49 @@
 # Changelog
 
+## 1.6.0 - OpenStreetMap basemap in Streamlit
+
+### Added
+- `src/lpr_cpe_demo/geo_layers.py`: deck.gl layer specifications over an
+  OpenStreetMap raster basemap. Sites coloured by archetype, dispatch hubs sized
+  by likelihood, core site and ferry terminal as outlined markers, ferry arcs, and
+  the selected dispatch route as a path that passes through the terminal when the
+  site is islanded.
+- `tests/test_geo_layers.py`: 28 tests covering layer structure, draw order, JSON
+  serialisability, and coordinate bounds.
+- Optional `[map]` extra and `requirements-map.txt` for folium rendering.
+
+### Changed
+- `ui/pages/footprint.py` renders in three tiers and degrades rather than
+  breaking:
+  1. **pydeck with an OSM TileLayer.** pydeck already ships as a Streamlit
+     dependency, so the default map installs nothing new. This matters on a
+     network where adding packages is the hard part.
+  2. **folium via streamlit-folium**, if the optional `[map]` extra is installed.
+  3. **The generated SVG schematic**, which needs no network at all.
+  The active renderer is selectable, and the page falls through automatically if
+  pydeck raises.
+
+### Notes on the basemap
+- Tiles are fetched by the **browser**, not the container, so a restricted
+  container network does not prevent this from working. A browser that cannot
+  reach `tile.openstreetmap.org` shows markers over an empty basemap, which is
+  why the SVG fallback is retained rather than removed.
+- Attribution is rendered on the page. The public OSM tile service has a usage
+  policy that discourages heavy or commercial use; `TILE_URL` is a parameter so an
+  internal or commercial tile service can be substituted.
+- A real basemap makes wrong coordinates visible, so the tests now bound every
+  site and hub to the footprint, assert hub coordinates match their site, and
+  check relative geography: islands east of Fajardo, west-coast sites west of San
+  Juan, south-coast sites south of the metro. One test specifically guards
+  `[lon, lat]` ordering, because deck.gl expects that order and reversing it
+  places Puerto Rico off the Horn of Africa without any error.
+
+### Not executed
+- No Streamlit or pydeck in the authoring environment, so the layer specs are
+  validated structurally and by serialisation but **have not been rendered**.
+  Expect to adjust the pydeck `Layer` construction on first run: that API varies
+  across versions, which is why a raw-JSON fallback path exists.
+
 ## 1.5.0 - dispatch hubs revised from a practitioner assessment
 
 ### Changed
