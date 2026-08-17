@@ -1,5 +1,48 @@
 # Changelog
 
+## 1.5.0 - dispatch hubs revised from a practitioner assessment
+
+### Changed
+- The hub set now follows a practitioner assessment rather than a flat guess, and
+  each hub records a `likelihood` and a `rationale`:
+
+  | Likelihood | Hub | Rationale |
+  |---|---|---|
+  | Very high | Bayamon | Central access to San Juan metro west, dense HFC footprint, assessed as a major operations centre |
+  | Very high | Caguas | Covers central and eastern Puerto Rico; common utility and telecom operations base |
+  | Very high | Ponce | South region hub |
+  | Very high | Mayaguez | Western Puerto Rico hub |
+  | High | Aguadilla / Aguada corridor | West to north-west coverage with significant presence |
+  | High | Carolina | East metro and airport corridor coverage |
+
+- **San Juan is now a core site, not a dispatch hub.** The externally supported
+  reference is to a core platform site, which is a headend and NOC function.
+  Metro-west field dispatch is attributed to Bayamon.
+- **Fajardo is now a ferry terminal, not a hub.** Island work is staged from a
+  mainland hub, driven to the terminal, then ferried.
+- Removed the previously assumed Arecibo and Humacao bases, which the assessment
+  does not support. North-coast and east-coast work now routes to Bayamon,
+  Caguas or the Aguadilla corridor.
+- `basis` on every hub states that the location is judgement, not a published
+  facility address. A test asserts it.
+
+### Effect on the scenarios
+- **Both islands are now outside a single shift.** Vieques moves from 155 minutes
+  and marginally feasible to 214 minutes and infeasible; Culebra from 210 to 269.
+  Modelling Fajardo as a terminal rather than a base is what changed this, and it
+  is the more defensible reading.
+- Utuado moves from Arecibo at 58 minutes to Ponce at 75.
+- Arecibo itself is now served from the Aguadilla corridor at 84 minutes.
+- The parts-over-proximity demonstration moved to the north-west: a fibre splice
+  at Aguadilla routes to Mayaguez, because no splice kit is assumed at corridor
+  level.
+
+### Notes
+- 38 geography tests pass, up from 33. The A/B matrix is unchanged, since
+  location does not enter the RCA gate.
+- Still assumed and still flagged: precise facility addresses, crew rosters, van
+  stock, road speeds and ferry timetables.
+
 ## 1.4.0 - location-specific use cases and the service footprint
 
 ### Added

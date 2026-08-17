@@ -77,10 +77,18 @@
   "region": "Western highlands",
   "dirty_boots_base": {
     "base_id": "BASE-MAY",
-    "name": "Mayaguez field base",
+    "name": "Mayaguez dispatch hub",
+    "likelihood": "very_high",
     "travel_minutes": 43,
     "requires_ferry": false,
     "same_day_feasible": true,
-    "assumed_location": true
+    "assumed_location": true,
+    "legs": [
+      {
+        "kind": "road",
+        "minutes": 43,
+        "description": "Mayaguez dispatch hub to Maricao"
+      }
+    ]
   }
 }

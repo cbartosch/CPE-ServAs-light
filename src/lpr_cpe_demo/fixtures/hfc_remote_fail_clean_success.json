@@ -76,10 +76,18 @@
   "region": "South coast",
   "dirty_boots_base": {
     "base_id": "BASE-PON",
-    "name": "Ponce field base",
+    "name": "Ponce dispatch hub",
+    "likelihood": "very_high",
     "travel_minutes": 0,
     "requires_ferry": false,
     "same_day_feasible": true,
-    "assumed_location": true
+    "assumed_location": true,
+    "legs": [
+      {
+        "kind": "road",
+        "minutes": 0,
+        "description": "Ponce dispatch hub to Ponce"
+      }
+    ]
   }
 }

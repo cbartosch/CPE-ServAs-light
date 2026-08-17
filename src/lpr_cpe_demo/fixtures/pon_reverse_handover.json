@@ -81,11 +81,24 @@
   "municipio": "Culebra",
   "region": "Island municipio",
   "dirty_boots_base": {
-    "base_id": "BASE-FAJ",
-    "name": "Fajardo field base and ferry staging",
-    "travel_minutes": 210,
+    "base_id": "BASE-CAR",
+    "name": "Carolina dispatch hub",
+    "likelihood": "high",
+    "travel_minutes": 269,
     "requires_ferry": true,
     "same_day_feasible": false,
-    "assumed_location": true
+    "assumed_location": true,
+    "legs": [
+      {
+        "kind": "road",
+        "minutes": 59,
+        "description": "Carolina dispatch hub to the Fajardo ferry terminal"
+      },
+      {
+        "kind": "ferry",
+        "minutes": 210,
+        "description": "Fajardo to Culebra including mean wait for the next sailing"
+      }
+    ]
   }
 }

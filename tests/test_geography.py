@@ -16,9 +16,10 @@ sys.path.insert(0, str(ROOT / "src"))
 
 from lpr_cpe_demo.geography import (BASE_BY_ID, DISPATCH_BASES,  # noqa: E402
                                     FERRY_MINUTES, SITE_BY_ID, SITES,
-                                    assumed_bases, haversine_km, select_base,
-                                    sites_by_archetype, sites_in_cpe_footprint,
-                                    travel_plan)
+                                    assumed_bases, bases_by_likelihood,
+                                    core_sites, ferry_terminals, haversine_km,
+                                    select_base, sites_by_archetype,
+                                    sites_in_cpe_footprint, travel_plan)
 
 MAP_SVG = ROOT / "src/lpr_cpe_demo/ui/assets/footprint_map.svg"
 FIXTURES = ROOT / "src/lpr_cpe_demo/fixtures"
@@ -59,11 +60,31 @@ class TestBasesAreHonestlyLabelled(unittest.TestCase):
         for base in DISPATCH_BASES:
             self.assertIn(base.site_id, SITE_BY_ID, base.base_id)
 
-    def test_san_juan_base_records_its_only_external_anchor(self):
-        self.assertIn("core platform site", BASE_BY_ID["BASE-SJU"].notes)
+    def test_every_hub_records_a_likelihood_and_rationale(self):
+        for base in DISPATCH_BASES:
+            self.assertIn(base.likelihood, {"very_high", "high", "assumed"}, base.base_id)
+            self.assertTrue(base.rationale, base.base_id)
 
-    def test_fajardo_base_documents_the_island_staging_role(self):
-        self.assertIn("Vieques", BASE_BY_ID["BASE-FAJ"].notes)
+    def test_basis_names_the_source_as_judgement_not_fact(self):
+        for base in DISPATCH_BASES:
+            self.assertIn("not a published", base.basis, base.base_id)
+
+    def test_the_practitioner_hub_set_is_the_one_modelled(self):
+        expected = {"BASE-BAY", "BASE-CAG", "BASE-PON", "BASE-MAY", "BASE-AGU", "BASE-CAR"}
+        self.assertEqual({b.base_id for b in DISPATCH_BASES}, expected)
+
+    def test_four_hubs_are_rated_very_high(self):
+        self.assertEqual({b.base_id for b in bases_by_likelihood("very_high")},
+                         {"BASE-BAY", "BASE-CAG", "BASE-PON", "BASE-MAY"})
+
+    def test_san_juan_is_a_core_site_not_a_dispatch_hub(self):
+        """The public reference is to a core platform site: headend and NOC."""
+        self.assertIn(SITE_BY_ID["PR-SJU"], core_sites())
+        self.assertNotIn("PR-SJU", {b.site_id for b in DISPATCH_BASES})
+
+    def test_fajardo_is_a_ferry_terminal_not_a_dispatch_hub(self):
+        self.assertIn(SITE_BY_ID["PR-FAJ"], ferry_terminals())
+        self.assertNotIn("PR-FAJ", {b.site_id for b in DISPATCH_BASES})
 
 
 class TestDistanceAndTravel(unittest.TestCase):
@@ -79,28 +100,36 @@ class TestDistanceAndTravel(unittest.TestCase):
         self.assertTrue(100 <= km <= 125, f"expected about 110 km, got {km:.1f}")
 
     def test_island_plan_contains_a_ferry_leg(self):
-        plan = travel_plan(BASE_BY_ID["BASE-FAJ"], SITE_BY_ID["PR-VQS"])
+        plan = travel_plan(BASE_BY_ID["BASE-CAR"], SITE_BY_ID["PR-VQS"])
         self.assertTrue(plan.requires_ferry)
         self.assertEqual([l.kind for l in plan.legs], ["road", "ferry"])
 
     def test_mainland_plan_has_no_ferry_leg(self):
-        plan = travel_plan(BASE_BY_ID["BASE-ARE"], SITE_BY_ID["PR-UTU"])
+        plan = travel_plan(BASE_BY_ID["BASE-PON"], SITE_BY_ID["PR-UTU"])
         self.assertFalse(plan.requires_ferry)
 
-    def test_culebra_is_not_same_day_feasible(self):
-        """The constraint the remote-island archetype exists to express."""
-        plan = travel_plan(BASE_BY_ID["BASE-FAJ"], SITE_BY_ID["PR-CUL"])
-        self.assertFalse(plan.same_day_feasible)
-        self.assertGreater(plan.total_minutes, FERRY_MINUTES["VIEQUES"])
+    def test_neither_island_is_same_day_feasible(self):
+        """With no hub at the terminal, both islands need the drive first.
+
+        This changed in 1.5.0: modelling Fajardo as a terminal rather than a base
+        pushed Vieques from marginal to infeasible, which is the constraint the
+        remote-island archetype exists to express.
+        """
+        for sid in ("PR-VQS", "PR-CUL"):
+            sel = select_base(SITE_BY_ID[sid], crew_type="dirty")
+            self.assertFalse(sel.plan.same_day_feasible, sid)
+            self.assertEqual([l.kind for l in sel.plan.legs], ["road", "ferry"], sid)
+            self.assertGreater(sel.plan.legs[0].minutes, 0,
+                               "the drive to the terminal must be real")
 
     def test_metro_travel_is_slower_per_km_than_coastal(self):
         """Congestion, not distance, is what makes metro dispatch expensive."""
-        sj, bay = SITE_BY_ID["PR-SJU"], SITE_BY_ID["PR-BAY"]
-        are, man = SITE_BY_ID["PR-ARE"], SITE_BY_ID["PR-MAN"]
-        metro_km = haversine_km(sj.lat, sj.lon, bay.lat, bay.lon)
-        coastal_km = haversine_km(are.lat, are.lon, man.lat, man.lon)
-        metro_min = travel_plan(BASE_BY_ID["BASE-SJU"], bay).total_minutes
-        coastal_min = travel_plan(BASE_BY_ID["BASE-ARE"], man).total_minutes
+        bay, gua = SITE_BY_ID["PR-BAY"], SITE_BY_ID["PR-GUY"]
+        pon, gum = SITE_BY_ID["PR-PON"], SITE_BY_ID["PR-GUA"]
+        metro_km = haversine_km(bay.lat, bay.lon, gua.lat, gua.lon)
+        coastal_km = haversine_km(pon.lat, pon.lon, gum.lat, gum.lon)
+        metro_min = travel_plan(BASE_BY_ID["BASE-BAY"], gua).total_minutes
+        coastal_min = travel_plan(BASE_BY_ID["BASE-PON"], gum).total_minutes
         self.assertGreater(metro_min / metro_km, coastal_min / coastal_km)
 
 
@@ -111,31 +140,37 @@ class TestBaseSelection(unittest.TestCase):
                         for b in DISPATCH_BASES if "dirty" in b.crew_types]
         self.assertEqual(sel.plan.total_minutes, min(alternatives))
 
-    def test_parts_filter_beats_proximity(self):
-        """A nearer base without a splice kit is not a candidate."""
-        site = SITE_BY_ID["PR-MAR"]
+    def test_parts_filter_can_override_proximity(self):
+        """A nearer hub without a splice kit is not a candidate.
+
+        Aguadilla carries no splice kit in this model, so a fibre splice in the
+        north-west is served from Mayaguez instead.
+        """
+        site = SITE_BY_ID["PR-AGU"]
         near = select_base(site, crew_type="dirty")
         with_kit = select_base(site, crew_type="dirty",
                                required_skills=["fibre_splice"],
                                required_parts=["splice_kit"])
+        self.assertEqual(near.base.base_id, "BASE-AGU")
+        self.assertEqual(with_kit.base.base_id, "BASE-MAY")
         self.assertGreater(with_kit.plan.total_minutes, near.plan.total_minutes)
-        self.assertTrue(with_kit.rejected_for_parts)
+        self.assertIn("BASE-AGU", with_kit.rejected_for_parts)
 
-    def test_missing_skill_rejects_a_base(self):
-        sel = select_base(SITE_BY_ID["PR-SJU"], crew_type="dirty",
-                          required_skills=["headend"])
-        self.assertEqual(sel.base.base_id, "BASE-SJU")
-        self.assertTrue(sel.rejected_for_skills)
+    def test_impossible_skill_rejects_every_base(self):
+        with self.assertRaises(LookupError):
+            select_base(SITE_BY_ID["PR-BAY"], crew_type="dirty",
+                        required_skills=["headend"])
 
     def test_impossible_requirement_raises_rather_than_guessing(self):
         with self.assertRaises(LookupError):
             select_base(SITE_BY_ID["PR-SJU"], crew_type="dirty",
                         required_skills=["submarine_cable_repair"])
 
-    def test_island_work_is_staged_from_fajardo(self):
+    def test_island_work_is_staged_from_the_nearest_mainland_hub(self):
         for sid in ("PR-VQS", "PR-CUL"):
             sel = select_base(SITE_BY_ID[sid], crew_type="dirty")
-            self.assertEqual(sel.base.base_id, "BASE-FAJ")
+            self.assertEqual(sel.base.base_id, "BASE-CAR",
+                             "Carolina is the nearest hub to the Fajardo terminal")
             self.assertTrue(sel.plan.requires_ferry)
 
     def test_selection_reports_how_many_bases_were_considered(self):
@@ -160,6 +195,8 @@ class TestScenariosAreLocated(unittest.TestCase):
             self.assertIn(base["base_id"], BASE_BY_ID, name)
             self.assertTrue(base["assumed_location"],
                             "a base presented as real would be misleading")
+            self.assertIn(base["likelihood"], {"very_high", "high", "assumed"}, name)
+            self.assertTrue(base["legs"], name)
 
     def test_recorded_travel_matches_the_live_model(self):
         """Stops the fixtures drifting away from geography.py."""
@@ -191,8 +228,14 @@ class TestGeneratedMap(unittest.TestCase):
     def test_map_is_valid_svg(self):
         self.assertTrue(self.root.tag.endswith("svg"))
 
-    def test_map_states_that_bases_are_assumed(self):
+    def test_map_states_that_hub_locations_are_assumed(self):
         self.assertIn("ASSUMED", self.svg)
+        self.assertIn("practitioner assessment", self.svg)
+
+    def test_map_distinguishes_core_site_and_ferry_terminal(self):
+        self.assertIn("CORE", self.svg)
+        self.assertIn("FERRY", self.svg)
+        self.assertIn("not a dispatch hub", self.svg)
 
     def test_map_declares_itself_schematic(self):
         self.assertIn("Schematic", self.svg)

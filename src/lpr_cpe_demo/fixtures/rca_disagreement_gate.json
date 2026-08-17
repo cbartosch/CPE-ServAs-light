@@ -65,11 +65,19 @@
   "municipio": "Arecibo",
   "region": "North coast",
   "dirty_boots_base": {
-    "base_id": "BASE-ARE",
-    "name": "Arecibo field base",
-    "travel_minutes": 0,
+    "base_id": "BASE-AGU",
+    "name": "Aguadilla and Aguada corridor",
+    "likelihood": "high",
+    "travel_minutes": 84,
     "requires_ferry": false,
     "same_day_feasible": true,
-    "assumed_location": true
+    "assumed_location": true,
+    "legs": [
+      {
+        "kind": "road",
+        "minutes": 84,
+        "description": "Aguadilla and Aguada corridor to Arecibo"
+      }
+    ]
   }
 }

@@ -20,12 +20,13 @@ ROOT = pathlib.Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
 from lpr_cpe_demo.geography import (DISPATCH_BASES, SITE_BY_ID,  # noqa: E402
+                                    core_sites, ferry_terminals,
                                     sites_in_cpe_footprint)
 
 OUT = ROOT / "src/lpr_cpe_demo/ui/assets/footprint_map.svg"
 
-W, H = 1180, 560
-PAD_X, PAD_TOP, PAD_BOTTOM = 40, 74, 132
+W, H = 1180, 590
+PAD_X, PAD_TOP, PAD_BOTTOM = 40, 74, 158
 
 # Simplified coastlines, (lon, lat). Clockwise from the north-west.
 MAINLAND = [
@@ -76,7 +77,8 @@ def build() -> str:
         f'<rect width="{W}" height="{H}" fill="#FCFBFA"/>',
         f'<text class="t h" x="{PAD_X}" y="34">Liberty Puerto Rico fixed CPE footprint</text>',
         f'<text class="t s" x="{PAD_X}" y="54">78 municipios including Vieques and Culebra. '
-        f'Dispatch bases are ASSUMED and must be replaced with actual facility data.</text>',
+        f'Hub locations are ASSUMED, from a practitioner assessment, and must be '
+        f'replaced with actual facility data.</text>',
     ]
 
     for shape in (MAINLAND, VIEQUES, CULEBRA):
@@ -103,13 +105,30 @@ def build() -> str:
         parts.append(f'<text class="t lbl" x="{x + dx}" y="{y + 3.5}" '
                      f'text-anchor="{anchor}">{site.municipio}</text>')
 
-    # Bases, drawn on top as squares so they read differently from sites
+    # Core site: headend and NOC, deliberately not a dispatch hub
+    for site in core_sites():
+        x, y = project(site.lon, site.lat)
+        parts.append(f'<circle cx="{x}" cy="{y}" r="9" fill="none" stroke="#0C5457" '
+                     f'stroke-width="2" stroke-dasharray="3 2.5"/>')
+        parts.append(f'<text class="t blbl" x="{x}" y="{y - 14}" '
+                     f'text-anchor="middle">CORE</text>')
+
+    # Ferry terminal: island work is driven here first
+    for site in ferry_terminals():
+        x, y = project(site.lon, site.lat)
+        parts.append(f'<polygon points="{x},{y - 8} {x + 8},{y} {x},{y + 8} {x - 8},{y}" '
+                     f'fill="#FCFBFA" stroke="#8F7D62" stroke-width="2.2"/>')
+        parts.append(f'<text class="t blbl" x="{x}" y="{y - 14}" '
+                     f'text-anchor="middle">FERRY</text>')
+
+    # Dispatch hubs, on top. Filled centre marks a very-high-likelihood hub.
     for base in DISPATCH_BASES:
         x, y = project(base.lon, base.lat)
         parts.append(f'<rect x="{x - 6.5}" y="{y - 6.5}" width="13" height="13" rx="2.5" '
                      f'fill="#FCFBFA" stroke="#0C5457" stroke-width="2.2"/>')
-        parts.append(f'<rect x="{x - 2.4}" y="{y - 2.4}" width="4.8" height="4.8" '
-                     f'fill="#0C5457"/>')
+        if base.likelihood == "very_high":
+            parts.append(f'<rect x="{x - 2.6}" y="{y - 2.6}" width="5.2" height="5.2" '
+                         f'fill="#0C5457"/>')
         parts.append(f'<text class="t blbl" x="{x}" y="{y - 14}" '
                      f'text-anchor="middle">{base.base_id.replace("BASE-", "")}</text>')
 
@@ -124,12 +143,25 @@ def build() -> str:
     ly2 = ly + 26
     parts.append(f'<rect x="{PAD_X}" y="{ly2 - 9}" width="12" height="12" rx="2.5" '
                  f'fill="#FCFBFA" stroke="#0C5457" stroke-width="2.2"/>')
-    parts.append(f'<text class="t lg" x="{PAD_X + 20}" y="{ly2}">Assumed dispatch base '
-                 f'(dirty boots staged from here)</text>')
-    parts.append(f'<line x1="{PAD_X + 400}" y1="{ly2 - 4}" x2="{PAD_X + 428}" '
-                 f'y2="{ly2 - 4}" stroke="#8F7D62" stroke-width="1.4" '
-                 f'stroke-dasharray="5 4"/>')
-    parts.append(f'<text class="t lg" x="{PAD_X + 436}" y="{ly2}">Ferry leg from Fajardo</text>')
+    parts.append(f'<rect x="{PAD_X + 3.6}" y="{ly2 - 5.4}" width="4.8" height="4.8" '
+                 f'fill="#0C5457"/>')
+    parts.append(f'<text class="t lg" x="{PAD_X + 20}" y="{ly2}">Hub, very high</text>')
+
+    parts.append(f'<rect x="{PAD_X + 150}" y="{ly2 - 9}" width="12" height="12" rx="2.5" '
+                 f'fill="#FCFBFA" stroke="#0C5457" stroke-width="2.2"/>')
+    parts.append(f'<text class="t lg" x="{PAD_X + 170}" y="{ly2}">Hub, high</text>')
+
+    parts.append(f'<circle cx="{PAD_X + 286}" cy="{ly2 - 4}" r="7" fill="none" '
+                 f'stroke="#0C5457" stroke-width="2" stroke-dasharray="3 2.5"/>')
+    parts.append(f'<text class="t lg" x="{PAD_X + 300}" y="{ly2}">Core site, headend and NOC, '
+                 f'not a dispatch hub</text>')
+
+    ly3 = ly2 + 22
+    cx = PAD_X + 6
+    parts.append(f'<polygon points="{cx},{ly3 - 11} {cx + 7},{ly3 - 4} {cx},{ly3 + 3} '
+                 f'{cx - 7},{ly3 - 4}" fill="#FCFBFA" stroke="#8F7D62" stroke-width="2.2"/>')
+    parts.append(f'<text class="t lg" x="{PAD_X + 20}" y="{ly3}">Ferry terminal: island work '
+                 f'is driven here from a mainland hub, then ferried</text>')
 
     parts.append(f'<text class="t cap" x="{PAD_X}" y="{H - 26}">'
                  f'Schematic. Coastline simplified and municipio positions approximate: '

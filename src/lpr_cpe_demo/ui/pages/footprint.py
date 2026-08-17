@@ -11,7 +11,8 @@ import pathlib
 import streamlit as st
 
 from lpr_cpe_demo.geography import (DISPATCH_BASES, SITE_BY_ID, assumed_bases,
-                                    select_base, sites_in_cpe_footprint)
+                                    core_sites, ferry_terminals, select_base,
+                                    sites_in_cpe_footprint)
 
 ASSETS = pathlib.Path(__file__).resolve().parents[1] / "assets"
 
@@ -20,11 +21,14 @@ def render() -> None:
     st.title("Footprint and dispatch")
 
     st.warning(
-        "**Dispatch bases are assumed.** Liberty does not publish operations-centre "
-        "locations. Every base below is placed at a plausible regional municipio and "
-        "must be replaced with actual facility locations, crew rosters and van stock "
-        "before this model is used operationally. The only externally supported "
-        "anchor is a core platform site in San Juan.",
+        "**Hub locations are assumed.** Liberty does not publish operations-centre "
+        "locations, so nothing here is a confirmed facility address. The hub set and "
+        "the likelihood ratings come from a practitioner assessment, which is expert "
+        "judgement rather than published fact. Replace these with actual facility "
+        "locations, crew rosters and van stock before operational use.\n\n"
+        "San Juan is modelled as a **core site** (headend and NOC), not a dispatch "
+        "hub. Fajardo is modelled as a **ferry terminal** that island work is driven "
+        "to, not a hub.",
         icon="⚠️",
     )
 
@@ -51,7 +55,10 @@ def render() -> None:
               "splice kit": "yes" if "splice_kit" in b.van_stock else "no"}
              for b in DISPATCH_BASES],
             hide_index=True, use_container_width=True)
-        st.caption(f"{len(assumed_bases())} of {len(DISPATCH_BASES)} bases are assumptions.")
+        st.caption(
+        f"{len(assumed_bases())} of {len(DISPATCH_BASES)} hub locations are assumptions. "
+        f"Core sites: {', '.join(s.municipio for s in core_sites())}. "
+        f"Ferry terminals: {', '.join(s.municipio for s in ferry_terminals())}.")
 
     with right:
         st.subheader("What does this location cost?")

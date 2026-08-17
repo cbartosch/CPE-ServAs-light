@@ -82,11 +82,19 @@
   "municipio": "Utuado",
   "region": "Cordillera Central",
   "dirty_boots_base": {
-    "base_id": "BASE-ARE",
-    "name": "Arecibo field base",
-    "travel_minutes": 58,
+    "base_id": "BASE-PON",
+    "name": "Ponce dispatch hub",
+    "likelihood": "very_high",
+    "travel_minutes": 75,
     "requires_ferry": false,
     "same_day_feasible": true,
-    "assumed_location": true
+    "assumed_location": true,
+    "legs": [
+      {
+        "kind": "road",
+        "minutes": 75,
+        "description": "Ponce dispatch hub to Utuado"
+      }
+    ]
   }
 }

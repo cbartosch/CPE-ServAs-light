@@ -10,12 +10,25 @@ modelled but marked out of scope for CPE fault management by default.
 
 What is ASSUMED and must be replaced
 ------------------------------------
-Liberty does not publish operations-centre locations. Every `DispatchBase` below
-is an ASSUMPTION placed at a regional municipio that would plausibly host one,
-and each carries ``assumed=True``. The only externally supported anchor is a
-core platform site in San Juan. Before this model is used for anything
-operational, replace `DISPATCH_BASES` with actual facility locations, crew
-rosters and van stock. `assumed_bases()` exists so the UI and the API can say so
+Liberty does not publish operations-centre locations, so no entry here is a
+confirmed facility address. Every `DispatchBase` still carries ``assumed=True``.
+
+What has changed since 1.4.0 is the *basis* for each location. The hub set now
+follows a practitioner assessment of where dispatch hubs most plausibly sit,
+with a recorded ``likelihood`` and ``rationale`` per hub rather than a flat
+guess. That is expert judgement, not published fact, and `basis` says so.
+
+Two structural consequences of that assessment:
+
+* San Juan is modelled as a CORE SITE, not a field dispatch hub. The externally
+  supported reference is to a core platform site, which is a headend and NOC
+  function; metro-west field dispatch is attributed to Bayamon.
+* Fajardo is modelled as a FERRY TERMINAL, not a hub. Island work is therefore
+  staged from a mainland hub, driven to the terminal, and then ferried, which is
+  materially more expensive than the 1.4.0 model assumed.
+
+Before operational use, replace `DISPATCH_BASES` with actual facility locations,
+crew rosters and van stock. `assumed_bases()` exists so the UI and API can say so
 out loud.
 
 Coordinates are approximate municipio centroids, adequate for a schematic map
@@ -55,6 +68,8 @@ class Site:
     island: bool = False
     ferry_from: str | None = None      # site_id of the mainland embarkation point
     in_cpe_footprint: bool = True
+    ferry_terminal: bool = False       # mainland embarkation point for island work
+    core_site: bool = False            # headend / NOC, not a field dispatch hub
 
 
 @dataclass(frozen=True, slots=True)
@@ -67,6 +82,9 @@ class DispatchBase:
     crew_types: tuple[CrewType, ...]
     skills: tuple[str, ...]
     van_stock: tuple[str, ...]
+    likelihood: Literal["very_high", "high", "assumed"] = "assumed"
+    rationale: str = ""
+    basis: str = "practitioner assessment, not a published facility address"
     assumed: bool = True               # never silently present these as real
     notes: str = ""
 
@@ -75,7 +93,8 @@ class DispatchBase:
 # Approximate centroids. Archetypes follow the four-segment planning model.
 SITES: tuple[Site, ...] = (
     # Metro / MDU
-    Site("PR-SJU", "San Juan", "San Juan metro", "metro", 18.4655, -66.1057),
+    Site("PR-SJU", "San Juan", "San Juan metro", "metro", 18.4655, -66.1057,
+         core_site=True),
     Site("PR-BAY", "Bayamon", "San Juan metro", "metro", 18.3985, -66.1614),
     Site("PR-CAR", "Carolina", "San Juan metro", "metro", 18.3808, -65.9574),
     Site("PR-GUY", "Guaynabo", "San Juan metro", "metro", 18.3572, -66.1110),
@@ -86,7 +105,8 @@ SITES: tuple[Site, ...] = (
     Site("PR-ARE", "Arecibo", "North coast", "coastal", 18.4725, -66.7156),
     Site("PR-AGU", "Aguadilla", "Northwest coast", "coastal", 18.4274, -67.1541),
     Site("PR-HUM", "Humacao", "East coast", "coastal", 18.1494, -65.8272),
-    Site("PR-FAJ", "Fajardo", "Northeast coast", "coastal", 18.3258, -65.6524),
+    Site("PR-FAJ", "Fajardo", "Northeast coast", "coastal", 18.3258, -65.6524,
+         ferry_terminal=True),
     Site("PR-GUA", "Guayama", "South coast", "coastal", 17.9841, -66.1132),
     Site("PR-MAN", "Manati", "North coast", "coastal", 18.4297, -66.4822),
     Site("PR-CAB", "Cabo Rojo", "Southwest coast", "coastal", 18.0866, -67.1457),
@@ -118,34 +138,50 @@ _PLANT = ("hfc_plant", "coax_splice", "fibre_splice", "aerial", "underground")
 _FIELD = ("cpe_swap", "in_home_wiring", "wifi_optimisation", "drop_replacement")
 
 # ------------------------------------------------------------- dispatch bases
-# EVERY ENTRY IS ASSUMED. See the module docstring.
+# LOCATIONS REMAIN ASSUMED. The hub set and the likelihood ratings come from a
+# practitioner assessment of where LPR dispatch hubs most plausibly sit. Nothing
+# here is a confirmed facility address.
+#
+# Deliberately NOT hubs:
+#   San Juan  modelled as a core site: headend and NOC, not field dispatch
+#   Fajardo   modelled as a ferry terminal that island work is driven to
 DISPATCH_BASES: tuple[DispatchBase, ...] = (
-    DispatchBase("BASE-SJU", "San Juan operations centre", "PR-SJU", 18.4655, -66.1057,
-                 ("clean", "dirty", "joint"), _FIELD + _PLANT + ("noc", "headend"),
+    DispatchBase("BASE-BAY", "Bayamon dispatch hub", "PR-BAY", 18.3985, -66.1614,
+                 ("clean", "dirty", "joint"), _FIELD + _PLANT,
                  ("cpe", "ont", "psu", "drop", "connectors", "splice_kit"),
-                 notes="Anchored on a publicly referenced core platform site in San Juan; "
-                       "crew and stock composition assumed."),
-    DispatchBase("BASE-CAG", "Caguas field base", "PR-CAG", 18.2341, -66.0362,
-                 ("clean", "dirty"), _FIELD + _PLANT,
-                 ("cpe", "ont", "psu", "drop", "connectors")),
-    DispatchBase("BASE-PON", "Ponce field base", "PR-PON", 18.0111, -66.6141,
-                 ("clean", "dirty"), _FIELD + _PLANT,
-                 ("cpe", "ont", "psu", "drop", "connectors", "splice_kit")),
-    DispatchBase("BASE-MAY", "Mayaguez field base", "PR-MAY", 18.2013, -67.1397,
-                 ("clean", "dirty"), _FIELD + _PLANT,
-                 ("cpe", "ont", "psu", "drop", "connectors")),
-    DispatchBase("BASE-ARE", "Arecibo field base", "PR-ARE", 18.4725, -66.7156,
-                 ("clean", "dirty"), _FIELD + _PLANT,
-                 ("cpe", "ont", "psu", "drop", "connectors")),
-    DispatchBase("BASE-HUM", "Humacao field base", "PR-HUM", 18.1494, -65.8272,
-                 ("clean", "dirty"), _FIELD + _PLANT,
-                 ("cpe", "ont", "psu", "drop", "connectors")),
-    DispatchBase("BASE-FAJ", "Fajardo field base and ferry staging", "PR-FAJ",
-                 18.3258, -65.6524, ("clean", "dirty"), _FIELD + _PLANT,
+                 likelihood="very_high",
+                 rationale="Central access to the San Juan metro west with a dense HFC "
+                           "footprint; assessed as a major operations centre."),
+    DispatchBase("BASE-CAG", "Caguas dispatch hub", "PR-CAG", 18.2341, -66.0362,
+                 ("clean", "dirty", "joint"), _FIELD + _PLANT,
                  ("cpe", "ont", "psu", "drop", "connectors", "splice_kit"),
-                 notes="Embarkation for Vieques and Culebra. No resident crew on either "
-                       "island in this model, so island work is staged from here."),
+                 likelihood="very_high",
+                 rationale="Covers central and eastern Puerto Rico; a common utility and "
+                           "telecom operations base."),
+    DispatchBase("BASE-PON", "Ponce dispatch hub", "PR-PON", 18.0111, -66.6141,
+                 ("clean", "dirty", "joint"), _FIELD + _PLANT,
+                 ("cpe", "ont", "psu", "drop", "connectors", "splice_kit"),
+                 likelihood="very_high", rationale="South region hub."),
+    DispatchBase("BASE-MAY", "Mayaguez dispatch hub", "PR-MAY", 18.2013, -67.1397,
+                 ("clean", "dirty", "joint"), _FIELD + _PLANT,
+                 ("cpe", "ont", "psu", "drop", "connectors", "splice_kit"),
+                 likelihood="very_high", rationale="Western Puerto Rico hub."),
+    DispatchBase("BASE-AGU", "Aguadilla and Aguada corridor", "PR-AGU", 18.4274, -67.1541,
+                 ("clean", "dirty"), _FIELD + _PLANT,
+                 ("cpe", "ont", "psu", "drop", "connectors"),
+                 likelihood="high",
+                 rationale="West to north-west coverage with significant presence. No "
+                           "splice kit assumed at corridor level."),
+    DispatchBase("BASE-CAR", "Carolina dispatch hub", "PR-CAR", 18.3808, -65.9574,
+                 ("clean", "dirty"), _FIELD + _PLANT,
+                 ("cpe", "ont", "psu", "drop", "connectors"),
+                 likelihood="high",
+                 rationale="East metro and airport corridor coverage; nearest hub to the "
+                           "Fajardo ferry terminal for island work."),
 )
+
+CORE_SITES: tuple[str, ...] = ("PR-SJU",)
+FERRY_TERMINALS: tuple[str, ...] = ("PR-FAJ",)
 
 BASE_BY_ID = {b.base_id: b for b in DISPATCH_BASES}
 
@@ -153,6 +189,19 @@ BASE_BY_ID = {b.base_id: b for b in DISPATCH_BASES}
 def assumed_bases() -> tuple[DispatchBase, ...]:
     """Bases whose location and composition are assumptions, not facts."""
     return tuple(b for b in DISPATCH_BASES if b.assumed)
+
+
+def bases_by_likelihood(level: str) -> tuple[DispatchBase, ...]:
+    return tuple(b for b in DISPATCH_BASES if b.likelihood == level)
+
+
+def core_sites() -> tuple[Site, ...]:
+    """Headend and NOC sites. Not field dispatch hubs."""
+    return tuple(SITE_BY_ID[s] for s in CORE_SITES)
+
+
+def ferry_terminals() -> tuple[Site, ...]:
+    return tuple(SITE_BY_ID[s] for s in FERRY_TERMINALS)
 
 
 # ------------------------------------------------------------------ distance
@@ -193,7 +242,9 @@ def travel_plan(base: DispatchBase, site: Site,
         embark = SITE_BY_ID[site.ferry_from]
         road_km = haversine_km(base.lat, base.lon, embark.lat, embark.lon) * DETOUR_FACTOR
         road_min = int(round(60 * road_km / ROAD_SPEED_KMH[embark.archetype]))
-        legs.append(Leg("road", f"{base.name} to {embark.municipio} terminal", road_min))
+        # No hub is modelled at the terminal, so the drive is always real.
+        legs.append(Leg("road", f"{base.name} to the {embark.municipio} ferry terminal",
+                        road_min))
         ferry_min = FERRY_MINUTES.get(site.municipio.upper(), 120)
         legs.append(Leg("ferry", f"{embark.municipio} to {site.municipio} "
                                  "including mean wait for the next sailing", ferry_min))

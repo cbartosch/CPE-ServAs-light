@@ -65,11 +65,19 @@
   "municipio": "Carolina",
   "region": "San Juan metro",
   "dirty_boots_base": {
-    "base_id": "BASE-CAG",
-    "name": "Caguas field base",
-    "travel_minutes": 53,
+    "base_id": "BASE-CAR",
+    "name": "Carolina dispatch hub",
+    "likelihood": "high",
+    "travel_minutes": 0,
     "requires_ferry": false,
     "same_day_feasible": true,
-    "assumed_location": true
+    "assumed_location": true,
+    "legs": [
+      {
+        "kind": "road",
+        "minutes": 0,
+        "description": "Carolina dispatch hub to Carolina"
+      }
+    ]
   }
 }
