@@ -21,13 +21,16 @@ from lpr_cpe_demo.fault_generator import generate_faults, summarise
 from lpr_cpe_demo.geo_layers import (COST_BANDS, FAULT_TOOLTIP,
                                      OSM_ATTRIBUTION, OSM_POLICY_URL,
                                      ROUTE_CAVEAT, fault_records)
+from lpr_cpe_demo.routing import ROUTING_NOTE, router_from_env
+from lpr_cpe_demo.geo_layers import road_leg_records, routing_summary
 from lpr_cpe_demo.ui import deck as deckbuild
+from lpr_cpe_demo.ui import theme
 from lpr_cpe_demo.ui.fmt import usd, usd_plain
 
 ASSETS = pathlib.Path(__file__).resolve().parents[1] / "assets"
 
 
-def _render_map(faults, show_routes: bool) -> bool:
+def _render_map(faults, show_routes: bool, router=None) -> bool:
     """Real pydeck API. Returns False and reports why, rather than failing silently."""
     try:
         import pydeck as pdk
@@ -35,7 +38,8 @@ def _render_map(faults, show_routes: bool) -> bool:
         st.warning(f"pydeck is not installed ({exc}).")
         return False
     try:
-        layers = deckbuild.fault_layers(pdk, faults, show_routes=show_routes)
+        layers = deckbuild.fault_layers(pdk, faults, show_routes=show_routes,
+                                        router=router)
         st.pydeck_chart(deckbuild.deck(pdk, layers, tooltip=FAULT_TOOLTIP),
                         use_container_width=True)
         return True
@@ -46,7 +50,12 @@ def _render_map(faults, show_routes: bool) -> bool:
 
 
 def render() -> None:
-    st.title("Fault simulator: cost and location of intervention")
+    st.markdown(
+        theme.header("Fault simulator",
+                     "Cost and the location of intervention. Pins mark where the "
+                     "work happens, which for a tap or ODP fault is not the "
+                     "address that reported it."),
+        unsafe_allow_html=True)
 
     st.warning(
         "**Every figure here is assumed.** Rates, durations, plant ratios and "
@@ -132,7 +141,17 @@ def render() -> None:
         f"ferry legs. Basemap {OSM_ATTRIBUTION}, tile policy at {OSM_POLICY_URL}."
     )
 
-    st.caption(ROUTE_CAVEAT)
+    if show_routes:
+        summary = routing_summary(road_leg_records(shown, router))
+        if summary["all_routed"]:
+            st.caption(f"All {summary['legs']} road leg(s) follow real roads via "
+                       f"{type(router).__name__}. Ferry legs remain arcs by design.")
+        elif summary["on_roads"]:
+            st.caption(f"{summary['on_roads']} of {summary['legs']} road leg(s) "
+                       f"follow real roads; {summary['straight_line']} fell back to "
+                       f"straight lines. {ROUTING_NOTE}")
+        else:
+            st.caption(f"{ROUTE_CAVEAT} {ROUTING_NOTE}")
 
     st.subheader("Cost by fault")
     rows = sorted(fault_records(shown), key=lambda r: -float(r["cost"]))

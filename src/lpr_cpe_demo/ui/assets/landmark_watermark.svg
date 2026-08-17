@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 420 420"
+     width="420" height="420" role="img"
+     aria-label="Abstract Puerto Rico corner motif: garita over a fortification wall">
+  <g fill="#0C5457" stroke="none">
+    <polygon points="20.0,330.0 73.2,280.5 122.6,304.8 179.6,240.0 240.4,292.2 293.6,259.8 350.6,301.2 400.0,330.0" fill-opacity="0.9"/><polygon points="20.0,336.0 73.2,300.4 122.6,317.9 179.6,271.2 240.4,308.8 293.6,285.5 350.6,315.3 400.0,336.0" fill-opacity="0.55"/><polygon points="20.0,342.0 73.2,317.2 122.6,329.4 179.6,297.0 240.4,323.1 293.6,306.9 350.6,327.6 400.0,342.0" fill-opacity="0.32"/>
+    
+  <g>
+    <rect x="150.0" y="287.4" width="14.4" height="12.6" rx="1.5"/><rect x="177.8" y="287.4" width="14.4" height="12.6" rx="1.5"/><rect x="205.6" y="287.4" width="14.4" height="12.6" rx="1.5"/><rect x="233.3" y="287.4" width="14.4" height="12.6" rx="1.5"/><rect x="261.1" y="287.4" width="14.4" height="12.6" rx="1.5"/><rect x="288.9" y="287.4" width="14.4" height="12.6" rx="1.5"/><rect x="316.7" y="287.4" width="14.4" height="12.6" rx="1.5"/><rect x="344.4" y="287.4" width="14.4" height="12.6" rx="1.5"/><rect x="372.2" y="287.4" width="14.4" height="12.6" rx="1.5"/>
+    <rect x="150.0" y="300.0" width="250.0" height="30.0" rx="2"/>
+    <rect x="150.0" y="297.0" width="250.0" height="3" rx="1.5"/>
+  </g>
+    
+  <g transform="translate(196,282) scale(1.7)">
+    <path d="M0,-46 C-13,-46 -21,-38 -21,-29 L21,-29 C21,-38 13,-46 0,-46 Z"/>
+    <rect x="-23" y="-30" width="46" height="5" rx="2"/>
+    <path d="M-19,-24 L19,-24 L15,26 L-15,26 Z"/>
+    <rect x="-4" y="-16" width="8" height="20" rx="4" fill="#FFFFFF"
+          fill-opacity="0.55"/>
+    <path d="M-15,26 C-9,34 9,34 15,26 L18,34 L-18,34 Z"/>
+  </g>
+    
+  <g transform="translate(360,340) scale(1.1) rotate(8)">
+    <path d="M-3,26 C-5,4 -4,-20 -1,-38 L3,-38 C1,-20 2,4 3,26 Z"/>
+    <path d="M0,-38 C-13,-44 -22,-41 -26,-28 C-21,-35 -12,-44 0,-41 Z"/><path d="M0,-38 C-9,-45 -15,-42 -18,-14 C-14,-21 -8,-44 0,-41 Z"/><path d="M0,-38 C13,-44 22,-41 26,-28 C21,-35 12,-44 0,-41 Z"/><path d="M0,-38 C9,-45 15,-42 18,-14 C14,-21 8,-44 0,-41 Z"/><path d="M0,-38 C0,-46 0,-44 0,-50 C0,-57 0,-44 0,-41 Z"/>
+  </g>
+    <path d="M0,354 C110,346 240,362 360,354 C400,351 420,354 420,354 L420,420 L0,420 Z"
+          fill-opacity="0.45"/>
+  </g>
+</svg>

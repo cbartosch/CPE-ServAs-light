@@ -15,13 +15,15 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
+# Visual identity. Artwork is original SVG confined to the header band and a
+# corner watermark, at an opacity capped in ui.theme; readability of every text
+# pairing is asserted by tests/test_theme.py rather than eyeballed.
+from lpr_cpe_demo.ui import artwork, theme  # noqa: E402
+
 st.markdown(
-    """
-    <style>
-    .block-container {padding-top: 1.25rem; padding-bottom: 2rem;}
-    [data-testid="stMetric"] {border: 1px solid #d8e1eb; padding: 0.8rem; border-radius: 0.65rem;}
-    </style>
-    """,
+    theme.css(header_svg_data_uri=artwork.band_data_uri(),
+              watermark_svg_data_uri=artwork.watermark_data_uri(),
+              show_artwork=artwork.enabled()),
     unsafe_allow_html=True,
 )
 

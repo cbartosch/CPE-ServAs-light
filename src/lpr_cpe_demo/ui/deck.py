@@ -55,7 +55,8 @@ def hub_layers(pdk) -> list[Any]:
     return [layer for layer in (ring, core, label) if layer is not None]
 
 
-def fault_layers(pdk, faults, *, show_routes: bool = True) -> list[Any]:
+def fault_layers(pdk, faults, *, show_routes: bool = True,
+                 router: Any | None = None) -> list[Any]:
     out: list[Any] = []
 
     links = _try(lambda: pdk.Layer(
@@ -66,7 +67,7 @@ def fault_layers(pdk, faults, *, show_routes: bool = True) -> list[Any]:
 
     if show_routes:
         road = _try(lambda: pdk.Layer(
-            "PathLayer", data=road_leg_records(faults), get_path="path",
+            "PathLayer", data=road_leg_records(faults, router), get_path="path",
             get_color="colour", get_width=420, width_min_pixels=2, pickable=True))
         if road:
             out.append(road)

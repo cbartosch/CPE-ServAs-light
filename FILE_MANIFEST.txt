@@ -55,6 +55,7 @@ scripts/check_mcp_service_versions.py
 scripts/check_postgres_resume.py
 scripts/check_streamlit_runtime.py
 scripts/generate_footprint_map.py
+scripts/generate_landmark_band.py
 scripts/install-host-ca.ps1
 scripts/install-host-ca.sh
 scripts/preflight.py
@@ -116,9 +117,13 @@ src/lpr_cpe_demo/persistence/__init__.py
 src/lpr_cpe_demo/persistence/repository.py
 src/lpr_cpe_demo/plant.py
 src/lpr_cpe_demo/retrieval.py
+src/lpr_cpe_demo/routing.py
 src/lpr_cpe_demo/ui/__init__.py
 src/lpr_cpe_demo/ui/app.py
+src/lpr_cpe_demo/ui/artwork.py
 src/lpr_cpe_demo/ui/assets/footprint_map.svg
+src/lpr_cpe_demo/ui/assets/landmark_band.svg
+src/lpr_cpe_demo/ui/assets/landmark_watermark.svg
 src/lpr_cpe_demo/ui/client.py
 src/lpr_cpe_demo/ui/common.py
 src/lpr_cpe_demo/ui/deck.py
@@ -132,6 +137,7 @@ src/lpr_cpe_demo/ui/pages/model_monitor.py
 src/lpr_cpe_demo/ui/pages/scenarios.py
 src/lpr_cpe_demo/ui/pages/simulator.py
 src/lpr_cpe_demo/ui/pages/system.py
+src/lpr_cpe_demo/ui/theme.py
 src/lpr_cpe_demo/workflow/__init__.py
 src/lpr_cpe_demo/workflow/engine.py
 src/lpr_cpe_demo/workflow/langgraph_runtime.py
@@ -152,5 +158,6 @@ tests/test_mcp_controls.py
 tests/test_mcp_http.py
 tests/test_plant_effort.py
 tests/test_retrieval_ab.py
+tests/test_routing_theme.py
 tests/test_ui_widgets.py
 tests/test_workflow.py

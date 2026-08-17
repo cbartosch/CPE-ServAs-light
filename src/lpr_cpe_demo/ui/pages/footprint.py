@@ -101,7 +101,13 @@ def _render_folium(route_path) -> None:
 
 
 def render() -> None:
-    st.title("Footprint and dispatch")
+    from lpr_cpe_demo.ui import theme
+
+    st.markdown(
+        theme.header("Footprint and dispatch",
+                     "Puerto Rico fixed CPE footprint, assumed dispatch "
+                     "hubs, and what a location costs to reach."),
+        unsafe_allow_html=True)
 
     st.warning(
         "**Hub locations are assumed.** Liberty does not publish operations-centre "

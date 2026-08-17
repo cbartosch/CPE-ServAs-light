@@ -395,7 +395,13 @@ ROAD_LEG_RGBA = [12, 84, 87, 200]
 FERRY_LEG_RGBA = [143, 125, 98, 230]
 
 
-def road_leg_records(faults) -> list[dict[str, Any]]:
+def road_leg_records(faults, router=None) -> list[dict[str, Any]]:
+    """Land legs only. Pass a `routing.Router` to snap them to real roads.
+
+    With no router, geometry is the two endpoints and `on_roads` is False, which
+    the caption reports honestly. With an OSRM router, geometry is the road path
+    and the label carries the routed distance and duration.
+    """
     out = []
     for f in faults:
         if not f.truck_rolls:
@@ -406,16 +412,39 @@ def road_leg_records(faults) -> list[dict[str, Any]]:
         site = SITE_BY_ID[f.site_id]
         if f.requires_ferry and site.ferry_from:
             terminal = SITE_BY_ID[site.ferry_from]
-            path = [[base.lon, base.lat], [terminal.lon, terminal.lat]]
-            label = (f"{f.fault_id} road leg: {base.name} to the "
-                     f"{terminal.municipio} ferry terminal")
+            start, end = (base.lon, base.lat), (terminal.lon, terminal.lat)
+            where = f"the {terminal.municipio} ferry terminal"
         else:
-            path = [[base.lon, base.lat], [f.intervention_lon, f.intervention_lat]]
-            label = (f"{f.fault_id} road leg: {base.name} to {f.intervention_id}, "
-                     f"{f.travel_minutes} min each way")
-        out.append({"path": path, "colour": ROAD_LEG_RGBA, "label": label,
-                    "straight_line": True})
+            start, end = (base.lon, base.lat), (f.intervention_lon, f.intervention_lat)
+            where = f.intervention_id
+
+        path = [[start[0], start[1]], [end[0], end[1]]]
+        on_roads = False
+        detail = f"{f.travel_minutes} min each way, modelled"
+        if router is not None:
+            try:
+                route = router.route([start, end])
+                path = route.path
+                on_roads = route.on_roads
+                if on_roads:
+                    detail = (f"{route.distance_km} km on roads, "
+                              f"{route.duration_min} min routed")
+            except Exception:
+                pass                  # keep the straight line for this leg only
+
+        out.append({"path": path, "colour": ROAD_LEG_RGBA,
+                    "label": f"{f.fault_id} road leg: {base.name} to {where}, {detail}",
+                    "on_roads": on_roads})
     return out
+
+
+def routing_summary(records: list[dict[str, Any]]) -> dict[str, Any]:
+    """How many legs are genuine road geometry, for the caption to state."""
+    total = len(records)
+    routed = sum(1 for r in records if r.get("on_roads"))
+    return {"legs": total, "on_roads": routed,
+            "straight_line": total - routed,
+            "all_routed": total > 0 and routed == total}
 
 
 def ferry_leg_records(faults) -> list[dict[str, Any]]:

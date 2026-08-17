@@ -1,5 +1,69 @@
 # Changelog
 
+## 1.11.0 - dispatches on real roads, and a Puerto Rico identity that stays readable
+
+### Added: road routing
+- `src/lpr_cpe_demo/routing.py`. `Router` protocol with `StraightLineRouter` (no
+  network, the previous behaviour) and `OSRMRouter` (real road geometry). OSRM was
+  chosen because the API is a plain GET with no key, GeoJSON geometry avoids
+  polyline decoding, and it can be self-hosted, which matters on a network that
+  will not reach a public service.
+- Selected by `ROUTING_PROVIDER=straight|osrm` with `OSRM_URL`. Default stays
+  `straight`, so the map works where nothing is reachable.
+- `FallbackRouter` degrades **per leg**, not per map: one unroutable leg draws
+  straight and the rest still follow roads. `Route.on_roads` carries which, and
+  the page caption reports the split honestly rather than implying everything is
+  routed.
+- In-process and optional on-disk caching. The public OSRM demo server has a usage
+  policy that discourages repeated identical requests.
+
+**Ferry legs are never road-routed.** A driving profile asked to cross to Vieques
+either fails or invents a land path, so only the land leg to the terminal is sent
+to the router and the crossing stays an arc. A test asserts every island road leg
+stops at the terminal.
+
+### Added: visual identity with measured readability
+- `scripts/generate_landmark_band.py` draws **original** line work: a garita and
+  crenellated wall from the San Juan fortifications, the Cordillera ridgeline, a
+  coastal lighthouse and palm forms. Nothing is fetched and no photograph is
+  embedded, so there is no licensing question and no network dependency. A test
+  asserts the SVGs contain no `<image>`, no `xlink:href` and no URL other than the
+  SVG namespace.
+- `src/lpr_cpe_demo/ui/theme.py` with the palette, CSS, and WCAG contrast
+  arithmetic. `src/lpr_cpe_demo/ui/artwork.py` inlines the SVGs as data URIs.
+- `UI_ARTWORK=off` disables the artwork without a code change.
+
+### How readability is protected
+Decoration is the usual way a dashboard becomes unreadable, so three rules are
+enforced and tested rather than asserted:
+
+1. Artwork appears **only** in the header band and as a fixed corner watermark. It
+   never sits behind a table, a metric or body copy; those surfaces are forced
+   opaque in CSS.
+2. Contrast is measured against the **composite** of artwork over surface, not
+   against a clean surface. Header band composites to `#DDE1DD`, watermark to
+   `#F1F3F3`.
+3. Every pairing must clear WCAG AA. All eight currently do, with the tightest at
+   6.05:1 against a 4.5 requirement:
+
+| pairing | ratio | required |
+|---|---|---|
+| body on surface | 14.21 | 4.5 |
+| body over watermark | 13.19 | 4.5 |
+| caption over watermark | 6.50 | 4.5 |
+| heading over header artwork | 6.56 | 3.0 |
+| danger on surface | 6.05 | 4.5 |
+
+One test raises the overlay opacity past the cap and asserts contrast *fails*,
+which shows the cap is doing work rather than being decorative.
+
+### Notes
+- 247 stdlib tests pass. The OSRM client is tested against a canned response,
+  covering URL construction, lon/lat order, geometry parsing, both cache layers,
+  fallback, and rejection of three malformed responses.
+- Not executed: no network here, so the OSRM path has never contacted a live
+  server. The client is exercised end to end against a stub instead.
+
 ## 1.10.0 - OpenStreetMap actually renders, hubs read as depots, routes split into legs
 
 ### Fixed
