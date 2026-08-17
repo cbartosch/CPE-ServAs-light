@@ -1,5 +1,41 @@
 # Changelog
 
+## 1.6.1 - integrity verification and version consistency
+
+### Added
+- `scripts/verify_manifest.py`: compares the working tree against
+  `MANIFEST.sha256` and names every mismatched or missing file. Standard library
+  only, so it runs on Windows without an install. Run it before rebuilding an
+  image when an import error looks inexplicable.
+- `tests/test_bundle_integrity.py`: 9 tests that catch a mangled tree before it
+  becomes a confusing traceback.
+  - The top-level `__init__.py` must contain no imports. A relative import there
+    is the signature of a subpackage `__init__` having been copied over the
+    parent, which surfaces as `ModuleNotFoundError: No module named
+    'lpr_cpe_demo.client'` raised from `lpr_cpe_demo/__init__.py`.
+  - Every relative import in every `__init__.py` must resolve to a file or
+    package that actually sits beside it.
+  - Two tests prove the verifier works by tampering with a file and deleting
+    another, then restoring both.
+
+### Fixed
+- `src/lpr_cpe_demo/mcp_server/__init__.py` was missing, so that subpackage was an
+  implicit namespace package while every sibling declared itself. Five modules
+  import from it. Namespace packages are searched across every `sys.path` entry
+  rather than bound to one directory, which makes import behaviour depend on path
+  ordering. Present in the original v1.2 bundle; found by the new
+  `test_every_package_directory_has_an_init`.
+- `lpr_cpe_demo.__version__` said `1.2.0` while `pyproject.toml` said `1.6.0`. It
+  now tracks the project version, and a test asserts the two agree along with the
+  newest CHANGELOG heading, so the drift cannot recur silently.
+
+### Note on the reported import error
+- `src/lpr_cpe_demo/__init__.py` hashes to `773d3e52…` identically in the original
+  v1.2 upload, this repository, and every bundle shipped from it. The file has
+  never contained the `mcp_client` import, so a container reporting that line is
+  building from a locally modified tree. `verify_manifest.py` identifies which
+  files differ.
+
 ## 1.6.0 - OpenStreetMap basemap in Streamlit
 
 ### Added
