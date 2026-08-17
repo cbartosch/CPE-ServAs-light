@@ -1,5 +1,29 @@
 # Changelog
 
+## 1.9.1 - fix the seed input bound, and guard the whole widget class
+
+### Fixed
+- `ui/pages/simulator.py` raised `StreamlitValueAboveMaxError` on render: the
+  seed input was declared `max_value=10_000_000` with a default of `20260817`.
+  A date-shaped seed is the natural thing to type, so the bound is now
+  `2_147_483_647`, the signed 32-bit maximum, which `random.Random` accepts.
+
+### Added
+- `tests/test_ui_widgets.py`: 9 tests that parse every page and validate bounded
+  widgets statically. Asserts min is not above max, the default sits inside the
+  range, the step fits, and specifically that a seed input accepts a date-shaped
+  value. Verified by reintroducing the bug and watching two tests fail with the
+  offending file, line and values named.
+- The same file also asserts every page module exposes `render()` and is
+  registered in `app.py`.
+
+### Note
+This was the first render of the Streamlit runtime in this project. `compileall`
+and import checks cannot catch an out-of-range widget default, because the
+constraint is only evaluated when the widget renders. AST inspection catches it in
+about a second with no Streamlit installed, which is why the guard is static
+rather than a runtime smoke test.
+
 ## 1.9.0 - anchor truck roll cost on a third-party benchmark
 
 ### Added

@@ -150,4 +150,5 @@ tests/test_mcp_controls.py
 tests/test_mcp_http.py
 tests/test_plant_effort.py
 tests/test_retrieval_ab.py
+tests/test_ui_widgets.py
 tests/test_workflow.py

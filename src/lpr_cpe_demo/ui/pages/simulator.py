@@ -62,8 +62,10 @@ def render() -> None:
 
     controls = st.columns([1, 1, 1, 1])
     count = controls[0].slider("Faults", 5, 200, 40, step=5)
-    seed = controls[1].number_input("Seed", min_value=0, max_value=10_000_000,
-                                    value=20260817, step=1,
+    # max_value must cover date-shaped defaults such as 20260817. Bounded at the
+    # signed 32-bit maximum, which is what random.Random accepts comfortably.
+    seed = controls[1].number_input("Seed", min_value=0, max_value=2_147_483_647,
+                                    value=20_260_817, step=1,
                                     help="Same seed gives the same faults, "
                                          "coordinates and costs on any machine.")
     show_routes = controls[2].checkbox("Show dispatch routes", value=True)
