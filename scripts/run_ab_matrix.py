@@ -35,6 +35,7 @@ sys.path.insert(0, str(ROOT / "src"))
 
 from lpr_cpe_demo.ab_metrics import ArmReport, CaseResult, format_table  # noqa: E402
 from lpr_cpe_demo.controls import GATE_HUMAN_REVIEW, fuse_and_gate  # noqa: E402
+from lpr_cpe_demo.effort import assumptions, cost_arm  # noqa: E402
 from lpr_cpe_demo.retrieval import build_index, vote_domain  # noqa: E402
 
 KB = ROOT / "src/lpr_cpe_demo/kb/prior_cases.json"
@@ -60,7 +61,7 @@ def arm_deterministic(cases: list[dict]) -> ArmReport:
                                 threshold=THRESHOLD)
         report.cases.append(CaseResult(
             case_id=case["case_id"], deterministic_domain=det["domain"],
-            true_domain=case["true_domain"],
+            true_domain=case["true_domain"], site_id=case.get("site_id", ""),
             gate_raised=outcome.route == GATE_HUMAN_REVIEW,
             gate_reason=outcome.gate_reason))
     return report
@@ -79,7 +80,7 @@ def arm_scripted(cases: list[dict]) -> ArmReport:
                                 threshold=THRESHOLD)
         report.cases.append(CaseResult(
             case_id=case["case_id"], deterministic_domain=det["domain"],
-            true_domain=case["true_domain"],
+            true_domain=case["true_domain"], site_id=case.get("site_id", ""),
             gate_raised=outcome.route == GATE_HUMAN_REVIEW,
             gate_reason=outcome.gate_reason,
             model_domain=model_domain,
@@ -105,7 +106,7 @@ def arm_retrieval(cases: list[dict], *, k: int = 5) -> ArmReport:
         cited = tuple(h.doc_id for h in hits)
         report.cases.append(CaseResult(
             case_id=case["case_id"], deterministic_domain=det["domain"],
-            true_domain=case["true_domain"],
+            true_domain=case["true_domain"], site_id=case.get("site_id", ""),
             gate_raised=outcome.route == GATE_HUMAN_REVIEW,
             gate_reason=outcome.gate_reason,
             model_domain=model_domain,
@@ -152,6 +153,25 @@ def main() -> int:
         for r in reports:
             print(detail(r))
 
+    # ------------------------------------------------------------ cost of errors
+    costs = [cost_arm(r.arm, r.cost_cases()) for r in reports]
+    baseline = max(c.total_cost for c in costs)
+    print("\nCost of getting the gate wrong")
+    print(f"{'arm':20s} {'FP':>3} {'FN':>3} {'FP min':>7} {'FP $':>9} "
+          f"{'FN min':>7} {'FN $':>10} {'total min':>10} {'total $':>10} {'vs worst':>9}")
+    print("-" * 104)
+    for c in costs:
+        saved = baseline - c.total_cost
+        print(f"{c.arm:20s} {c.false_positives:>3} {c.false_negatives:>3} "
+              f"{c.fp_minutes:>7} {c.fp_cost:>9.2f} {c.fn_minutes:>7} {c.fn_cost:>10.2f} "
+              f"{c.total_minutes:>10} {c.total_cost:>10.2f} "
+              f"{('-' if saved == 0 else f'-{saved:,.0f}'):>9}")
+    print("\n  FP = a gate fired and the rules were right: an L2 review and a delay.")
+    print("  FN = the rules were wrong, nothing gated, and the wrong crew went out.")
+    print("  Only the avoidable portion of an FN is counted: the wasted visit plus")
+    print("  the handover. The correct visit still has to happen either way.")
+    print(f"  All rates are assumed. {assumptions()['basis']}.")
+
     print("\nReading the table")
     print("  The approved domain is always the deterministic one, so model.acc is")
     print("  diagnostic only: it says how good a dissent signal the arm could be,")
@@ -160,6 +180,11 @@ def main() -> int:
     if args.json:
         payload = {"threshold": THRESHOLD, "cases": len(cases),
                    "arms": [r.as_row() for r in reports],
+                   "error_cost": [dataclasses.asdict(c)
+                                  | {"total_minutes": c.total_minutes,
+                                     "total_cost": c.total_cost}
+                                  for c in costs],
+                   "cost_assumptions": assumptions(),
                    "detail": {r.arm: [dataclasses.asdict(c)
                                       | {"rules_wrong": c.rules_wrong,
                                          "crew_would_differ": c.crew_would_differ}

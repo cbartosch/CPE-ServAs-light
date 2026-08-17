@@ -90,5 +90,27 @@
         "description": "Mayaguez dispatch hub to Maricao"
       }
     ]
+  },
+  "incident_id": "INC-1006",
+  "plant": {
+    "technology": "HFC",
+    "household": "HH-MAR-6212",
+    "drop": "DROP-MAR-6066",
+    "delimiter_type": "tap",
+    "delimiter_id": "TAP-MAR-6971",
+    "delimiter_serves_households": 4,
+    "upstream_type": "hfc_node",
+    "upstream_id": "NODE-MAR-4845",
+    "upstream_serves_households": 450,
+    "site_totals": {
+      "households": 1852,
+      "hfc_households": 1482,
+      "pon_households": 370,
+      "taps": 371,
+      "odps": 47,
+      "hfc_nodes": 4,
+      "pon_ports": 12
+    },
+    "assumed": true
   }
 }

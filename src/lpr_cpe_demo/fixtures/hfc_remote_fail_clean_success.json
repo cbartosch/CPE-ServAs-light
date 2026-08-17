@@ -89,5 +89,28 @@
         "description": "Ponce dispatch hub to Ponce"
       }
     ]
+  },
+  "incident_id": "INC-1003",
+  "plant": {
+    "technology": "HFC",
+    "household": "HH-PON-9569",
+    "drop": "DROP-PON-9461",
+    "delimiter_type": "tap",
+    "delimiter_id": "TAP-PON-1152",
+    "delimiter_serves_households": 6,
+    "upstream_type": "hfc_node",
+    "upstream_id": "NODE-PON-4885",
+    "upstream_serves_households": 450,
+    "site_totals": {
+      "households": 50741,
+      "hfc_households": 32982,
+      "pon_households": 17759,
+      "taps": 5497,
+      "odps": 1110,
+      "hfc_nodes": 74,
+      "pon_ports": 555
+    },
+    "assumed": true,
+    "households_affected_if_true": 1
   }
 }

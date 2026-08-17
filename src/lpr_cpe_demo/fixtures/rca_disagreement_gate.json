@@ -79,5 +79,28 @@
         "description": "Aguadilla and Aguada corridor to Arecibo"
       }
     ]
+  },
+  "incident_id": "INC-1009",
+  "plant": {
+    "technology": "HFC",
+    "household": "HH-ARE-1798",
+    "drop": "DROP-ARE-2489",
+    "delimiter_type": "tap",
+    "delimiter_id": "TAP-ARE-0530",
+    "delimiter_serves_households": 6,
+    "upstream_type": "hfc_node",
+    "upstream_id": "NODE-ARE-8677",
+    "upstream_serves_households": 450,
+    "site_totals": {
+      "households": 32222,
+      "hfc_households": 20944,
+      "pon_households": 11278,
+      "taps": 3491,
+      "odps": 705,
+      "hfc_nodes": 47,
+      "pon_ports": 353
+    },
+    "assumed": true,
+    "households_affected_if_true": 6
   }
 }

@@ -52,6 +52,7 @@ class CaseResult:
     true_domain: str
     gate_raised: bool
     gate_reason: str
+    site_id: str = ""
     model_domain: str | None = None
     model_correct: bool | None = None
     cited_refs: tuple[str, ...] = ()
@@ -146,6 +147,12 @@ class ArmReport:
         if not cited:
             return None
         return round(sum(len(c.valid_refs) for c in self.cases) / cited, 3)
+
+    def cost_cases(self) -> list[dict[str, object]]:
+        """Shape `effort.cost_arm` consumes."""
+        return [{"gate_raised": c.gate_raised, "rules_wrong": c.rules_wrong,
+                 "crew_would_differ": c.crew_would_differ, "site_id": c.site_id,
+                 "true_domain": c.true_domain} for c in self.cases]
 
     def as_row(self) -> dict[str, object]:
         return {

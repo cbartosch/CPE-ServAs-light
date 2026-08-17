@@ -79,5 +79,28 @@
         "description": "Carolina dispatch hub to Carolina"
       }
     ]
+  },
+  "incident_id": "INC-1002",
+  "plant": {
+    "technology": "HFC",
+    "household": "HH-CAR-2330",
+    "drop": "DROP-CAR-3239",
+    "delimiter_type": "tap",
+    "delimiter_id": "TAP-CAR-2252",
+    "delimiter_serves_households": 8,
+    "upstream_type": "hfc_node",
+    "upstream_id": "NODE-CAR-1482",
+    "upstream_serves_households": 450,
+    "site_totals": {
+      "households": 57037,
+      "hfc_households": 31370,
+      "pon_households": 25667,
+      "taps": 3922,
+      "odps": 803,
+      "hfc_nodes": 70,
+      "pon_ports": 803
+    },
+    "assumed": true,
+    "households_affected_if_true": 1
   }
 }

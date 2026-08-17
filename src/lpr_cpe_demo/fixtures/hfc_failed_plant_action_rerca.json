@@ -96,5 +96,28 @@
         "description": "Ponce dispatch hub to Utuado"
       }
     ]
+  },
+  "incident_id": "INC-1005",
+  "plant": {
+    "technology": "HFC",
+    "household": "HH-UTU-9146",
+    "drop": "DROP-UTU-8322",
+    "delimiter_type": "tap",
+    "delimiter_id": "TAP-UTU-8682",
+    "delimiter_serves_households": 4,
+    "upstream_type": "hfc_node",
+    "upstream_id": "NODE-UTU-8092",
+    "upstream_serves_households": 450,
+    "site_totals": {
+      "households": 10370,
+      "hfc_households": 8296,
+      "pon_households": 2074,
+      "taps": 2074,
+      "odps": 260,
+      "hfc_nodes": 19,
+      "pon_ports": 65
+    },
+    "assumed": true,
+    "households_affected_if_true": 4
   }
 }

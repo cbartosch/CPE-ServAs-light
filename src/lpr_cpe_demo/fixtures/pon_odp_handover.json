@@ -101,5 +101,28 @@
         "description": "Fajardo to Vieques including mean wait for the next sailing"
       }
     ]
+  },
+  "incident_id": "INC-1007",
+  "plant": {
+    "technology": "PON",
+    "household": "HH-VQS-9160",
+    "drop": "DROP-VQS-1879",
+    "delimiter_type": "odp",
+    "delimiter_id": "ODP-VQS-9477",
+    "delimiter_serves_households": 8,
+    "upstream_type": "pon_port",
+    "upstream_id": "OLTPORT-VQS-7115",
+    "upstream_serves_households": 32,
+    "site_totals": {
+      "households": 2963,
+      "hfc_households": 2222,
+      "pon_households": 741,
+      "taps": 556,
+      "odps": 93,
+      "hfc_nodes": 5,
+      "pon_ports": 24
+    },
+    "assumed": true,
+    "households_affected_if_true": 8
   }
 }

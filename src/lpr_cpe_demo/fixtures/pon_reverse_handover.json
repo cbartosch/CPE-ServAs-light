@@ -100,5 +100,28 @@
         "description": "Fajardo to Culebra including mean wait for the next sailing"
       }
     ]
+  },
+  "incident_id": "INC-1008",
+  "plant": {
+    "technology": "PON",
+    "household": "HH-CUL-1956",
+    "drop": "DROP-CUL-5734",
+    "delimiter_type": "odp",
+    "delimiter_id": "ODP-CUL-4204",
+    "delimiter_serves_households": 8,
+    "upstream_type": "pon_port",
+    "upstream_id": "OLTPORT-CUL-1805",
+    "upstream_serves_households": 32,
+    "site_totals": {
+      "households": 667,
+      "hfc_households": 500,
+      "pon_households": 167,
+      "taps": 125,
+      "odps": 21,
+      "hfc_nodes": 2,
+      "pon_ports": 6
+    },
+    "assumed": true,
+    "households_affected_if_true": 8
   }
 }

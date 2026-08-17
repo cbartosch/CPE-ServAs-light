@@ -1,5 +1,61 @@
 # Changelog
 
+## 1.7.0 - plant topology, dispatch effort, and the cost of gate errors
+
+Answers "show the time and effort expended if remote fix does not work, and the
+cost of false positives and negatives" by putting technician minutes and money on
+each outcome. Every rate, duration and plant ratio is ASSUMED and stated as such.
+
+### Added
+- `src/lpr_cpe_demo/plant.py`: households, drops, taps, ODPs, HFC nodes and PON
+  ports, with deterministic synthetic identifiers so `TAP-ARE-0530` is stable
+  across runs and can be referenced by a scenario, a work order and an MR.
+  `blast_radius` returns the households affected per responsibility domain, which
+  is what separates a drop fault (1 household) from a tap fault (4 to 8) from a
+  node event (450).
+- `src/lpr_cpe_demo/effort.py`: an `EffortLedger` that walks an incident to
+  closure and bills each step, plus `false_positive_cost` and
+  `false_negative_cost`.
+- `scripts/run_dispatch_simulation.py`: per-scenario table of resolved cost, the
+  cost of two failed remote attempts, and the cost of a misdispatch.
+- `tests/test_plant_effort.py`: 30 tests.
+- `plant` block and a stable `incident_id` on all nine located scenarios.
+
+### Changed
+- `scripts/run_ab_matrix.py` now reports a cost table per arm, so the A/B result
+  is expressed in hours and dollars rather than only in precision and recall.
+- `ab_metrics.CaseResult` carries `site_id`, so the cost model can price the
+  wasted visit at the right location.
+
+### What the numbers say
+Across the 18 benchmark cases:
+
+| arm | FP | FN | wasted minutes | wasted USD |
+|---|---|---|---|---|
+| `deterministic` | 0 | 4 | 1,266 | 1,734.63 |
+| `plus_scripted_model` | 0 | 4 | 1,266 | 1,734.63 |
+| `plus_retrieval` | 3 | 0 | 60 | 59.01 |
+
+Retrieval converts about 21 hours of wasted field time into 1 hour of review
+time. The asymmetry is the reason: a false positive costs 20 minutes and about
+$20, while a missed gate costs 306 minutes and $354 at Arecibo and 676 minutes
+and $1,071 at Culebra, which is 18x and 54x respectively. An arm can be wrong
+about a gate often and still pay for itself.
+
+Across the nine located scenarios: two failed remote attempts add $776, about 10%.
+A missed gate on every one would add $4,712, about 62%.
+
+### Notes
+- Only the *avoidable* portion of a false negative is counted: the wasted visit
+  plus the handover. The correct visit still has to happen either way, so
+  including it would overstate the saving.
+- A wrong domain that keeps the same crew type is not billed as a false negative.
+  Confusing `cpe` with `wifi_or_home` is both clean boots, so no visit is wasted.
+- 143 tests collected; the 6 that fail to load need pytest, fastapi or pydantic
+  and are the pre-existing v1.2 suite. The stdlib subset is
+  `test_plant_effort`, `test_geography`, `test_geo_layers`, `test_retrieval_ab`
+  and `test_bundle_integrity`.
+
 ## 1.6.1 - integrity verification and version consistency
 
 ### Added

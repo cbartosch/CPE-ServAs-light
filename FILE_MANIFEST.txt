@@ -59,6 +59,7 @@ scripts/install-host-ca.ps1
 scripts/install-host-ca.sh
 scripts/preflight.py
 scripts/run_ab_matrix.py
+scripts/run_dispatch_simulation.py
 scripts/run_scenario_matrix.py
 scripts/smoke_test.py
 scripts/stage-ca.ps1
@@ -84,6 +85,7 @@ src/lpr_cpe_demo/api/main.py
 src/lpr_cpe_demo/config.py
 src/lpr_cpe_demo/controls.py
 src/lpr_cpe_demo/domain.py
+src/lpr_cpe_demo/effort.py
 src/lpr_cpe_demo/fixtures/__init__.py
 src/lpr_cpe_demo/fixtures/bounded_remote_failure.json
 src/lpr_cpe_demo/fixtures/hfc_common_cause.json
@@ -110,6 +112,7 @@ src/lpr_cpe_demo/mcp_server/store.py
 src/lpr_cpe_demo/mcp_server/tools.py
 src/lpr_cpe_demo/persistence/__init__.py
 src/lpr_cpe_demo/persistence/repository.py
+src/lpr_cpe_demo/plant.py
 src/lpr_cpe_demo/retrieval.py
 src/lpr_cpe_demo/ui/__init__.py
 src/lpr_cpe_demo/ui/app.py
@@ -140,5 +143,6 @@ tests/test_geography.py
 tests/test_llm_boundary.py
 tests/test_mcp_controls.py
 tests/test_mcp_http.py
+tests/test_plant_effort.py
 tests/test_retrieval_ab.py
 tests/test_workflow.py
