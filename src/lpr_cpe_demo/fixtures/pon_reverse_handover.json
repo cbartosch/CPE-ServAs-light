@@ -4,7 +4,7 @@
   "description": "Plant repair restores optics, but service remains degraded and the same incident returns to Clean Boots.",
   "technology": "PON",
   "priority": "P2",
-  "archetype": "Coastal City / Suburb",
+  "archetype": "Remote / island",
   "source": "customer_call",
   "valid": true,
   "common_cause": false,
@@ -76,5 +76,16 @@
   },
   "expected_outcome": "The same incident and SLA clock return from Dirty Boots to Clean Boots and close after validation.",
   "true_domain": "pon_odp",
-  "true_domain_basis": "MR at the ODP was legitimate; in-home follow-up closed it"
+  "true_domain_basis": "MR at the ODP was legitimate; in-home follow-up closed it",
+  "site_id": "PR-CUL",
+  "municipio": "Culebra",
+  "region": "Island municipio",
+  "dirty_boots_base": {
+    "base_id": "BASE-FAJ",
+    "name": "Fajardo field base and ferry staging",
+    "travel_minutes": 210,
+    "requires_ferry": true,
+    "same_day_feasible": false,
+    "assumed_location": true
+  }
 }

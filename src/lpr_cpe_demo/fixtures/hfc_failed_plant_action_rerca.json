@@ -4,7 +4,7 @@
   "description": "A first Dirty Boots repair does not restore service; the same incident and jTrack MR return to RCA before a second plant attempt succeeds.",
   "technology": "HFC",
   "priority": "P1",
-  "archetype": "Coastal City / Suburb",
+  "archetype": "Central mountain / rural",
   "source": "auto_detect",
   "valid": true,
   "common_cause": false,
@@ -77,5 +77,16 @@
   },
   "expected_outcome": "The first plant attempt fails, new evidence forces re-RCA, the existing MR is updated rather than duplicated, and the second attempt closes after verification.",
   "true_domain": "hfc_tap",
-  "true_domain_basis": "MR updated rather than abandoned; tap was correct, execution failed"
+  "true_domain_basis": "MR updated rather than abandoned; tap was correct, execution failed",
+  "site_id": "PR-UTU",
+  "municipio": "Utuado",
+  "region": "Cordillera Central",
+  "dirty_boots_base": {
+    "base_id": "BASE-ARE",
+    "name": "Arecibo field base",
+    "travel_minutes": 58,
+    "requires_ferry": false,
+    "same_day_feasible": true,
+    "assumed_location": true
+  }
 }

@@ -62,5 +62,16 @@
   ],
   "expected_outcome": "Resolved remotely with no field dispatch.",
   "true_domain": "provisioning",
-  "true_domain_basis": "resolved by re-provisioning alone"
+  "true_domain_basis": "resolved by re-provisioning alone",
+  "site_id": "PR-BAY",
+  "municipio": "Bayamon",
+  "region": "San Juan metro",
+  "dirty_boots_base": {
+    "base_id": "BASE-SJU",
+    "name": "San Juan operations centre",
+    "travel_minutes": 27,
+    "requires_ferry": false,
+    "same_day_feasible": true,
+    "assumed_location": true
+  }
 }

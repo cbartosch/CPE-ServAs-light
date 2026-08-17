@@ -62,5 +62,16 @@
   "expected_outcome": "Attached to parent incident; plant action avoids customer-premises dispatch.",
   "parent_sla_hours": 6,
   "true_domain": "shared_network",
-  "true_domain_basis": "plant action on a shared resource resolved it"
+  "true_domain_basis": "plant action on a shared resource resolved it",
+  "site_id": "PR-SJU",
+  "municipio": "San Juan",
+  "region": "San Juan metro",
+  "dirty_boots_base": {
+    "base_id": "BASE-SJU",
+    "name": "San Juan operations centre",
+    "travel_minutes": 0,
+    "requires_ferry": false,
+    "same_day_feasible": true,
+    "assumed_location": true
+  }
 }

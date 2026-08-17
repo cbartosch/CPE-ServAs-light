@@ -4,7 +4,7 @@
   "description": "Deterministic and LLM responsibility domains disagree, forcing human review despite high confidence.",
   "technology": "HFC",
   "priority": "P2",
-  "archetype": "Metro / MDU",
+  "archetype": "Coastal city / suburb",
   "source": "customer_call",
   "valid": true,
   "common_cause": false,
@@ -60,5 +60,16 @@
   ],
   "expected_outcome": "Human review is mandatory because the responsibility domains disagree.",
   "true_domain": "hfc_tap",
-  "true_domain_basis": "multi-subscriber ingress on one tap; the model's dissent was correct"
+  "true_domain_basis": "multi-subscriber ingress on one tap; the model's dissent was correct",
+  "site_id": "PR-ARE",
+  "municipio": "Arecibo",
+  "region": "North coast",
+  "dirty_boots_base": {
+    "base_id": "BASE-ARE",
+    "name": "Arecibo field base",
+    "travel_minutes": 0,
+    "requires_ferry": false,
+    "same_day_feasible": true,
+    "assumed_location": true
+  }
 }

@@ -4,7 +4,7 @@
   "description": "Clean-side evidence localizes a weak optical condition beyond the ODP and creates one jTrack MR.",
   "technology": "PON",
   "priority": "P1",
-  "archetype": "Central Mountain / Rural",
+  "archetype": "Remote / island",
   "source": "auto_detect",
   "valid": true,
   "common_cause": false,
@@ -77,5 +77,16 @@
   },
   "expected_outcome": "Clean Boots evidence is accepted, one jTrack MR is created, Dirty Boots restores service.",
   "true_domain": "pon_odp",
-  "true_domain_basis": "ODP work by dirty boots restored service"
+  "true_domain_basis": "ODP work by dirty boots restored service",
+  "site_id": "PR-VQS",
+  "municipio": "Vieques",
+  "region": "Island municipio",
+  "dirty_boots_base": {
+    "base_id": "BASE-FAJ",
+    "name": "Fajardo field base and ferry staging",
+    "travel_minutes": 155,
+    "requires_ferry": true,
+    "same_day_feasible": true,
+    "assumed_location": true
+  }
 }

@@ -4,7 +4,7 @@
   "description": "Two failed remote actions prove the retry ceiling and escalation path.",
   "technology": "HFC",
   "priority": "P2",
-  "archetype": "Remote / Island",
+  "archetype": "Central mountain / rural",
   "source": "auto_detect",
   "valid": true,
   "common_cause": false,
@@ -71,5 +71,16 @@
   ],
   "expected_outcome": "Escalated after two bounded remote attempts; no unbounded RCA loop.",
   "true_domain": null,
-  "true_domain_basis": "escalated without resolution; true domain never established"
+  "true_domain_basis": "escalated without resolution; true domain never established",
+  "site_id": "PR-MAR",
+  "municipio": "Maricao",
+  "region": "Western highlands",
+  "dirty_boots_base": {
+    "base_id": "BASE-MAY",
+    "name": "Mayaguez field base",
+    "travel_minutes": 43,
+    "requires_ferry": false,
+    "same_day_feasible": true,
+    "assumed_location": true
+  }
 }

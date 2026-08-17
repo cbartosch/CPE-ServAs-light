@@ -4,7 +4,7 @@
   "description": "A safe remote action fails; new evidence redirects the same incident to a Clean Boots visit.",
   "technology": "HFC",
   "priority": "P2",
-  "archetype": "Coastal City / Suburb",
+  "archetype": "Coastal city / suburb",
   "source": "customer_call",
   "valid": true,
   "common_cause": false,
@@ -70,5 +70,16 @@
   ],
   "expected_outcome": "One failed remote attempt, one Clean Boots visit, verified restoration.",
   "true_domain": "cpe",
-  "true_domain_basis": "on-site CPE replacement resolved what remote could not"
+  "true_domain_basis": "on-site CPE replacement resolved what remote could not",
+  "site_id": "PR-PON",
+  "municipio": "Ponce",
+  "region": "South coast",
+  "dirty_boots_base": {
+    "base_id": "BASE-PON",
+    "name": "Ponce field base",
+    "travel_minutes": 0,
+    "requires_ferry": false,
+    "same_day_feasible": true,
+    "assumed_location": true
+  }
 }

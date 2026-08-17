@@ -60,5 +60,16 @@
   ],
   "expected_outcome": "Guided self-help restores service with no truck roll.",
   "true_domain": "wifi_or_home",
-  "true_domain_basis": "guided self-help restored service"
+  "true_domain_basis": "guided self-help restored service",
+  "site_id": "PR-CAR",
+  "municipio": "Carolina",
+  "region": "San Juan metro",
+  "dirty_boots_base": {
+    "base_id": "BASE-CAG",
+    "name": "Caguas field base",
+    "travel_minutes": 53,
+    "requires_ferry": false,
+    "same_day_feasible": true,
+    "assumed_location": true
+  }
 }

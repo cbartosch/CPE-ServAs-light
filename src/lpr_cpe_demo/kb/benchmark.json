@@ -12,7 +12,10 @@
         "confidence": 0.93
       },
       "true_domain": "provisioning",
-      "note": "rules correct, easy"
+      "note": "rules correct, easy",
+      "site_id": "PR-BAY",
+      "municipio": "Bayamon",
+      "archetype": "metro"
     },
     {
       "case_id": "B-02",
@@ -23,7 +26,10 @@
         "confidence": 0.88
       },
       "true_domain": "cpe",
-      "note": "rules correct, easy"
+      "note": "rules correct, easy",
+      "site_id": "PR-CAR",
+      "municipio": "Carolina",
+      "archetype": "metro"
     },
     {
       "case_id": "B-03",
@@ -34,7 +40,10 @@
         "confidence": 0.91
       },
       "true_domain": "wifi_or_home",
-      "note": "rules correct, easy"
+      "note": "rules correct, easy",
+      "site_id": "PR-GUY",
+      "municipio": "Guaynabo",
+      "archetype": "metro"
     },
     {
       "case_id": "B-04",
@@ -45,7 +54,10 @@
         "confidence": 0.86
       },
       "true_domain": "hfc_tap",
-      "note": "rules WRONG: multi-subscriber ingress is tap, not drop"
+      "note": "rules WRONG: multi-subscriber ingress is tap, not drop",
+      "site_id": "PR-ARE",
+      "municipio": "Arecibo",
+      "archetype": "coastal"
     },
     {
       "case_id": "B-05",
@@ -56,7 +68,10 @@
         "confidence": 0.84
       },
       "true_domain": "drop",
-      "note": "rules correct, hard boundary"
+      "note": "rules correct, hard boundary",
+      "site_id": "PR-MAN",
+      "municipio": "Manati",
+      "archetype": "coastal"
     },
     {
       "case_id": "B-06",
@@ -67,7 +82,10 @@
         "confidence": 0.81
       },
       "true_domain": "hfc_tap",
-      "note": "rules WRONG: measured low AT the tap"
+      "note": "rules WRONG: measured low AT the tap",
+      "site_id": "PR-PON",
+      "municipio": "Ponce",
+      "archetype": "coastal"
     },
     {
       "case_id": "B-07",
@@ -78,7 +96,10 @@
         "confidence": 0.79
       },
       "true_domain": "drop",
-      "note": "rules correct, hard boundary"
+      "note": "rules correct, hard boundary",
+      "site_id": "PR-CAG",
+      "municipio": "Caguas",
+      "archetype": "metro"
     },
     {
       "case_id": "B-08",
@@ -89,7 +110,10 @@
         "confidence": 0.96
       },
       "true_domain": "shared_network",
-      "note": "rules correct, easy"
+      "note": "rules correct, easy",
+      "site_id": "PR-SJU",
+      "municipio": "San Juan",
+      "archetype": "metro"
     },
     {
       "case_id": "B-09",
@@ -100,7 +124,10 @@
         "confidence": 0.9
       },
       "true_domain": "plant",
-      "note": "rules correct, easy"
+      "note": "rules correct, easy",
+      "site_id": "PR-UTU",
+      "municipio": "Utuado",
+      "archetype": "mountain"
     },
     {
       "case_id": "B-10",
@@ -111,7 +138,10 @@
         "confidence": 0.92
       },
       "true_domain": "provisioning",
-      "note": "rules correct, easy"
+      "note": "rules correct, easy",
+      "site_id": "PR-MAY",
+      "municipio": "Mayaguez",
+      "archetype": "coastal"
     },
     {
       "case_id": "B-11",
@@ -122,7 +152,10 @@
         "confidence": 0.87
       },
       "true_domain": "cpe",
-      "note": "rules correct, easy"
+      "note": "rules correct, easy",
+      "site_id": "PR-AGU",
+      "municipio": "Aguadilla",
+      "archetype": "coastal"
     },
     {
       "case_id": "B-12",
@@ -133,7 +166,10 @@
         "confidence": 0.85
       },
       "true_domain": "drop",
-      "note": "rules correct, hard boundary"
+      "note": "rules correct, hard boundary",
+      "site_id": "PR-CAB",
+      "municipio": "Cabo Rojo",
+      "archetype": "coastal"
     },
     {
       "case_id": "B-13",
@@ -144,7 +180,10 @@
         "confidence": 0.83
       },
       "true_domain": "pon_odp",
-      "note": "rules WRONG: group behind one ODP port"
+      "note": "rules WRONG: group behind one ODP port",
+      "site_id": "PR-VQS",
+      "municipio": "Vieques",
+      "archetype": "remote_island"
     },
     {
       "case_id": "B-14",
@@ -155,7 +194,10 @@
         "confidence": 0.94
       },
       "true_domain": "pon_odp",
-      "note": "rules correct, easy"
+      "note": "rules correct, easy",
+      "site_id": "PR-CUL",
+      "municipio": "Culebra",
+      "archetype": "remote_island"
     },
     {
       "case_id": "B-15",
@@ -166,7 +208,10 @@
         "confidence": 0.8
       },
       "true_domain": "pon_odp",
-      "note": "rules WRONG: loss measured AT the ODP"
+      "note": "rules WRONG: loss measured AT the ODP",
+      "site_id": "PR-JAY",
+      "municipio": "Jayuya",
+      "archetype": "mountain"
     },
     {
       "case_id": "B-16",
@@ -177,7 +222,10 @@
         "confidence": 0.86
       },
       "true_domain": "drop",
-      "note": "rules correct, hard boundary"
+      "note": "rules correct, hard boundary",
+      "site_id": "PR-LMA",
+      "municipio": "Las Marias",
+      "archetype": "mountain"
     },
     {
       "case_id": "B-17",
@@ -188,7 +236,10 @@
         "confidence": 0.93
       },
       "true_domain": "plant",
-      "note": "rules correct, easy"
+      "note": "rules correct, easy",
+      "site_id": "PR-HUM",
+      "municipio": "Humacao",
+      "archetype": "coastal"
     },
     {
       "case_id": "B-18",
@@ -199,7 +250,10 @@
         "confidence": 0.9
       },
       "true_domain": "wifi_or_home",
-      "note": "rules correct, easy"
+      "note": "rules correct, easy",
+      "site_id": "PR-GUA",
+      "municipio": "Guayama",
+      "archetype": "coastal"
     }
   ]
 }

@@ -1,5 +1,51 @@
 # Changelog
 
+## 1.4.0 - location-specific use cases and the service footprint
+
+### Added
+- `src/lpr_cpe_demo/geography.py`: 23 in-footprint sites across the four planning
+  archetypes, 7 dispatch bases, haversine distance, an archetype-aware road
+  travel model, and ferry legs from Fajardo to Vieques and Culebra.
+  `select_base` filters on crew type, skills and van stock before ordering by
+  travel time, so a nearer base without a splice kit is not a candidate.
+- `scripts/generate_footprint_map.py` and
+  `src/lpr_cpe_demo/ui/assets/footprint_map.svg`: schematic map generated from
+  the same data the dispatch model uses, so the two cannot drift apart.
+- `src/lpr_cpe_demo/ui/pages/footprint.py`: map, base table, and a per-site
+  travel calculator showing staging base, legs, ferry dependency and whether the
+  work fits one shift.
+- `tests/test_geography.py`: 33 tests, including one that fails if the map was
+  not regenerated after the site or base data changed.
+- `site_id`, `municipio`, `region` and a computed `dirty_boots_base` on all nine
+  workflow scenarios; `site_id`, `municipio` and `archetype` on all 18 benchmark
+  cases.
+
+### Scope, verified
+- The fixed HFC and PON footprint is Puerto Rico: 78 municipios, including the
+  island municipios of Vieques and Culebra. U.S. Virgin Islands sites are
+  modelled but flagged `in_cpe_footprint=False`, because LPR serves USVI for
+  mobile while USVI fixed broadband sits with a separate entity following the
+  Broadband VI acquisition.
+
+### Assumed, and labelled as such
+- **Every dispatch base is an assumption.** Liberty does not publish
+  operations-centre locations. Each base carries `assumed=True`, the map says
+  ASSUMED in its subtitle, the Streamlit page opens with a warning, and a test
+  asserts the flag. The only externally supported anchor is a core platform site
+  in San Juan. Replace `DISPATCH_BASES` with real facility data, crew rosters and
+  van stock before any operational use.
+- Municipio coordinates are approximate centroids and the coastline is a
+  simplified polygon. Adequate for orientation and relative travel time, not for
+  survey use.
+
+### Effect on the scenarios
+- Vieques is staged from Fajardo at 155 minutes one way and is marginally
+  same-day feasible. Culebra at 210 minutes is **not**, so `pon_reverse_handover`
+  now carries an explicit overnight or pre-positioned-crew constraint.
+- Maricao needs a base 109 minutes away when a splice kit is required, against
+  43 minutes when it is not, which is the parts constraint visibly outranking
+  proximity.
+
 ## 1.3.0 - make the model and retrieval contribution measurable
 
 ### Added

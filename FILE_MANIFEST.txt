@@ -53,6 +53,7 @@ scripts/check_langgraph_runtime.py
 scripts/check_mcp_service_versions.py
 scripts/check_postgres_resume.py
 scripts/check_streamlit_runtime.py
+scripts/generate_footprint_map.py
 scripts/install-host-ca.ps1
 scripts/install-host-ca.sh
 scripts/preflight.py
@@ -91,6 +92,7 @@ src/lpr_cpe_demo/fixtures/hfc_self_help_success.json
 src/lpr_cpe_demo/fixtures/pon_odp_handover.json
 src/lpr_cpe_demo/fixtures/pon_reverse_handover.json
 src/lpr_cpe_demo/fixtures/rca_disagreement_gate.json
+src/lpr_cpe_demo/geography.py
 src/lpr_cpe_demo/kb/benchmark.json
 src/lpr_cpe_demo/kb/prior_cases.json
 src/lpr_cpe_demo/llm/__init__.py
@@ -107,11 +109,13 @@ src/lpr_cpe_demo/persistence/repository.py
 src/lpr_cpe_demo/retrieval.py
 src/lpr_cpe_demo/ui/__init__.py
 src/lpr_cpe_demo/ui/app.py
+src/lpr_cpe_demo/ui/assets/footprint_map.svg
 src/lpr_cpe_demo/ui/client.py
 src/lpr_cpe_demo/ui/common.py
 src/lpr_cpe_demo/ui/pages/__init__.py
 src/lpr_cpe_demo/ui/pages/cockpit.py
 src/lpr_cpe_demo/ui/pages/decisions.py
+src/lpr_cpe_demo/ui/pages/footprint.py
 src/lpr_cpe_demo/ui/pages/incident.py
 src/lpr_cpe_demo/ui/pages/model_monitor.py
 src/lpr_cpe_demo/ui/pages/scenarios.py
@@ -126,6 +130,7 @@ tests/conftest.py
 tests/test_api.py
 tests/test_assets.py
 tests/test_controls.py
+tests/test_geography.py
 tests/test_llm_boundary.py
 tests/test_mcp_controls.py
 tests/test_mcp_http.py
