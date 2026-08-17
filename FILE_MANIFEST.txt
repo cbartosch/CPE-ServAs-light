@@ -82,6 +82,7 @@ src/lpr_cpe_demo/__init__.py
 src/lpr_cpe_demo/ab_metrics.py
 src/lpr_cpe_demo/api/__init__.py
 src/lpr_cpe_demo/api/main.py
+src/lpr_cpe_demo/benchmarks.py
 src/lpr_cpe_demo/config.py
 src/lpr_cpe_demo/controls.py
 src/lpr_cpe_demo/domain.py
@@ -138,6 +139,7 @@ tests/__init__.py
 tests/conftest.py
 tests/test_api.py
 tests/test_assets.py
+tests/test_benchmarks.py
 tests/test_bundle_integrity.py
 tests/test_controls.py
 tests/test_fault_generator.py

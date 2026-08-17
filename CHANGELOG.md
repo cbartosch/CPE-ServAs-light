@@ -1,5 +1,62 @@
 # Changelog
 
+## 1.9.0 - anchor truck roll cost on a third-party benchmark
+
+### Added
+- `src/lpr_cpe_demo/benchmarks.py`: the AEX published bands for fully loaded
+  truck roll cost, with the source URL, retrieval date, and the inclusion and
+  exclusion lists the source states. Low $125-175, mid $175-250, high $250-350,
+  each with the operational profile behind it. Rural uplift 15-25%, midpoint
+  taken. `band_for_profile` infers a band from an operator's own first-visit
+  completion rate.
+- `tests/test_benchmarks.py`: 22 tests.
+- Benchmark figures on every generated fault, and a benchmark cross-check panel
+  on the Fault Simulator page with the citation.
+
+### Why
+`effort.RATES` built cost from assumed labour rates, producing figures nobody
+could check. The bands are published and attributable, so a number can now be
+defended or disputed on its source rather than on my arithmetic.
+
+### What the reconciliation showed
+The bottom-up model was wrong in both directions:
+
+| site | domain | bottom-up | benchmark | ratio |
+|---|---|---|---|---|
+| Bayamon | hfc_tap | $125 | $212 | 0.6x |
+| Arecibo | hfc_tap | $354 | $212 | 1.7x |
+| Utuado | hfc_tap | $330 | $255 | 1.3x |
+| Vieques | pon_odp | $970 | $655 | 1.5x |
+| Culebra | pon_odp | $1,071 | $655 | 1.6x |
+
+Too high on coastal, mountain and island work; too low in metro, where a hub is
+co-located and the bottom-up model bills almost no travel. The household-weighted
+blend now lands at about $219 per wasted dispatch, inside the published $150-300
+range.
+
+### Two limits kept explicit
+- The bands are for **fiber operators** and the source frames first-visit
+  completion around installs. LPR CPE fault work is repair, so the bands are an
+  analogue rather than like-for-like.
+- The benchmark does not contemplate a ferry crossing or an overnight stay.
+  `island_adder_usd` holds that separately and `within_benchmark_scope` is False
+  for island work, so the cited range is never silently inflated. A test asserts
+  it.
+
+### Avoided wasted truck rolls, per 1,000 incidents
+Using the archetype model's own truck-roll and no-fault-found rates
+(45 wasted rolls per 1,000) and the benchmark blend of $219:
+
+| attributable to misclassification | recall 100% | 75% | 50% |
+|---|---|---|---|
+| 25% | 11 rolls, $2,480 | 9, $1,860 | 6, $1,240 |
+| 40% | 18 rolls, $3,968 | 14, $2,976 | 9, $1,984 |
+| 50% | 23 rolls, $4,960 | 17, $3,720 | 11, $2,480 |
+| 60% | 27 rolls, $5,953 | 20, $4,464 | 14, $2,976 |
+
+Both parameters are unknown. The 100% recall column comes from a harness scoring
+1.0 on 18 cases I wrote myself and should not be planned against.
+
 ## 1.8.0 - fault simulator: cost and location of intervention in the GUI
 
 ### Added

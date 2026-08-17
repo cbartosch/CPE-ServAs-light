@@ -35,6 +35,7 @@ import random
 from dataclasses import dataclass, field
 from typing import Iterable, Literal
 
+from .benchmarks import roll_cost, wasted_visit_cost
 from .effort import EffortLedger, false_negative_cost, simulate_resolution
 from .geography import SITE_BY_ID, Site, select_base, sites_in_cpe_footprint
 from .plant import (DOMAIN_TO_KIND, PLANT_ASSUMPTIONS, blast_radius, chain_for,
@@ -124,6 +125,14 @@ class GeneratedFault:
     total_cost_usd: float
     truck_rolls: int
     misdispatch_cost_usd: float
+
+    # Benchmark-anchored figures, from AEX's published bands rather than the
+    # bottom-up labour build-up. `benchmark_in_scope` is False for island work,
+    # which the published range does not contemplate.
+    benchmark_per_dispatch_usd: float = 0.0
+    benchmark_per_completed_usd: float = 0.0
+    benchmark_wasted_usd: float = 0.0
+    benchmark_in_scope: bool = True
     ledger_rows: tuple[dict[str, object], ...] = field(default_factory=tuple)
 
     @property
@@ -205,6 +214,7 @@ def generate_faults(count: int = 25, *, seed: int = 20260817,
             incident_id=f"SIM-{index + 1:04d}", site_id=site.site_id,
             technology=technology, true_domain=domain)
         missed = false_negative_cost(site.site_id, domain)
+        rc = roll_cost(site.archetype, technology, island=site.island)
 
         faults.append(GeneratedFault(
             fault_id=f"SIM-{index + 1:04d}",
@@ -227,6 +237,11 @@ def generate_faults(count: int = 25, *, seed: int = 20260817,
             total_minutes=ledger.total_minutes, total_cost_usd=ledger.total_cost,
             truck_rolls=ledger.truck_rolls,
             misdispatch_cost_usd=round(ledger.total_cost + missed.cost_usd, 2),
+            benchmark_per_dispatch_usd=rc.per_dispatch_usd,
+            benchmark_per_completed_usd=rc.per_completed_usd,
+            benchmark_wasted_usd=wasted_visit_cost(site.archetype, technology,
+                                                   island=site.island),
+            benchmark_in_scope=rc.within_benchmark_scope,
             ledger_rows=tuple(ledger.as_rows()),
         ))
     return faults
@@ -252,6 +267,9 @@ def summarise(faults: Iterable[GeneratedFault]) -> dict[str, object]:
         "households_affected": sum(f.households_affected for f in items),
         "misdispatch_exposure_usd": round(
             sum(f.misdispatch_premium_usd for f in items), 2),
+        "benchmark_wasted_exposure_usd": round(
+            sum(f.benchmark_wasted_usd for f in items if f.truck_rolls), 2),
+        "outside_benchmark_scope": sum(1 for f in items if not f.benchmark_in_scope),
         "off_premise_interventions": sum(
             1 for f in items if not f.intervention_is_at_premise),
     }

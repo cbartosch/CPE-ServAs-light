@@ -15,6 +15,7 @@ import pathlib
 
 import streamlit as st
 
+from lpr_cpe_demo.benchmarks import BANDS, citation
 from lpr_cpe_demo.effort import assumptions, false_positive_cost
 from lpr_cpe_demo.fault_generator import generate_faults, summarise
 from lpr_cpe_demo.geo_layers import (COST_BANDS, FAULT_TOOLTIP, INITIAL_VIEW,
@@ -96,6 +97,16 @@ def render() -> None:
     i.metric("Overnight jobs", stats["overnight_jobs"],
              help="Round trip plus on-site work exceeds one shift.")
 
+    st.info(
+        f"**Benchmark cross-check.** Summing the third-party per-dispatch cost over "
+        f"the {stats['truck_rolls']} truck rolls above gives "
+        f"${stats['benchmark_wasted_exposure_usd']:,.0f} if every one were wasted. "
+        f"{stats['outside_benchmark_scope']} fault(s) fall outside the published "
+        f"range because island work involves a ferry crossing and an overnight, "
+        f"which the source does not contemplate.\n\n{citation()}",
+        icon="📊",
+    )
+
     st.error(
         f"**Misdispatch exposure: ${stats['misdispatch_exposure_usd']:,.0f}.** "
         f"That is the additional cost if every one of these faults were sent to "
@@ -160,5 +171,15 @@ def render() -> None:
                   delta=f"+${fault.misdispatch_premium_usd:,.2f}",
                   delta_color="inverse")
 
-    with st.expander("Assumptions behind these figures"):
+    with st.expander("Assumptions and benchmark source"):
+        st.write("**Bottom-up model** — assumed labour rates and durations:")
         st.json(assumptions())
+        st.write("**Third-party benchmark** — published bands per dispatched visit:")
+        st.json({band: BANDS[band] for band in BANDS})
+        st.caption(citation())
+        st.caption(
+            "Reconciliation: the bottom-up model runs 1.3 to 1.7 times the "
+            "benchmark on coastal, mountain and island work, and about 0.6 times "
+            "it in metro where a hub is co-located and travel is near zero. The "
+            "household-weighted blend lands at roughly $219 per wasted dispatch, "
+            "inside the published $150 to $300 range.")
