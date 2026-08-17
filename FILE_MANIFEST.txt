@@ -36,6 +36,7 @@ docs/SECURITY.md
 docs/SECURITY_CONTROLS.md
 docs/TEST_REPORT.md
 docs/WORKFLOW.md
+docs/control_tower.html
 pyproject.toml
 reference/CPE_Service_Assurance_Architecture.docx
 reference/CPE_demo_spec_audit_and_changes.md
@@ -56,6 +57,7 @@ scripts/check_langgraph_runtime.py
 scripts/check_mcp_service_versions.py
 scripts/check_postgres_resume.py
 scripts/check_streamlit_runtime.py
+scripts/generate_control_tower_html.py
 scripts/generate_footprint_map.py
 scripts/generate_landmark_band.py
 scripts/install-host-ca.ps1
@@ -104,6 +106,7 @@ src/lpr_cpe_demo/fixtures/pon_reverse_handover.json
 src/lpr_cpe_demo/fixtures/rca_disagreement_gate.json
 src/lpr_cpe_demo/geo_layers.py
 src/lpr_cpe_demo/geography.py
+src/lpr_cpe_demo/html_charts.py
 src/lpr_cpe_demo/kb/benchmark.json
 src/lpr_cpe_demo/kb/prior_cases.json
 src/lpr_cpe_demo/llm/__init__.py
@@ -160,6 +163,7 @@ tests/test_dashboard.py
 tests/test_fault_generator.py
 tests/test_geo_layers.py
 tests/test_geography.py
+tests/test_html_report.py
 tests/test_llm_boundary.py
 tests/test_mcp_controls.py
 tests/test_mcp_http.py

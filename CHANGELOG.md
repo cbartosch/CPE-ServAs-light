@@ -1,5 +1,58 @@
 # Changelog
 
+## 1.14.0 - the control tower as a standalone drill-down HTML page
+
+### Added
+- `scripts/generate_control_tower_html.py` and `docs/control_tower.html`: the
+  control tower as **one self-contained file**. No Docker, no Streamlit, no pip, no
+  server. It opens from a USB stick.
+- `src/lpr_cpe_demo/html_charts.py`: donut, stacked bars, grouped bars, lines and
+  an inline meter, all computed as SVG markup.
+- `tests/test_html_report.py`: 22 tests.
+- A download button on the Streamlit Control Tower page.
+
+### Zero external requests, asserted not assumed
+A CDN script tag is the normal way to get charts and is exactly what fails on a
+network that blocks outbound traffic — the failure mode that has cost this project
+the most time. So every chart is hand-computed SVG, styles are inline, and a test
+asserts there is no `script src`, `link href`, `img src`, `@import` or `@font-face`
+pointing outward. Verified: **0 external resource references.**
+
+### Drill levels
+    overview            KPI tiles, one card per panel
+    #/panel/<key>       the panel in full plus its data-contract requirements
+    #/incident/<id>     plant chain, dispatch facts, and the effort ledger
+    #/contract          all 31 fields, each with its source system and status
+
+Routing is hash-based, so browser back and forward work and any level can be
+linked or bookmarked. Rows are keyboard reachable with `tabindex` and `role="link"`,
+and Enter drills.
+
+### Provenance travels with the data
+Every drill level shows the same computed, assumed or synthetic chip as the
+overview, and a test asserts it. A number that loses its caveat on the way down is
+worse than one that never carried it: the deeper view is the one someone
+screenshots. The synthetic panel still says SHAPE ONLY at drill level, and every
+incident body repeats that the rates are assumed.
+
+### Chart edge cases handled, because SVG fails silently
+- A single 100% slice renders as a ring, since an arc path cannot express 360
+  degrees.
+- A zero slice is skipped rather than emitting a degenerate path.
+- A `None` value renders as "no observation" rather than as zero.
+- A test asserts nothing is drawn outside the viewBox across four chart types with
+  long labels and six series, because an off-canvas label produces no error.
+- Labels and table cells are escaped; inline SVG passes through deliberately.
+
+### Reproducibility
+The footer records the seed and incident count. A test regenerates the page twice
+and asserts byte equality apart from the timestamp, and a second test fails if the
+committed page has drifted from the current model.
+
+353 stdlib tests pass. The page has not been opened in a browser here: structure,
+payload, drill-target resolution and geometry are verified programmatically, but no
+rendering engine has laid it out.
+
 ## 1.13.2 - deep audit of code, logic and output: three defects fixed
 
 Report: `docs/AUDIT_DEEP_v1.13.2.md`. Five passes: mathematics against external

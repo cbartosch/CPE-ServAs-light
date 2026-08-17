@@ -11,6 +11,8 @@ up quoted in a steering committee.
 
 from __future__ import annotations
 
+import pathlib
+
 import streamlit as st
 
 from lpr_cpe_demo.benchmarks import citation
@@ -195,6 +197,15 @@ def render() -> None:
     st.dataframe(contract.data, hide_index=True, use_container_width=True)
     st.caption("A panel marked blocked is not a caveat: the named source system "
                "is the work item that closes it.")
+
+    html_path = pathlib.Path(__file__).resolve().parents[3].parent / "docs" / "control_tower.html"
+    if html_path.exists():
+        st.download_button(
+            "Download the standalone drill-down HTML",
+            data=html_path.read_bytes(), file_name="control_tower.html",
+            mime="text/html",
+            help="One file, no server, no network. Opens from a USB stick and "
+                 "drills from a panel to an incident to its effort ledger.")
 
     with st.expander("Provenance, and what would make each panel real"):
         for block in dash.blocks:
