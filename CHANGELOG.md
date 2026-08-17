@@ -1,5 +1,43 @@
 # Changelog
 
+## 1.8.0 - fault simulator: cost and location of intervention in the GUI
+
+### Added
+- `src/lpr_cpe_demo/fault_generator.py`: seeded synthetic fault generation with
+  jittered coordinates for the household, the delimiter and the intervention
+  point, plus a full effort ledger and misdispatch exposure per fault.
+- `src/lpr_cpe_demo/ui/pages/simulator.py`: new **Fault Simulator & Cost** page.
+  Cost metrics, a map with pins at the intervention point, a cost-ranked table and
+  a per-fault effort ledger. Controls for fault count, seed, dispatch routes and a
+  plant-interventions-only filter.
+- Fault layers in `geo_layers.py`: pins coloured and sized by cost, grey links
+  from a household to its tap or ODP when the work happens elsewhere, and dispatch
+  routes from the hub through the ferry terminal where applicable.
+- `tests/test_fault_generator.py`: 31 tests.
+
+### Two modelling points this makes visible
+- **The intervention location is not the customer address.** A CPE or in-home
+  fault is worked at the premise; a tap or ODP fault is worked at the tap or ODP,
+  which is a different place, a different crew, and several households. The grey
+  link on the map is that distinction drawn.
+- **Fault density follows households, not municipios.** Sampling sites uniformly
+  would give Culebra as many faults as San Juan. Weighting by modelled household
+  count puts about 89 of 400 faults in San Juan and 1 in Culebra, so the metro
+  dominates volume while the islands dominate unit cost.
+
+### Reproducibility
+- Everything derives from an explicit seed, verified to survive a process restart,
+  so a figure quoted in a demo can be reproduced afterwards.
+- Coordinate jitter is hashed from the element identifier rather than drawn from
+  the RNG, so a given tap sits in the same place across every seed and sample
+  size. A test asserts this across five seeds and 300 faults.
+
+### Notes
+- All costs remain assumed. The page opens with a warning and exposes
+  `effort.assumptions()` in an expander.
+- The page falls back to the offline SVG schematic if pydeck is unavailable,
+  without fault pins.
+
 ## 1.7.0 - plant topology, dispatch effort, and the cost of gate errors
 
 Answers "show the time and effort expended if remote fix does not work, and the

@@ -86,6 +86,7 @@ src/lpr_cpe_demo/config.py
 src/lpr_cpe_demo/controls.py
 src/lpr_cpe_demo/domain.py
 src/lpr_cpe_demo/effort.py
+src/lpr_cpe_demo/fault_generator.py
 src/lpr_cpe_demo/fixtures/__init__.py
 src/lpr_cpe_demo/fixtures/bounded_remote_failure.json
 src/lpr_cpe_demo/fixtures/hfc_common_cause.json
@@ -126,6 +127,7 @@ src/lpr_cpe_demo/ui/pages/footprint.py
 src/lpr_cpe_demo/ui/pages/incident.py
 src/lpr_cpe_demo/ui/pages/model_monitor.py
 src/lpr_cpe_demo/ui/pages/scenarios.py
+src/lpr_cpe_demo/ui/pages/simulator.py
 src/lpr_cpe_demo/ui/pages/system.py
 src/lpr_cpe_demo/workflow/__init__.py
 src/lpr_cpe_demo/workflow/engine.py
@@ -138,6 +140,7 @@ tests/test_api.py
 tests/test_assets.py
 tests/test_bundle_integrity.py
 tests/test_controls.py
+tests/test_fault_generator.py
 tests/test_geo_layers.py
 tests/test_geography.py
 tests/test_llm_boundary.py

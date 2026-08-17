@@ -205,6 +205,145 @@ def layer_specs(*, route_path: dict[str, Any] | None = None,
     return layers
 
 
+# Cost bands for fault pins, USD. Colour carries cost so an expensive job is
+# visible without reading the table.
+COST_BANDS: tuple[tuple[float, list[int], str], ...] = (
+    (100.0, [24, 168, 175, 220], "under 100"),
+    (400.0, [143, 125, 98, 230], "100 to 400"),
+    (900.0, [180, 110, 60, 235], "400 to 900"),
+    (float("inf"), [168, 60, 50, 245], "over 900"),
+)
+
+
+def cost_colour(cost_usd: float) -> list[int]:
+    for ceiling, rgba, _ in COST_BANDS:
+        if cost_usd < ceiling:
+            return rgba
+    return list(COST_BANDS[-1][1])
+
+
+def cost_radius(cost_usd: float) -> int:
+    """Area roughly proportional to cost, floored so cheap jobs stay visible."""
+    return int(900 + 90 * (max(cost_usd, 40.0) ** 0.5))
+
+
+def fault_records(faults) -> list[dict[str, object]]:
+    """Pins at the INTERVENTION point, not the customer address."""
+    out = []
+    for f in faults:
+        out.append({
+            "fault_id": f.fault_id,
+            "municipio": f.municipio,
+            "technology": f.technology,
+            "domain": f.true_domain,
+            "priority": f.priority,
+            "intervention_kind": f.intervention_kind,
+            "intervention_id": f.intervention_id,
+            "at": "premise" if f.intervention_is_at_premise else "plant",
+            "households": f.households_affected,
+            "crew": f.crew_type,
+            "base": f.base_id.replace("BASE-", ""),
+            "minutes": f.total_minutes,
+            "cost": f.total_cost_usd,
+            "cost_label": f"${f.total_cost_usd:,.0f}",
+            "if_missed": f.misdispatch_cost_usd,
+            "lat": f.intervention_lat,
+            "lon": f.intervention_lon,
+            "colour": cost_colour(f.total_cost_usd),
+            "radius": cost_radius(f.total_cost_usd),
+        })
+    return out
+
+
+def premise_link_records(faults) -> list[dict[str, object]]:
+    """Household to intervention point, drawn only when they differ.
+
+    This is the line that shows a tap fault is not worked at the address that
+    reported it.
+    """
+    out = []
+    for f in faults:
+        if f.intervention_is_at_premise:
+            continue
+        out.append({
+            "path": [[f.household_lon, f.household_lat],
+                     [f.intervention_lon, f.intervention_lat]],
+            "label": (f"{f.household_id} reported it; work happens at "
+                      f"{f.intervention_id} serving {f.households_affected} households"),
+            "colour": [120, 120, 120, 180],
+        })
+    return out
+
+
+def fault_route_records(faults) -> list[dict[str, object]]:
+    """Dispatch base to the intervention point, via the ferry terminal if islanded."""
+    out = []
+    for f in faults:
+        if f.truck_rolls == 0:
+            continue
+        base = next((b for b in DISPATCH_BASES if b.base_id == f.base_id), None)
+        if base is None:
+            continue
+        path = [[base.lon, base.lat]]
+        site = SITE_BY_ID[f.site_id]
+        if f.requires_ferry and site.ferry_from:
+            terminal = SITE_BY_ID[site.ferry_from]
+            path.append([terminal.lon, terminal.lat])
+        path.append([f.intervention_lon, f.intervention_lat])
+        out.append({
+            "path": path,
+            "label": (f"{f.fault_id}: {base.name} to {f.intervention_id}, "
+                      f"{f.travel_minutes} min each way"),
+            "colour": [12, 84, 87, 170],
+        })
+    return out
+
+
+def fault_layer_specs(faults, *, show_routes: bool = True,
+                      tile_url: str = TILE_URL) -> list[dict[str, object]]:
+    """Basemap, hubs, then the generated faults on top."""
+    layers: list[dict[str, object]] = [tile_layer(tile_url)]
+
+    layers.append({
+        "@@type": "PathLayer", "id": "premise_links", "data": premise_link_records(faults),
+        "getPath": "@@=path", "getColor": "@@=colour", "getWidth": 260,
+        "widthMinPixels": 1, "pickable": True,
+    })
+
+    if show_routes:
+        layers.append({
+            "@@type": "PathLayer", "id": "fault_routes",
+            "data": fault_route_records(faults),
+            "getPath": "@@=path", "getColor": "@@=colour", "getWidth": 500,
+            "widthMinPixels": 2, "pickable": True,
+        })
+
+    layers.append({
+        "@@type": "ScatterplotLayer", "id": "hubs", "data": hub_records(),
+        "getPosition": "@@=[lon, lat]", "getFillColor": "@@=colour",
+        "getRadius": "@@=radius", "radiusMinPixels": 7, "radiusMaxPixels": 18,
+        "stroked": True, "lineWidthMinPixels": 2,
+        "getLineColor": [252, 251, 250, 255], "pickable": True,
+    })
+
+    layers.append({
+        "@@type": "ScatterplotLayer", "id": "faults", "data": fault_records(faults),
+        "getPosition": "@@=[lon, lat]", "getFillColor": "@@=colour",
+        "getRadius": "@@=radius", "radiusMinPixels": 5, "radiusMaxPixels": 26,
+        "stroked": True, "lineWidthMinPixels": 1,
+        "getLineColor": [252, 251, 250, 230], "pickable": True,
+    })
+    return layers
+
+
+FAULT_TOOLTIP = {
+    "html": ("<b>{fault_id}</b> {priority}<br/>{municipio} — {technology}<br/>"
+             "domain: {domain}<br/>intervention: {intervention_id} ({at})<br/>"
+             "{households} household(s) affected<br/>{crew} boots from {base}<br/>"
+             "<b>{cost_label}</b> · {minutes} min"),
+    "style": {"backgroundColor": "#0C5457", "color": "white", "fontSize": "12px"},
+}
+
 SITE_TOOLTIP = {
     "html": "<b>{name}</b><br/>{region}<br/>{archetype}<br/>{technologies}",
     "style": {"backgroundColor": "#0C5457", "color": "white", "fontSize": "12px"},
