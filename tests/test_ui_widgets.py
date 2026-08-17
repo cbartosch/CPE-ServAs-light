@@ -319,3 +319,172 @@ class TestDeckConstruction(unittest.TestCase):
                     self.kind, self.kwargs = kind, kwargs
         kinds = [l.kind for l in self.build.hub_layers(Broken())]
         self.assertEqual(kinds, ["ScatterplotLayer", "ScatterplotLayer"])
+
+
+class TestNoUseBeforeAssignment(unittest.TestCase):
+    """Catch local names read before they are assigned.
+
+    This exists because of a real crash: `NameError: name 'router' is not defined`
+    in the simulator page. A v1.11.0 patch was meant to insert
+    `router = router_from_env()` but targeted the wrong indentation, so it silently
+    applied nothing. The name was then read three times.
+
+    `compileall` cannot catch it — the code is syntactically valid and Python only
+    resolves the name at runtime, which for a Streamlit page means when a human
+    opens it. `symtable` tells us which names are genuinely local to a scope, so
+    ordering can be checked against the AST without drowning in false positives.
+    """
+
+    IGNORED_SCOPES = {"lambda", "genexpr", "listcomp", "setcomp", "dictcomp"}
+
+    # Nodes that open a new scope. ast.walk descends into them, which would make
+    # a comprehension target look like a use-before-assignment in the enclosing
+    # function. This was a real false positive on theme_dark.contrast_report.
+    NESTED_SCOPES = (ast.FunctionDef, ast.AsyncFunctionDef, ast.Lambda,
+                     ast.ClassDef, ast.ListComp, ast.SetComp, ast.DictComp,
+                     ast.GeneratorExp)
+
+    @classmethod
+    def _walk_scope(cls, node: ast.AST):
+        """Walk this scope only, stopping at any node that opens a new one."""
+        for child in ast.iter_child_nodes(node):
+            # A nested def or lambda BINDS a name in this scope, so the node is
+            # yielded; its body is a different scope, so we do not descend.
+            yield child
+            if isinstance(child, cls.NESTED_SCOPES):
+                continue
+            yield from cls._walk_scope(child)
+
+    @classmethod
+    def _binding_lines(cls, fn: ast.AST) -> dict[str, int]:
+        """First line at which each local name is bound within this function."""
+        bound: dict[str, int] = {}
+
+        def note(name: str, lineno: int) -> None:
+            if name not in bound or lineno < bound[name]:
+                bound[name] = lineno
+
+        for node in cls._walk_scope(fn):
+            if isinstance(node, ast.Name) and isinstance(node.ctx, (ast.Store,
+                                                                   ast.Del)):
+                note(node.id, node.lineno)
+            elif isinstance(node, ast.arg):
+                note(node.arg, getattr(node, "lineno", 0))
+            elif isinstance(node, ast.alias):
+                note((node.asname or node.name).split(".")[0],
+                     getattr(node, "lineno", 0))
+            elif isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef,
+                                  ast.ClassDef)):
+                note(node.name, node.lineno)
+            elif isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef,
+                                  ast.ClassDef)):
+                note(node.name, node.lineno)
+            elif isinstance(node, ast.ExceptHandler) and node.name:
+                note(node.name, node.lineno)
+            elif isinstance(node, ast.NamedExpr) and isinstance(node.target, ast.Name):
+                note(node.target.id, node.lineno)
+        # the scope's own parameters and nested definition names
+        args = getattr(fn, "args", None)
+        if args is not None:
+            for group in (args.posonlyargs, args.args, args.kwonlyargs):
+                for a in group:
+                    note(a.arg, 0)
+            for a in (args.vararg, args.kwarg):
+                if a:
+                    note(a.arg, 0)
+        for child in ast.iter_child_nodes(fn):
+            if isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef,
+                                 ast.ClassDef)):
+                note(child.name, child.lineno)
+        return bound
+
+    def _offenders(self, path: pathlib.Path) -> list[str]:
+        import symtable
+        source = path.read_text()
+        tree = ast.parse(source)
+        table = symtable.symtable(source, str(path), "exec")
+
+        def find_scope(name: str, parent) -> Any:
+            for child in parent.get_children():
+                if child.get_name() == name:
+                    return child
+            return None
+
+        problems: list[str] = []
+
+        def check(fn: ast.AST, scope) -> None:
+            if scope is None or scope.get_type() in self.IGNORED_SCOPES:
+                return
+            locals_here = {s.get_name() for s in scope.get_symbols()
+                           if s.is_local() and not s.is_global()}
+            bound = self._binding_lines(fn)
+            first_use: dict[str, int] = {}
+            for node in self._walk_scope(fn):
+                if isinstance(node, ast.Name) and isinstance(node.ctx, ast.Load):
+                    if node.id in locals_here:
+                        first_use.setdefault(node.id, node.lineno)
+                        if node.lineno < first_use[node.id]:
+                            first_use[node.id] = node.lineno
+            for name, use_line in first_use.items():
+                bind_line = bound.get(name)
+                if bind_line is None:
+                    problems.append(
+                        f"{path.name}:{use_line} '{name}' is local but never bound")
+                elif use_line < bind_line:
+                    problems.append(
+                        f"{path.name}:{use_line} '{name}' read before it is "
+                        f"assigned on line {bind_line}")
+            for inner in ast.iter_child_nodes(fn):
+                if isinstance(inner, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                    check(inner, find_scope(inner.name, scope))
+
+        for node in tree.body:
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                check(node, find_scope(node.name, table))
+        return problems
+
+    def test_no_page_reads_a_local_before_assigning_it(self):
+        offenders: list[str] = []
+        for path in sorted(UI.rglob("*.py")):
+            offenders.extend(self._offenders(path))
+        self.assertFalse(offenders,
+                         "use before assignment:\n  " + "\n  ".join(offenders))
+
+    def test_the_checker_detects_a_planted_fault(self):
+        """Guards the guard: a checker that never fires is worthless."""
+        import tempfile
+        planted = ("def render():\n"
+                   "    total = subtotal + 1\n"
+                   "    subtotal = 2\n"
+                   "    return total\n")
+        with tempfile.TemporaryDirectory() as tmp:
+            path = pathlib.Path(tmp) / "planted.py"
+            path.write_text(planted)
+            found = self._offenders(path)
+        self.assertTrue(found, "checker failed to detect a planted fault")
+        self.assertIn("subtotal", found[0])
+
+
+class TestRoutingIsActuallyWired(unittest.TestCase):
+    """v1.11.0 tested the router and never reached it from the page."""
+
+    SIM = UI / "pages" / "simulator.py"
+
+    def test_the_page_builds_a_router(self):
+        self.assertIn("router_from_env()", self.SIM.read_text())
+
+    def test_the_router_is_passed_to_the_map(self):
+        tree = ast.parse(self.SIM.read_text())
+        calls = [n for n in ast.walk(tree)
+                 if isinstance(n, ast.Call)
+                 and getattr(n.func, "id", "") == "_render_map"]
+        self.assertTrue(calls, "_render_map is never called")
+        for call in calls:
+            kwargs = {k.arg for k in call.keywords}
+            self.assertIn("router", kwargs,
+                          "the map is rendered without a router, so routing is "
+                          "computed and then discarded")
+
+    def test_road_leg_records_receives_the_router(self):
+        text = self.SIM.read_text()
+        self.assertIn("road_leg_records(shown, router)", text)

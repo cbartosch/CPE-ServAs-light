@@ -1,5 +1,49 @@
 # Changelog
 
+## 1.13.1 - fix a use-before-assignment, and guard the class of bug
+
+### Fixed
+`NameError: name 'router' is not defined` on the Fault Simulator page.
+
+The cause is worse than the crash. A v1.11.0 patch was meant to insert
+`router = router_from_env()` and to pass the router to `_render_map`, but it
+targeted the wrong indentation and **silently applied nothing**. So the name was
+never bound, and the routing feature shipped, was tested, and was never reached by
+the page at all. I reported it as wired; it was not.
+
+`router` is now assigned once near the top of `render()` and passed to both
+`_render_map` and `road_leg_records`.
+
+### Added
+Two guards in `tests/test_ui_widgets.py`, bringing the file to 30 tests.
+
+**Use-before-assignment checker.** `compileall` cannot catch this: the code is
+valid and Python resolves the name at runtime, which for a Streamlit page means
+when a person opens it. The checker combines `symtable`, for which names are
+genuinely local to a scope, with AST line ordering. A companion test plants a
+fault and asserts the checker fires, because a checker that never fires is
+worthless.
+
+Getting it correct took two passes, both false positives worth recording:
+- Comprehension targets looked like use-before-assignment in the enclosing
+  function, because `ast.walk` descends into comprehension scopes. Fixed by
+  walking scope-aware.
+- Nested `def`s inside `with` or `if` blocks looked unbound, because the first fix
+  skipped scope-opening nodes entirely. A `def` binds a name in the enclosing
+  scope even though its body is a separate scope, so the node is now yielded
+  without descending into it.
+
+**Wiring test.** Asserts the page builds a router, passes it to `_render_map` as a
+keyword, and passes it to `road_leg_records`. A feature that is tested in isolation
+and never called from the page is indistinguishable from a feature that does not
+exist.
+
+### Note
+This is the third UI defect found by rendering rather than by testing. The first
+two were a widget bound and an unsupported pydeck call, both now guarded. The
+pattern is consistent: string-replace patches that fail to match do nothing and say
+nothing.
+
 ## 1.13.0 - a data contract for the dashboard, and instrumentation in the flow
 
 The control tower was populated by `fault_generator`, which invents incidents.

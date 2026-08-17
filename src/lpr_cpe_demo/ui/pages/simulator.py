@@ -79,6 +79,11 @@ def render() -> None:
                                       help="Faults worked away from the customer "
                                            "address: taps, ODPs, nodes, PON ports.")
 
+    # Assigned before any reader. v1.11.0 shipped a patch that silently failed to
+    # apply here, so the routing feature existed, was tested, and was never
+    # actually reached by this page.
+    router = router_from_env()
+
     faults = generate_faults(count, seed=int(seed))
     shown = [f for f in faults if not f.intervention_is_at_premise] if plant_only \
         else faults
@@ -124,7 +129,7 @@ def render() -> None:
         icon="💸",
     )
 
-    if not _render_map(shown, show_routes):
+    if not _render_map(shown, show_routes, router=router):
         svg = ASSETS / "footprint_map.svg"
         if svg.exists():
             st.image(str(svg), use_container_width=True)
