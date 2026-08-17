@@ -1,5 +1,47 @@
 # Changelog
 
+## 1.10.0 - OpenStreetMap actually renders, hubs read as depots, routes split into legs
+
+### Fixed
+- **The map never rendered.** Both pages called `pdk.Deck.from_json`, which the
+  installed pydeck does not provide, so every load failed with
+  `type object 'Deck' has no attribute 'from_json'` and dropped to the offline
+  schematic. Layers are now built with `pdk.Layer(...)` in a new
+  `ui/deck.py`, which is the supported API. Each layer is constructed
+  defensively: if one raises it is skipped and the rest still draw.
+- **Dollar signs were being eaten.** Streamlit renders markdown, and markdown
+  reads `$...$` as inline LaTeX, so "Headline range \$150 to \$300" rendered as
+  "Headline range 150 to 300" with the currency symbols gone and the numbers in a
+  maths font. New `ui/fmt.py` provides `usd()` for markdown contexts and
+  `usd_plain()` for `st.metric`, which does not render markdown.
+
+### Changed
+- **Hubs read as depots rather than blotches.** Three layers instead of one: a
+  white-filled ring with a dark edge, a filled core on very-high-likelihood hubs
+  only, and a `TextLayer` carrying the hub code above the marker.
+- **Dispatch routes are split by mode.** Road legs draw as `PathLayer` lines,
+  ferry legs as `ArcLayer` arcs over water, so the crossing is visually distinct
+  from the drive to the terminal.
+
+### Honest limit on "actual" routes
+Route legs are straight lines between hub, ferry terminal and intervention point.
+They are **not road geometry** — road-accurate routing needs a routing service
+this deployment does not call. `ROUTE_CAVEAT` states this on both pages. The
+travel *minutes* are not straight-line, though: they come from the archetype
+road-speed model with a detour factor, so the number is a better estimate than the
+drawn line implies.
+
+### Added
+- `tests/test_ui_widgets.py` grew to 23 tests, including a stub-pydeck harness
+  that exercises the real construction path: layer types, accessor names, draw
+  order, and that `map_provider` and `map_style` are None so deck.gl adds no
+  second basemap over OSM. One test asserts every `get_*` accessor names a field
+  that actually exists in its data, because a misnamed accessor renders nothing
+  and raises no error. Another asserts a failing layer is skipped rather than
+  killing the map.
+- Guards for both fixed bugs, verified by reintroducing each and confirming the
+  matching test fails with the file and line named.
+
 ## 1.9.1 - fix the seed input bound, and guard the whole widget class
 
 ### Fixed

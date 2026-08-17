@@ -20,10 +20,11 @@ import pathlib
 
 import streamlit as st
 
-from lpr_cpe_demo.geo_layers import (HUB_TOOLTIP, INITIAL_VIEW, OSM_ATTRIBUTION,
-                                     OSM_POLICY_URL, SITE_TOOLTIP, TILE_URL,
-                                     dispatch_route, ferry_arcs, hub_records,
-                                     layer_specs, marker_records, site_records)
+from lpr_cpe_demo.geo_layers import (OSM_ATTRIBUTION, OSM_POLICY_URL,
+                                     ROUTE_CAVEAT, TILE_URL,
+                                     dispatch_route, ferry_arcs,
+                                     hub_records, marker_records,
+                                     site_records)
 from lpr_cpe_demo.geography import (DISPATCH_BASES, SITE_BY_ID, assumed_bases,
                                     core_sites, ferry_terminals,
                                     sites_in_cpe_footprint)
@@ -53,34 +54,12 @@ def _renderers() -> list[str]:
 def _render_pydeck(route_path) -> None:
     import pydeck as pdk
 
-    st.pydeck_chart(
-        pdk.Deck(
-            layers=[pdk.Layer.from_json(spec) if hasattr(pdk.Layer, "from_json") else spec
-                    for spec in layer_specs(route_path=route_path)],
-            initial_view_state=pdk.ViewState(**INITIAL_VIEW),
-            # None on both, otherwise deck.gl loads a second basemap over OSM.
-            map_provider=None,
-            map_style=None,
-            tooltip=SITE_TOOLTIP,
-        ),
-        use_container_width=True,
-    )
+    from lpr_cpe_demo.geo_layers import SITE_TOOLTIP
+    from lpr_cpe_demo.ui import deck as deckbuild
 
-
-def _render_pydeck_json(route_path) -> None:
-    """Fallback path: hand deck.gl the raw JSON spec."""
-    import json
-
-    import pydeck as pdk
-
-    spec = {
-        "initialViewState": INITIAL_VIEW,
-        "layers": layer_specs(route_path=route_path),
-        "mapProvider": None,
-        "mapStyle": None,
-        "views": [{"@@type": "MapView", "controller": True}],
-    }
-    st.pydeck_chart(pdk.Deck.from_json(json.dumps(spec)), use_container_width=True)
+    layers = deckbuild.footprint_layers(pdk, route_path=route_path)
+    st.pydeck_chart(deckbuild.deck(pdk, layers, tooltip=SITE_TOOLTIP),
+                    use_container_width=True)
 
 
 def _render_folium(route_path) -> None:
@@ -179,18 +158,16 @@ def render() -> None:
         if renderer.endswith("(pydeck)"):
             try:
                 _render_pydeck(path)
-            except Exception:
-                # pydeck's Layer API varies by version; fall back to raw JSON.
-                try:
-                    _render_pydeck_json(path)
-                except Exception as exc:
-                    st.warning(f"pydeck failed ({exc}). Showing the offline schematic.")
-                    st.image(str(SVG), use_container_width=True)
+            except Exception as exc:
+                st.warning(f"pydeck could not render ({type(exc).__name__}: {exc}). "
+                           f"Showing the offline schematic.")
+                st.image(str(SVG), use_container_width=True)
         elif renderer.endswith("(folium)"):
             _render_folium(path)
         else:
             st.image(str(SVG), use_container_width=True)
 
+        st.caption(ROUTE_CAVEAT)
         st.caption(
             f"Basemap {OSM_ATTRIBUTION}. Tiles are fetched by your browser, not by the "
             f"container. The public OSM tile service has a usage policy "

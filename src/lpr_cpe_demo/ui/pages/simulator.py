@@ -18,33 +18,30 @@ import streamlit as st
 from lpr_cpe_demo.benchmarks import BANDS, citation
 from lpr_cpe_demo.effort import assumptions, false_positive_cost
 from lpr_cpe_demo.fault_generator import generate_faults, summarise
-from lpr_cpe_demo.geo_layers import (COST_BANDS, FAULT_TOOLTIP, INITIAL_VIEW,
-                                     OSM_ATTRIBUTION, fault_layer_specs,
-                                     fault_records)
+from lpr_cpe_demo.geo_layers import (COST_BANDS, FAULT_TOOLTIP,
+                                     OSM_ATTRIBUTION, OSM_POLICY_URL,
+                                     ROUTE_CAVEAT, fault_records)
+from lpr_cpe_demo.ui import deck as deckbuild
+from lpr_cpe_demo.ui.fmt import usd, usd_plain
 
 ASSETS = pathlib.Path(__file__).resolve().parents[1] / "assets"
 
 
 def _render_map(faults, show_routes: bool) -> bool:
+    """Real pydeck API. Returns False and reports why, rather than failing silently."""
     try:
-        import json
-
         import pydeck as pdk
-    except Exception:
+    except Exception as exc:
+        st.warning(f"pydeck is not installed ({exc}).")
         return False
-    spec = {
-        "initialViewState": INITIAL_VIEW,
-        "layers": fault_layer_specs(faults, show_routes=show_routes),
-        "mapProvider": None,
-        "mapStyle": None,
-        "views": [{"@@type": "MapView", "controller": True}],
-    }
     try:
-        st.pydeck_chart(pdk.Deck.from_json(json.dumps(spec)),
+        layers = deckbuild.fault_layers(pdk, faults, show_routes=show_routes)
+        st.pydeck_chart(deckbuild.deck(pdk, layers, tooltip=FAULT_TOOLTIP),
                         use_container_width=True)
         return True
     except Exception as exc:
-        st.warning(f"pydeck could not render ({exc}).")
+        st.warning(f"pydeck could not render ({type(exc).__name__}: {exc}). "
+                   f"Falling back to the offline schematic.")
         return False
 
 
@@ -85,8 +82,8 @@ def render() -> None:
 
     a, b, c, d, e = st.columns(5)
     a.metric("Faults", stats["faults"])
-    b.metric("Total cost", f"${stats['total_cost_usd']:,.0f}")
-    c.metric("Mean per fault", f"${stats['mean_cost_usd']:,.0f}")
+    b.metric("Total cost", usd_plain(float(stats["total_cost_usd"])))
+    c.metric("Mean per fault", usd_plain(float(stats["mean_cost_usd"])))
     d.metric("Truck rolls", stats["truck_rolls"])
     e.metric("Households affected", f"{stats['households_affected']:,}")
 
@@ -102,7 +99,7 @@ def render() -> None:
     st.info(
         f"**Benchmark cross-check.** Summing the third-party per-dispatch cost over "
         f"the {stats['truck_rolls']} truck rolls above gives "
-        f"${stats['benchmark_wasted_exposure_usd']:,.0f} if every one were wasted. "
+        f"{usd(float(stats['benchmark_wasted_exposure_usd']))} if every one were wasted. "
         f"{stats['outside_benchmark_scope']} fault(s) fall outside the published "
         f"range because island work involves a ferry crossing and an overnight, "
         f"which the source does not contemplate.\n\n{citation()}",
@@ -110,11 +107,11 @@ def render() -> None:
     )
 
     st.error(
-        f"**Misdispatch exposure: ${stats['misdispatch_exposure_usd']:,.0f}.** "
+        f"**Misdispatch exposure: {usd(float(stats['misdispatch_exposure_usd']))}.** "
         f"That is the additional cost if every one of these faults were sent to "
         f"the wrong crew first: a wasted visit plus a handover, before the correct "
         f"visit still has to happen. A false alarm on the RCA gate costs "
-        f"${false_positive_cost().cost_usd:,.2f} by comparison.",
+        f"{usd(false_positive_cost().cost_usd, decimals=2)} by comparison.",
         icon="💸",
     )
 
@@ -130,8 +127,12 @@ def render() -> None:
         f"Pin position is the **intervention point**, not the reporting address. "
         f"Grey lines join a household to its tap or ODP when the work happens "
         f"away from the premise. Pin size and colour carry cost: {legend} USD. "
-        f"Teal squares are assumed dispatch hubs. Basemap {OSM_ATTRIBUTION}."
+        f"Ringed markers with a code are assumed dispatch hubs; a filled centre "
+        f"marks a very-high-likelihood hub. Solid lines are road legs, arcs are "
+        f"ferry legs. Basemap {OSM_ATTRIBUTION}, tile policy at {OSM_POLICY_URL}."
     )
+
+    st.caption(ROUTE_CAVEAT)
 
     st.subheader("Cost by fault")
     rows = sorted(fault_records(shown), key=lambda r: -float(r["cost"]))
@@ -149,7 +150,7 @@ def render() -> None:
     chosen = st.selectbox("Fault", [f.fault_id for f in shown],
                           format_func=lambda fid: next(
                               f"{f.fault_id} — {f.municipio} — {f.true_domain} "
-                              f"— ${f.total_cost_usd:,.0f}"
+                              f"— {usd_plain(f.total_cost_usd)}"
                               for f in shown if f.fault_id == fid))
     fault = next(f for f in shown if f.fault_id == chosen)
 
@@ -168,9 +169,9 @@ def render() -> None:
             st.info("Ferry leg required.", icon="⛴")
         if not fault.same_day_feasible:
             st.error("Exceeds one shift.", icon="⏱")
-        st.metric("Cost", f"${fault.total_cost_usd:,.2f}")
-        st.metric("If misdispatched", f"${fault.misdispatch_cost_usd:,.2f}",
-                  delta=f"+${fault.misdispatch_premium_usd:,.2f}",
+        st.metric("Cost", usd_plain(fault.total_cost_usd, decimals=2))
+        st.metric("If misdispatched", usd_plain(fault.misdispatch_cost_usd, decimals=2),
+                  delta=f"+{usd_plain(fault.misdispatch_premium_usd, decimals=2)}",
                   delta_color="inverse")
 
     with st.expander("Assumptions and benchmark source"):
@@ -183,5 +184,5 @@ def render() -> None:
             "Reconciliation: the bottom-up model runs 1.3 to 1.7 times the "
             "benchmark on coastal, mountain and island work, and about 0.6 times "
             "it in metro where a hub is co-located and travel is near zero. The "
-            "household-weighted blend lands at roughly $219 per wasted dispatch, "
-            "inside the published $150 to $300 range.")
+            "household-weighted blend lands at roughly \\$219 per wasted dispatch, "
+            "inside the published \\$150 to \\$300 range.")

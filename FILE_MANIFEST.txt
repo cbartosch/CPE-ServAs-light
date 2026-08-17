@@ -121,6 +121,8 @@ src/lpr_cpe_demo/ui/app.py
 src/lpr_cpe_demo/ui/assets/footprint_map.svg
 src/lpr_cpe_demo/ui/client.py
 src/lpr_cpe_demo/ui/common.py
+src/lpr_cpe_demo/ui/deck.py
+src/lpr_cpe_demo/ui/fmt.py
 src/lpr_cpe_demo/ui/pages/__init__.py
 src/lpr_cpe_demo/ui/pages/cockpit.py
 src/lpr_cpe_demo/ui/pages/decisions.py

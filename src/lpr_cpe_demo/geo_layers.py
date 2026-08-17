@@ -83,6 +83,7 @@ def site_records() -> list[dict[str, Any]]:
             "island": s.island,
             "lat": s.lat,
             "lon": s.lon,
+            "position": [s.lon, s.lat],
             "colour": ARCHETYPE_RGBA[s.archetype],
             "radius": 2600 if s.island else 2000,
         })
@@ -101,6 +102,7 @@ def hub_records() -> list[dict[str, Any]]:
         "splice_kit": "yes" if "splice_kit" in b.van_stock else "no",
         "lat": b.lat,
         "lon": b.lon,
+        "position": [b.lon, b.lat],
         "colour": HUB_RGBA,
         # A very-high-likelihood hub reads larger, matching the filled marker in
         # the SVG schematic.
@@ -119,6 +121,7 @@ def marker_records() -> list[dict[str, Any]]:
         out.append({"name": s.municipio, "role": "Ferry terminal",
                     "detail": "Island work is driven here from a mainland hub",
                     "lat": s.lat, "lon": s.lon,
+                    "position": [s.lon, s.lat],
                     "colour": TERMINAL_RGBA, "radius": 4200})
     return out
 
@@ -249,6 +252,7 @@ def fault_records(faults) -> list[dict[str, object]]:
             "if_missed": f.misdispatch_cost_usd,
             "lat": f.intervention_lat,
             "lon": f.intervention_lon,
+            "position": [f.intervention_lon, f.intervention_lat],
             "colour": cost_colour(f.total_cost_usd),
             "radius": cost_radius(f.total_cost_usd),
         })
@@ -335,6 +339,113 @@ def fault_layer_specs(faults, *, show_routes: bool = True,
     })
     return layers
 
+
+# ------------------------------------------------------------- hub rendering
+# A single filled circle reads as a blotch at this zoom. A depot reads as a
+# white-filled ring with a dark core and its code above it, which is legible
+# against both land and water and stays distinguishable from a fault pin.
+HUB_RING_RGBA = [252, 251, 250, 255]
+HUB_EDGE_RGBA = [12, 84, 87, 255]
+HUB_CORE_RGBA = [12, 84, 87, 255]
+HUB_LABEL_RGBA = [12, 84, 87, 255]
+
+
+def hub_ring_records() -> list[dict[str, Any]]:
+    out = []
+    for b in DISPATCH_BASES:
+        very_high = b.likelihood == "very_high"
+        out.append({
+            "position": [b.lon, b.lat],
+            "short": b.base_id.replace("BASE-", ""),
+            "name": b.name,
+            "likelihood": b.likelihood.replace("_", " "),
+            "rationale": b.rationale,
+            "basis": b.basis,
+            "fill": HUB_RING_RGBA,
+            "edge": HUB_EDGE_RGBA,
+            # very-high hubs read larger, matching the SVG schematic
+            "radius": 4200 if very_high else 3200,
+            "edge_width": 3 if very_high else 2,
+        })
+    return out
+
+
+def hub_core_records() -> list[dict[str, Any]]:
+    """Filled centre only on very-high-likelihood hubs."""
+    return [{"position": [b.lon, b.lat], "colour": HUB_CORE_RGBA, "radius": 1500}
+            for b in DISPATCH_BASES if b.likelihood == "very_high"]
+
+
+def hub_label_records() -> list[dict[str, Any]]:
+    return [{"position": [b.lon, b.lat], "label": b.base_id.replace("BASE-", ""),
+             "colour": HUB_LABEL_RGBA} for b in DISPATCH_BASES]
+
+
+# ------------------------------------------------------------- route legs
+# Road and ferry legs are separated so the ferry hop is visually distinct: a road
+# leg is a line on the ground, a ferry leg is an arc over water.
+#
+# HONEST LIMIT: road legs are straight lines between hub, terminal and
+# intervention point. They are not road geometry. Road-accurate routing needs a
+# routing service (OSRM, Valhalla or a commercial API), which this container
+# cannot reach. The travel MINUTES are not straight-line, though: they come from
+# the archetype road-speed model with a detour factor, so the number is a better
+# estimate than the drawn line suggests.
+ROAD_LEG_RGBA = [12, 84, 87, 200]
+FERRY_LEG_RGBA = [143, 125, 98, 230]
+
+
+def road_leg_records(faults) -> list[dict[str, Any]]:
+    out = []
+    for f in faults:
+        if not f.truck_rolls:
+            continue
+        base = next((b for b in DISPATCH_BASES if b.base_id == f.base_id), None)
+        if base is None:
+            continue
+        site = SITE_BY_ID[f.site_id]
+        if f.requires_ferry and site.ferry_from:
+            terminal = SITE_BY_ID[site.ferry_from]
+            path = [[base.lon, base.lat], [terminal.lon, terminal.lat]]
+            label = (f"{f.fault_id} road leg: {base.name} to the "
+                     f"{terminal.municipio} ferry terminal")
+        else:
+            path = [[base.lon, base.lat], [f.intervention_lon, f.intervention_lat]]
+            label = (f"{f.fault_id} road leg: {base.name} to {f.intervention_id}, "
+                     f"{f.travel_minutes} min each way")
+        out.append({"path": path, "colour": ROAD_LEG_RGBA, "label": label,
+                    "straight_line": True})
+    return out
+
+
+def ferry_leg_records(faults) -> list[dict[str, Any]]:
+    out = []
+    for f in faults:
+        site = SITE_BY_ID[f.site_id]
+        if not (f.truck_rolls and f.requires_ferry and site.ferry_from):
+            continue
+        terminal = SITE_BY_ID[site.ferry_from]
+        out.append({
+            "source": [terminal.lon, terminal.lat],
+            "target": [f.intervention_lon, f.intervention_lat],
+            "colour": FERRY_LEG_RGBA,
+            "label": (f"{f.fault_id} ferry leg: {terminal.municipio} to "
+                      f"{f.municipio}, {f.travel_minutes} min total each way "
+                      f"including the mean wait for a sailing"),
+        })
+    return out
+
+
+ROUTE_CAVEAT = (
+    "Route legs are drawn as straight lines between hub, ferry terminal and "
+    "intervention point. They are not road geometry: road-accurate routing needs a "
+    "routing service this deployment does not call. Travel minutes are not "
+    "straight-line, though, and come from the archetype road-speed model with a "
+    "detour factor applied."
+)
+
+HUB_TOOLTIP_HTML = ("<b>{short} — {name}</b><br/>likelihood: {likelihood}<br/>"
+                    "{rationale}<br/><i>{basis}</i>")
 
 FAULT_TOOLTIP = {
     "html": ("<b>{fault_id}</b> {priority}<br/>{municipio} — {technology}<br/>"

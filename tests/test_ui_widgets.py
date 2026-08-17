@@ -15,9 +15,11 @@ from __future__ import annotations
 
 import ast
 import pathlib
+import sys
 import unittest
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / "src"))
 UI = ROOT / "src/lpr_cpe_demo/ui"
 
 BOUNDED_WIDGETS = {"number_input", "slider", "select_slider"}
@@ -126,3 +128,180 @@ class TestPageStructure(unittest.TestCase):
             if path.name == "__init__.py":
                 continue
             self.assertIn(path.stem, app, f"{path.stem} is not registered in app.py")
+
+
+class TestNoUnsupportedPydeckApi(unittest.TestCase):
+    """`pdk.Deck.from_json` does not exist in the installed pydeck.
+
+    Using it produced `type object 'Deck' has no attribute 'from_json'` at render
+    time and silently dropped the page to the offline schematic.
+    """
+
+    def test_from_json_is_not_called_anywhere(self):
+        for path in sorted(UI.rglob("*.py")):
+            for node in ast.walk(ast.parse(path.read_text())):
+                if isinstance(node, ast.Attribute) and node.attr == "from_json":
+                    self.fail(f"{path.name}:{node.lineno} calls from_json, "
+                              f"which the installed pydeck does not provide")
+
+
+class TestDollarSignsAreEscapedForMarkdown(unittest.TestCase):
+    """Streamlit renders markdown, and markdown reads `$...$` as inline LaTeX.
+
+    Two bare dollar signs in one string silently swallow the currency symbols and
+    typeset the text between them as maths. That is what turned the benchmark
+    citation into "Headline range 150 to 300".
+    """
+
+    MARKDOWN_CALLS = {"write", "markdown", "info", "warning", "error", "success",
+                      "caption", "subheader", "title"}
+
+    def _string_parts(self, node: ast.AST) -> list[str]:
+        parts = []
+        for sub in ast.walk(node):
+            if isinstance(sub, ast.Constant) and isinstance(sub.value, str):
+                parts.append(sub.value)
+        return parts
+
+    def test_no_bare_dollar_in_markdown_arguments(self):
+        offenders = []
+        for path in sorted(UI.rglob("*.py")):
+            for node in ast.walk(ast.parse(path.read_text())):
+                if not isinstance(node, ast.Call):
+                    continue
+                if getattr(node.func, "attr", None) not in self.MARKDOWN_CALLS:
+                    continue
+                for text in self._string_parts(node):
+                    idx = 0
+                    while (idx := text.find("$", idx)) != -1:
+                        if idx == 0 or text[idx - 1] != "\\":
+                            offenders.append(f"{path.name}:{node.lineno} {text[:60]!r}")
+                            break
+                        idx += 1
+        self.assertFalse(offenders,
+                         "bare $ in a markdown context is parsed as LaTeX; use "
+                         "ui.fmt.usd(). Offenders:\n  " + "\n  ".join(offenders))
+
+    def test_usd_helper_escapes_and_plain_helper_does_not(self):
+        from lpr_cpe_demo.ui.fmt import usd, usd_plain
+        self.assertEqual(usd(1234), "\\$1,234")
+        self.assertEqual(usd(19.67, decimals=2), "\\$19.67")
+        self.assertEqual(usd_plain(1234), "$1,234")
+
+
+class _StubLayer:
+    """Records what a layer was asked to be, so construction can be verified."""
+
+    def __init__(self, kind, **kwargs):
+        self.kind = kind
+        self.kwargs = kwargs
+
+
+class _StubViewState:
+    def __init__(self, **kwargs):
+        self.kwargs = kwargs
+
+
+class _StubDeck:
+    def __init__(self, layers=None, initial_view_state=None, map_provider="mapbox",
+                 map_style="dark", tooltip=None):
+        self.layers = layers or []
+        self.initial_view_state = initial_view_state
+        self.map_provider = map_provider
+        self.map_style = map_style
+        self.tooltip = tooltip
+
+
+class _StubPydeck:
+    Layer = _StubLayer
+    ViewState = _StubViewState
+    Deck = _StubDeck
+
+
+class TestDeckConstruction(unittest.TestCase):
+    """Exercises the real construction path with a stub pydeck.
+
+    This is as close as we get to rendering without Streamlit installed: it
+    proves the layer types, accessor names and Deck arguments are what we intend,
+    which is what the from_json bug bypassed entirely.
+    """
+
+    def setUp(self):
+        from lpr_cpe_demo.fault_generator import generate_faults
+        from lpr_cpe_demo.ui import deck as deckbuild
+        self.pdk = _StubPydeck()
+        self.build = deckbuild
+        self.faults = generate_faults(40, seed=61)
+
+    def test_basemap_is_an_openstreetmap_tile_layer_and_comes_first(self):
+        d = self.build.deck(self.pdk, self.build.fault_layers(self.pdk, self.faults))
+        self.assertEqual(d.layers[0].kind, "TileLayer")
+        self.assertIn("tile.openstreetmap.org", d.layers[0].kwargs["data"])
+
+    def test_no_second_basemap_is_requested(self):
+        """map_provider and map_style must be None or deck.gl adds its own."""
+        d = self.build.deck(self.pdk, [])
+        self.assertIsNone(d.map_provider)
+        self.assertIsNone(d.map_style)
+
+    def test_hub_layers_are_ring_core_and_label(self):
+        kinds = [l.kind for l in self.build.hub_layers(self.pdk)]
+        self.assertEqual(kinds, ["ScatterplotLayer", "ScatterplotLayer", "TextLayer"])
+
+    def test_hub_ring_is_stroked_and_filled_so_it_reads_as_a_depot(self):
+        ring = self.build.hub_layers(self.pdk)[0]
+        self.assertTrue(ring.kwargs["stroked"])
+        self.assertTrue(ring.kwargs["filled"])
+        self.assertGreaterEqual(ring.kwargs["line_width_min_pixels"], 2)
+
+    def test_hub_label_layer_carries_the_hub_code(self):
+        label = self.build.hub_layers(self.pdk)[2]
+        self.assertEqual(label.kwargs["get_text"], "label")
+        self.assertTrue(any(r["label"] for r in label.kwargs["data"]))
+
+    def test_road_and_ferry_legs_are_separate_layer_types(self):
+        from lpr_cpe_demo.fault_generator import generate_faults
+        faults = generate_faults(400, seed=62)          # enough to catch an island job
+        kinds = [l.kind for l in self.build.fault_layers(self.pdk, faults)]
+        self.assertIn("PathLayer", kinds)
+        self.assertIn("ArcLayer", kinds)
+
+    def test_routes_can_be_suppressed(self):
+        layers = self.build.fault_layers(self.pdk, self.faults, show_routes=False)
+        labels = [l.kwargs.get("get_path") for l in layers if l.kind == "PathLayer"]
+        self.assertEqual(len(labels), 1, "only the premise link should remain")
+
+    def test_fault_pins_draw_above_the_hubs(self):
+        layers = self.build.fault_layers(self.pdk, self.faults)
+        kinds = [l.kind for l in layers]
+        self.assertEqual(kinds[-1], "ScatterplotLayer")
+        self.assertEqual(layers[-1].kwargs["get_radius"], "radius")
+
+    def test_every_accessor_names_a_field_present_in_the_data(self):
+        """A misnamed accessor renders nothing and raises no error."""
+        for layer in self.build.fault_layers(self.pdk, self.faults):
+            data = layer.kwargs.get("data")
+            if not isinstance(data, list) or not data:
+                continue
+            for key, value in layer.kwargs.items():
+                if not key.startswith("get_") or not isinstance(value, str):
+                    continue
+                if value.startswith("'"):        # a quoted deck.gl literal
+                    continue
+                self.assertIn(value, data[0],
+                              f"{layer.kind}.{key} = {value!r} is not a data field")
+
+    def test_footprint_layers_include_sites_markers_and_hubs(self):
+        kinds = [l.kind for l in self.build.footprint_layers(self.pdk)]
+        self.assertGreaterEqual(kinds.count("ScatterplotLayer"), 4)
+        self.assertIn("TextLayer", kinds)
+
+    def test_a_failing_layer_is_skipped_rather_than_killing_the_map(self):
+        class Broken(_StubPydeck):
+            class Layer:                                   # noqa: D106
+                def __init__(self, kind, **kwargs):
+                    if kind == "TextLayer":
+                        raise TypeError("unsupported kwarg")
+                    self.kind, self.kwargs = kind, kwargs
+        kinds = [l.kind for l in self.build.hub_layers(Broken())]
+        self.assertEqual(kinds, ["ScatterplotLayer", "ScatterplotLayer"])
