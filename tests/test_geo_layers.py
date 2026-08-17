@@ -19,7 +19,7 @@ sys.path.insert(0, str(ROOT / "src"))
 
 from lpr_cpe_demo.geo_layers import (ARCHETYPE_RGBA, INITIAL_VIEW,  # noqa: E402
                                      OSM_ATTRIBUTION, TILE_URL, dispatch_route,
-                                     ferry_arcs, hub_records, layer_specs,
+                                     ferry_arcs, hub_records,
                                      marker_records, site_records, tile_layer)
 from lpr_cpe_demo.geography import (DISPATCH_BASES, SITE_BY_ID,  # noqa: E402
                                     core_sites, ferry_terminals,
@@ -44,8 +44,6 @@ class TestBasemap(unittest.TestCase):
     def test_attribution_is_defined(self):
         self.assertIn("OpenStreetMap", OSM_ATTRIBUTION)
 
-    def test_basemap_is_the_first_layer_so_markers_draw_above_it(self):
-        self.assertEqual(layer_specs()[0]["@@type"], "TileLayer")
 
     def test_initial_view_frames_the_footprint(self):
         self.assertTrue(LAT_RANGE[0] < INITIAL_VIEW["latitude"] < LAT_RANGE[1])
@@ -88,30 +86,10 @@ class TestCoordinatesAreOnTheRealMap(unittest.TestCase):
             self.assertLess(SITE_BY_ID[sid].lat, bay.lat, sid)
 
 
-class TestLayerStack(unittest.TestCase):
-    def test_all_expected_layers_are_present(self):
-        ids = {l.get("id", l["@@type"]) for l in layer_specs()}
-        self.assertEqual(ids, {"TileLayer", "ferry", "sites", "markers", "hubs"})
 
-    def test_route_layer_appears_only_when_a_route_is_supplied(self):
-        self.assertNotIn("route", {l.get("id") for l in layer_specs()})
-        route = dispatch_route(SITE_BY_ID["PR-UTU"])
-        ids = {l.get("id") for l in layer_specs(route_path=route["path_record"])}
-        self.assertIn("route", ids)
 
-    def test_every_spec_is_json_serialisable(self):
-        """pydeck serialises the spec, so an unserialisable value fails silently."""
-        route = dispatch_route(SITE_BY_ID["PR-CUL"])
-        json.dumps(layer_specs(route_path=route["path_record"]))
 
-    def test_hubs_draw_above_sites(self):
-        ids = [l.get("id") for l in layer_specs()]
-        self.assertGreater(ids.index("hubs"), ids.index("sites"))
 
-    def test_marker_and_hub_layers_are_pickable_for_tooltips(self):
-        for layer in layer_specs():
-            if layer.get("id") in {"sites", "hubs", "markers"}:
-                self.assertTrue(layer["pickable"], layer["id"])
 
 
 class TestRecords(unittest.TestCase):

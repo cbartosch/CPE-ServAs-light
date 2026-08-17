@@ -162,51 +162,6 @@ def dispatch_route(site: Site, *, crew_type: str = "dirty",
     }
 
 
-def layer_specs(*, route_path: dict[str, Any] | None = None,
-                tile_url: str = TILE_URL) -> list[dict[str, Any]]:
-    """Full layer stack, basemap first so markers draw above it."""
-    layers: list[dict[str, Any]] = [tile_layer(tile_url)]
-
-    layers.append({
-        "@@type": "ArcLayer", "id": "ferry", "data": ferry_arcs(),
-        "getSourcePosition": "@@=[from_lon, from_lat]",
-        "getTargetPosition": "@@=[to_lon, to_lat]",
-        "getSourceColor": "@@=colour", "getTargetColor": "@@=colour",
-        "getWidth": 2.5, "pickable": True,
-    })
-
-    if route_path is not None:
-        layers.append({
-            "@@type": "PathLayer", "id": "route", "data": [route_path],
-            "getPath": "@@=path", "getColor": "@@=colour",
-            "getWidth": 900, "widthMinPixels": 3, "pickable": True,
-        })
-
-    layers.append({
-        "@@type": "ScatterplotLayer", "id": "sites", "data": site_records(),
-        "getPosition": "@@=[lon, lat]", "getFillColor": "@@=colour",
-        "getRadius": "@@=radius", "radiusMinPixels": 4, "radiusMaxPixels": 14,
-        "stroked": True, "lineWidthMinPixels": 1,
-        "getLineColor": [252, 251, 250, 255], "pickable": True,
-    })
-
-    layers.append({
-        "@@type": "ScatterplotLayer", "id": "markers", "data": marker_records(),
-        "getPosition": "@@=[lon, lat]", "getFillColor": "@@=colour",
-        "getRadius": "@@=radius", "radiusMinPixels": 7, "radiusMaxPixels": 18,
-        "stroked": True, "lineWidthMinPixels": 2,
-        "getLineColor": [252, 251, 250, 255], "pickable": True,
-    })
-
-    layers.append({
-        "@@type": "ScatterplotLayer", "id": "hubs", "data": hub_records(),
-        "getPosition": "@@=[lon, lat]", "getFillColor": "@@=colour",
-        "getRadius": "@@=radius", "radiusMinPixels": 8, "radiusMaxPixels": 22,
-        "stroked": True, "lineWidthMinPixels": 2,
-        "getLineColor": [252, 251, 250, 255], "pickable": True,
-    })
-    return layers
-
 
 # Cost bands for fault pins, USD. Colour carries cost so an expensive job is
 # visible without reading the table.
@@ -302,42 +257,6 @@ def fault_route_records(faults) -> list[dict[str, object]]:
         })
     return out
 
-
-def fault_layer_specs(faults, *, show_routes: bool = True,
-                      tile_url: str = TILE_URL) -> list[dict[str, object]]:
-    """Basemap, hubs, then the generated faults on top."""
-    layers: list[dict[str, object]] = [tile_layer(tile_url)]
-
-    layers.append({
-        "@@type": "PathLayer", "id": "premise_links", "data": premise_link_records(faults),
-        "getPath": "@@=path", "getColor": "@@=colour", "getWidth": 260,
-        "widthMinPixels": 1, "pickable": True,
-    })
-
-    if show_routes:
-        layers.append({
-            "@@type": "PathLayer", "id": "fault_routes",
-            "data": fault_route_records(faults),
-            "getPath": "@@=path", "getColor": "@@=colour", "getWidth": 500,
-            "widthMinPixels": 2, "pickable": True,
-        })
-
-    layers.append({
-        "@@type": "ScatterplotLayer", "id": "hubs", "data": hub_records(),
-        "getPosition": "@@=[lon, lat]", "getFillColor": "@@=colour",
-        "getRadius": "@@=radius", "radiusMinPixels": 7, "radiusMaxPixels": 18,
-        "stroked": True, "lineWidthMinPixels": 2,
-        "getLineColor": [252, 251, 250, 255], "pickable": True,
-    })
-
-    layers.append({
-        "@@type": "ScatterplotLayer", "id": "faults", "data": fault_records(faults),
-        "getPosition": "@@=[lon, lat]", "getFillColor": "@@=colour",
-        "getRadius": "@@=radius", "radiusMinPixels": 5, "radiusMaxPixels": 26,
-        "stroked": True, "lineWidthMinPixels": 1,
-        "getLineColor": [252, 251, 250, 230], "pickable": True,
-    })
-    return layers
 
 
 # ------------------------------------------------------------- hub rendering
@@ -473,9 +392,6 @@ ROUTE_CAVEAT = (
     "detour factor applied."
 )
 
-HUB_TOOLTIP_HTML = ("<b>{short} — {name}</b><br/>likelihood: {likelihood}<br/>"
-                    "{rationale}<br/><i>{basis}</i>")
-
 FAULT_TOOLTIP = {
     "html": ("<b>{fault_id}</b> {priority}<br/>{municipio} — {technology}<br/>"
              "domain: {domain}<br/>intervention: {intervention_id} ({at})<br/>"
@@ -486,10 +402,5 @@ FAULT_TOOLTIP = {
 
 SITE_TOOLTIP = {
     "html": "<b>{name}</b><br/>{region}<br/>{archetype}<br/>{technologies}",
-    "style": {"backgroundColor": "#0C5457", "color": "white", "fontSize": "12px"},
-}
-HUB_TOOLTIP = {
-    "html": ("<b>{name}</b><br/>likelihood: {likelihood}<br/>{rationale}"
-             "<br/><i>{basis}</i>"),
     "style": {"backgroundColor": "#0C5457", "color": "white", "fontSize": "12px"},
 }

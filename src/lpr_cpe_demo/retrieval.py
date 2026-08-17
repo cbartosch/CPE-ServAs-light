@@ -154,5 +154,3 @@ def load_corpus(path: str | pathlib.Path) -> list[Document]:
 def build_index(path: str | pathlib.Path) -> BM25Index:
     return BM25Index().add(load_corpus(path))
 
-
-DEFAULT_CORPUS = pathlib.Path(__file__).with_name("kb") / "prior_cases.json"

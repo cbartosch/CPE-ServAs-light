@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import base64
+import binascii
 import hashlib
 import hmac
 import json
@@ -17,8 +18,17 @@ def _b64encode(data: bytes) -> str:
 
 
 def _b64decode(value: str) -> bytes:
+    """Decode, raising ApprovalTokenError rather than leaking binascii.Error.
+
+    A malformed token is untrusted input and must surface as a typed rejection.
+    Letting binascii.Error escape means a caller catching ApprovalTokenError does
+    not catch it, and a bad token becomes a 500 instead of a clean refusal.
+    """
     padding = "=" * (-len(value) % 4)
-    return base64.urlsafe_b64decode(value + padding)
+    try:
+        return base64.urlsafe_b64decode(value + padding)
+    except (binascii.Error, ValueError) as exc:
+        raise ApprovalTokenError("APPROVAL_TOKEN_MALFORMED") from exc
 
 
 def create_approval_token(claims: dict[str, Any], secret: str) -> str:
@@ -37,7 +47,12 @@ def verify_approval_token(token: str, secret: str) -> dict[str, Any]:
     supplied = _b64decode(signature_text)
     if not hmac.compare_digest(expected, supplied):
         raise ApprovalTokenError("APPROVAL_TOKEN_INVALID")
-    claims = json.loads(_b64decode(encoded).decode("utf-8"))
+    try:
+        claims = json.loads(_b64decode(encoded).decode("utf-8"))
+    except (json.JSONDecodeError, UnicodeDecodeError) as exc:
+        raise ApprovalTokenError("APPROVAL_TOKEN_MALFORMED") from exc
+    if not isinstance(claims, dict):
+        raise ApprovalTokenError("APPROVAL_TOKEN_MALFORMED")
     expires_at = claims.get("exp")
     if expires_at is None:
         raise ApprovalTokenError("APPROVAL_TOKEN_NO_EXPIRY")

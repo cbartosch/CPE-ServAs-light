@@ -17,7 +17,7 @@ sys.path.insert(0, str(ROOT / "src"))
 from lpr_cpe_demo.fault_generator import (DOMAIN_MIX, generate_faults,  # noqa: E402
                                           summarise)
 from lpr_cpe_demo.geo_layers import (COST_BANDS, cost_colour,  # noqa: E402
-                                     cost_radius, fault_layer_specs,
+                                     cost_radius,
                                      fault_records, fault_route_records,
                                      premise_link_records)
 from lpr_cpe_demo.geography import SITE_BY_ID  # noqa: E402
@@ -191,14 +191,7 @@ class TestFaultLayers(unittest.TestCase):
     def setUp(self):
         self.faults = generate_faults(40, seed=41)
 
-    def test_layer_stack_has_basemap_first_and_faults_last(self):
-        ids = [l.get("id", l["@@type"]) for l in fault_layer_specs(self.faults)]
-        self.assertEqual(ids[0], "TileLayer")
-        self.assertEqual(ids[-1], "faults")
 
-    def test_routes_can_be_switched_off(self):
-        ids = {l.get("id") for l in fault_layer_specs(self.faults, show_routes=False)}
-        self.assertNotIn("fault_routes", ids)
 
     def test_pins_sit_at_the_intervention_point(self):
         for record, fault in zip(fault_records(self.faults), self.faults):
@@ -228,5 +221,3 @@ class TestFaultLayers(unittest.TestCase):
         self.assertEqual(ceilings, sorted(ceilings))
         self.assertEqual(ceilings[-1], float("inf"))
 
-    def test_layers_are_json_serialisable(self):
-        json.dumps(fault_layer_specs(self.faults))

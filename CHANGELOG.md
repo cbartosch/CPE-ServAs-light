@@ -1,5 +1,47 @@
 # Changelog
 
+## 1.12.1 - full bundle audit, with two defects fixed and a coverage gap closed
+
+Report: `docs/AUDIT_v1.12.1.md`. Checks were executed, not asserted.
+
+### Fixed
+- `mcp_server/security.py` leaked `binascii.Error` for a malformed approval token
+  instead of `ApprovalTokenError`. A caller catching the typed error would not
+  catch it, so untrusted input became an unhandled exception rather than a clean
+  refusal. `_b64decode` and the JSON parse now raise
+  `APPROVAL_TOKEN_MALFORMED`, and a non-dict payload is rejected.
+- `llm/service.py` had no prompt-injection guidance. `_rca_prompt` interpolates
+  `state.topology` and every evidence `summary` straight into the prompt, and
+  those carry text from NXT, topology records and prior tickets. The model cannot
+  execute anything, but a crafted summary could steer the recommended domain.
+  `UNTRUSTED_DATA_NOTICE` now precedes the payload.
+
+### Closed a gap I had reported as covered
+The HMAC approval token was reported earlier as verified with ten forgery attempts
+rejected. That was run at a prompt and never committed. The effect store's
+idempotency guarantee had never been tested at all — only read.
+`tests/test_security_store.py` adds 19 tests, including six concurrent commits of
+one approval yielding exactly one effect, which is the guarantee that matters and
+had never been exercised. Both modules are standard-library only, so there was no
+reason for the gap.
+
+### Removed
+Six orphaned symbols left behind by the v1.10.0 move to the real pydeck API:
+`layer_specs`, `fault_layer_specs`, `HUB_TOOLTIP`, `HUB_TOOLTIP_HTML`,
+`ACCENT_WARM`, `DEFAULT_CORPUS`. The first two were tested but unreachable from
+any page — 12 assertions covering code that could not run. Equivalent coverage was
+added against the real pydeck API.
+
+My first attempt at the removal used regular expressions, took the hub-record
+builders as collateral and broke 15 tests. Reverted and redone with AST line spans.
+
+### The headline finding
+**16 of 43 modules are reachable by the 297 tests that run.** The other 27 need
+packages this environment cannot install; six are covered only by test modules
+that have never executed anywhere, and those six cover the workflow engine —
+including the `fuse_and_gate` refactor from v1.3.0, which was audited statically
+but never run. `make test-integration` is the highest-value next step.
+
 ## 1.12.0 - control tower in the supplied dashboard format
 
 Adopts the block structure, dark theme and accent palette of

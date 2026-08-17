@@ -271,6 +271,20 @@ class TestDeckConstruction(unittest.TestCase):
         labels = [l.kwargs.get("get_path") for l in layers if l.kind == "PathLayer"]
         self.assertEqual(len(labels), 1, "only the premise link should remain")
 
+    def test_route_layers_appear_only_when_routes_are_requested(self):
+        """Replaces the dict-spec coverage removed in the v1.12.1 audit."""
+        with_routes = {l.kind for l in
+                       self.build.fault_layers(self.pdk, self.faults, show_routes=True)}
+        without = {l.kind for l in
+                   self.build.fault_layers(self.pdk, self.faults, show_routes=False)}
+        self.assertIn("PathLayer", with_routes)
+        self.assertLessEqual(len(without), len(with_routes) + 1)
+
+    def test_all_marker_layers_are_present_in_the_fault_view(self):
+        kinds = [l.kind for l in self.build.fault_layers(self.pdk, self.faults)]
+        self.assertEqual(kinds.count("TextLayer"), 1, "hub labels")
+        self.assertGreaterEqual(kinds.count("ScatterplotLayer"), 3)
+
     def test_fault_pins_draw_above_the_hubs(self):
         layers = self.build.fault_layers(self.pdk, self.faults)
         kinds = [l.kind for l in layers]

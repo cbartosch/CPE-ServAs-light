@@ -23,6 +23,7 @@ docker-compose.yml
 docs/AB_MEASUREMENT.md
 docs/API.md
 docs/ARCHITECTURE.md
+docs/AUDIT_v1.12.1.md
 docs/COMPARISON_AND_IMPROVEMENTS.md
 docs/DEPENDENCY_PINS.md
 docs/ENVIRONMENT_COMPATIBILITY.md
@@ -163,5 +164,6 @@ tests/test_mcp_http.py
 tests/test_plant_effort.py
 tests/test_retrieval_ab.py
 tests/test_routing_theme.py
+tests/test_security_store.py
 tests/test_ui_widgets.py
 tests/test_workflow.py
