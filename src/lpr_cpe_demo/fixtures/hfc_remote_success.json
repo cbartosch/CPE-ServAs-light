@@ -85,13 +85,13 @@
   "incident_id": "INC-1001",
   "plant": {
     "technology": "HFC",
-    "household": "HH-BAY-2594",
-    "drop": "DROP-BAY-5167",
+    "household": "HH-BAY-2000000",
+    "drop": "DROP-BAY-6200000",
     "delimiter_type": "tap",
-    "delimiter_id": "TAP-BAY-1142",
+    "delimiter_id": "TAP-BAY-4A00000",
     "delimiter_serves_households": 8,
     "upstream_type": "hfc_node",
-    "upstream_id": "NODE-BAY-8296",
+    "upstream_id": "NODE-BAY-E700000",
     "upstream_serves_households": 450,
     "site_totals": {
       "households": 68519,

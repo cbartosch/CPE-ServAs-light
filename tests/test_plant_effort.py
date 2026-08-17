@@ -243,3 +243,53 @@ class TestSimulationScript(unittest.TestCase):
         self.assertGreater(by_arm["deterministic"]["false_negatives"], 0)
         self.assertLess(by_arm["plus_retrieval"]["total_cost"],
                         by_arm["deterministic"]["total_cost"])
+
+
+class TestPlantIdentifierUniqueness(unittest.TestCase):
+    """Synthetic ids must be unique within a site, or a work order names the
+    wrong element.
+
+    The original `_seq` truncated sha256 to four decimal digits: 10,000 slots.
+    San Juan models 8,709 taps, and 2,929 of them shared an id, 33.6%. By the
+    birthday bound a 50% chance of one collision arrives at about 118 elements,
+    so this was reachable at any realistic scale.
+    """
+
+    def test_no_collisions_at_full_modelled_scale(self):
+        from lpr_cpe_demo.geography import sites_in_cpe_footprint
+        from lpr_cpe_demo.plant import delimiter_for, site_plant
+        collisions = []
+        for site in sites_in_cpe_footprint():
+            for count_key, tech in (("taps", "HFC"), ("odps", "PON")):
+                total = site_plant(site)[count_key]
+                seen: dict[str, int] = {}
+                for index in range(total):
+                    element = delimiter_for(site.site_id, tech, index).element_id
+                    if element in seen:
+                        collisions.append((element, seen[element], index))
+                    seen[element] = index
+        self.assertFalse(collisions[:5],
+                         f"{len(collisions)} duplicate identifier(s), e.g. "
+                         f"{collisions[:3]}")
+
+    def test_the_birthday_bound_is_cleared_by_a_wide_margin(self):
+        """A 4-digit space fails around 118 elements. Prove headroom well past that."""
+        from lpr_cpe_demo.plant import delimiter_for
+        ids = {delimiter_for("PR-SJU", "HFC", i).element_id for i in range(20_000)}
+        self.assertEqual(len(ids), 20_000)
+
+    def test_identifiers_differ_across_sites_at_the_same_index(self):
+        from lpr_cpe_demo.plant import delimiter_for
+        first = {delimiter_for(s, "HFC", 0).element_id
+                 for s in ("PR-SJU", "PR-BAY", "PR-ARE", "PR-PON")}
+        self.assertEqual(len(first), 4)
+
+    def test_identifiers_differ_across_element_kinds(self):
+        from lpr_cpe_demo.plant import chain_for
+        ids = [e.element_id for e in chain_for("PR-ARE", "HFC", 7)]
+        self.assertEqual(len(set(ids)), len(ids))
+
+    def test_negative_index_is_rejected(self):
+        from lpr_cpe_demo.plant import delimiter_for
+        with self.assertRaises(ValueError):
+            delimiter_for("PR-ARE", "HFC", -1)

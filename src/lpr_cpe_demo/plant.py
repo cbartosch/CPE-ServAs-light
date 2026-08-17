@@ -69,10 +69,31 @@ def households(site: Site) -> int:
     return int(round(pop / float(PLANT_ASSUMPTIONS["persons_per_household"])))
 
 
+# Identifier width. A synthetic id must be UNIQUE within its site, or a work
+# order can name the wrong plant element.
+#
+# The original 4-digit form gave 10,000 slots. San Juan alone models 8,709 taps,
+# and by the birthday bound a 50% chance of one collision arrives at about 118
+# elements. Measured: 2,929 of San Juan's taps shared an id, 33.6%.
+#
+# The sequence is now the index itself, zero-padded, with a short hash suffix that
+# keeps the identifier looking like plant rather than a counter. Uniqueness comes
+# from the index, which is injective by construction; the hash only decorates.
+_SEQ_WIDTH = 5
+
+
 def _seq(site_id: str, kind: str, index: int) -> str:
-    """Deterministic 4-digit sequence, stable across processes and machines."""
-    material = f"{site_id}|{kind}|{index}".encode()
-    return f"{int(hashlib.sha256(material).hexdigest()[:6], 16) % 10000:04d}"
+    """Deterministic and UNIQUE per (site, kind, index).
+
+    Stable across processes and machines: the same inputs always give the same
+    string, which is what lets a scenario, a work order and an MR refer to one
+    element without a database.
+    """
+    if index < 0:
+        raise ValueError("index must be >= 0")
+    material = f"{site_id}|{kind}".encode()
+    salt = hashlib.sha256(material).hexdigest()[:2].upper()
+    return f"{salt}{index:0{_SEQ_WIDTH}d}"
 
 
 @dataclass(frozen=True, slots=True)

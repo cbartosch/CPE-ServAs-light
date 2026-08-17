@@ -650,6 +650,13 @@ class PortableWorkflowEngine:
             or state.scenario_context.get("action_sequence")
             or []
         )
+        # max_remote_attempts was declared in Settings, defaulted to 2, set in the
+        # test fixtures, and never read by any code. Field visits and MR attempts
+        # were enforced here; remote retries were bounded only by the global
+        # graph_max_steps, so a scenario could re-run a remote action far past its
+        # configured ceiling. Found by the v1.13.2 audit.
+        if state.remote_attempts >= self.settings.max_remote_attempts:
+            return self._escalate(state, "Remote attempt budget exhausted")
         if state.field_visits >= self.settings.max_field_visits:
             return self._escalate(state, "Field visit budget exhausted")
         if state.mr_attempts >= self.settings.max_mr_attempts:

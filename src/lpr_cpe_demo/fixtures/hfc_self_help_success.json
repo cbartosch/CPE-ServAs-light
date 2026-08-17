@@ -83,13 +83,13 @@
   "incident_id": "INC-1002",
   "plant": {
     "technology": "HFC",
-    "household": "HH-CAR-2330",
-    "drop": "DROP-CAR-3239",
+    "household": "HH-CAR-2D00000",
+    "drop": "DROP-CAR-1800000",
     "delimiter_type": "tap",
-    "delimiter_id": "TAP-CAR-2252",
+    "delimiter_id": "TAP-CAR-CF00000",
     "delimiter_serves_households": 8,
     "upstream_type": "hfc_node",
-    "upstream_id": "NODE-CAR-1482",
+    "upstream_id": "NODE-CAR-5900000",
     "upstream_serves_households": 450,
     "site_totals": {
       "households": 57037,

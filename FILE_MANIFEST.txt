@@ -23,6 +23,7 @@ docker-compose.yml
 docs/AB_MEASUREMENT.md
 docs/API.md
 docs/ARCHITECTURE.md
+docs/AUDIT_DEEP_v1.13.2.md
 docs/AUDIT_v1.12.1.md
 docs/COMPARISON_AND_IMPROVEMENTS.md
 docs/DEPENDENCY_PINS.md

@@ -1,5 +1,75 @@
 # Changelog
 
+## 1.13.2 - deep audit of code, logic and output: three defects fixed
+
+Report: `docs/AUDIT_DEEP_v1.13.2.md`. Five passes: mathematics against external
+references, silent-failure paths, cross-artifact output consistency, boundary and
+adversarial inputs, metric soundness.
+
+### Fixed: plant identifiers collided at realistic scale
+`plant._seq` computed `int(sha256(...)[:6], 16) % 10000` — a four-digit space.
+Measured across the modelled footprint: **2,929 of San Juan's 8,709 taps shared an
+identifier, 33.6%**. Ponce 22.3%, Bayamon 20.1%. By the birthday bound a 50% chance
+of one collision arrives at about 118 elements, so it was reachable at any real
+scale.
+
+The consequence is operational: `TAP-SJU-4C00117` was not unique, so a work order or
+an MR could name the wrong plant element, which defeats the purpose of a delimiter.
+
+Uniqueness now comes from the index, injective by construction, with a
+site-and-kind hash prefix so the id still reads as plant. Verified zero collisions
+across every site and both technologies at full scale, 20,000 distinct for one
+site, byte-identical across a fresh process. Five tests added. The nine scenario
+fixtures carried old identifiers and were regenerated; the v1.4.0 drift guard
+caught that immediately.
+
+### Fixed: the router failed silently
+`geo_layers.road_leg_records` had `except Exception: pass`. A leg that failed to
+route fell back to a straight line and discarded the exception, so a blocked OSRM
+endpoint was **indistinguishable from no router being configured**. Given that
+setting `ROUTING_PROVIDER=osrm` was supposed to snap legs to roads, a blocked proxy
+would have produced no visible difference and no explanation.
+
+`routing_summary` now returns `router_error` and `failed_legs`, and the page warns
+with the exception and points at `OSRM_URL`.
+
+### Fixed: a configured ceiling that no code read
+`Settings.max_remote_attempts` was declared, defaulted to 2 and set in the test
+fixtures. **Nothing read it.** `_failure_review` enforced `max_field_visits` and
+`max_mr_attempts` and skipped remote attempts, so remote retries were bounded only
+by the global `graph_max_steps`. Now enforced alongside the other two.
+
+Second unenforced guard across two audits, after `writes_permitted`. A setting no
+code reads is a claim, not a control.
+
+### Changed
+Two dashboard blocks caveated themselves as "stated positions" and "illustrative" —
+honest but invisible to a keyword scan, so no test could enforce it. Both now say
+ASSUMED, and a test asserts every non-computed block carries a machine-detectable
+caveat.
+
+### Verified sound, with no changes needed
+- 16 mathematical checks against external references: haversine, WCAG contrast and
+  luminance, BM25 term-frequency saturation, gate behaviour at the exact threshold.
+  All correct.
+- 13 cross-artifact consistency checks. The simulator, dashboard, effort model and
+  A/B harness agree to the cent.
+- Metric definitions do not double count: a case both gated and rules-wrong counts
+  as a catch and costs nothing; a wasted visit is priced per-dispatch, not
+  per-completed.
+- No collisions in the full-SHA-256 idempotency key across 8,100 inputs.
+- Seven aggregation paths safe on empty input.
+
+### Audit errors, recorded
+Five of my own audit checks produced false findings: two haversine reference values
+taken from memory rather than a source, two exception-handler idioms my detector
+did not recognise, and five probes that called a keyword-only function
+positionally. An audit that reports a false failure costs as much trust as one that
+misses a real defect.
+
+351 stdlib tests pass. The `max_remote_attempts` fix lands in the engine, which
+this environment cannot execute: statically correct, unexercised.
+
 ## 1.13.1 - fix a use-before-assignment, and guard the class of bug
 
 ### Fixed

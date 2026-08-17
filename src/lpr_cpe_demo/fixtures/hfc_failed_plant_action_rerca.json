@@ -100,13 +100,13 @@
   "incident_id": "INC-1005",
   "plant": {
     "technology": "HFC",
-    "household": "HH-UTU-9146",
-    "drop": "DROP-UTU-8322",
+    "household": "HH-UTU-9A00000",
+    "drop": "DROP-UTU-B800000",
     "delimiter_type": "tap",
-    "delimiter_id": "TAP-UTU-8682",
+    "delimiter_id": "TAP-UTU-4400000",
     "delimiter_serves_households": 4,
     "upstream_type": "hfc_node",
-    "upstream_id": "NODE-UTU-8092",
+    "upstream_id": "NODE-UTU-3C00000",
     "upstream_serves_households": 450,
     "site_totals": {
       "households": 10370,

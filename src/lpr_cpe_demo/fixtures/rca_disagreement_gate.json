@@ -83,13 +83,13 @@
   "incident_id": "INC-1009",
   "plant": {
     "technology": "HFC",
-    "household": "HH-ARE-1798",
-    "drop": "DROP-ARE-2489",
+    "household": "HH-ARE-C700000",
+    "drop": "DROP-ARE-3200000",
     "delimiter_type": "tap",
-    "delimiter_id": "TAP-ARE-0530",
+    "delimiter_id": "TAP-ARE-AD00000",
     "delimiter_serves_households": 6,
     "upstream_type": "hfc_node",
-    "upstream_id": "NODE-ARE-8677",
+    "upstream_id": "NODE-ARE-7500000",
     "upstream_serves_households": 450,
     "site_totals": {
       "households": 32222,

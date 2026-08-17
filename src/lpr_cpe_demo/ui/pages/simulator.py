@@ -155,6 +155,11 @@ def render() -> None:
             st.caption(f"{summary['on_roads']} of {summary['legs']} road leg(s) "
                        f"follow real roads; {summary['straight_line']} fell back to "
                        f"straight lines. {ROUTING_NOTE}")
+        elif summary.get("router_error"):
+            st.warning(f"Routing was configured but every leg failed: "
+                       f"{summary['router_error']}. Showing straight lines. "
+                       f"Check OSRM_URL and whether your network can reach it.",
+                       icon="🛣")
         else:
             st.caption(f"{ROUTE_CAVEAT} {ROUTING_NOTE}")
 

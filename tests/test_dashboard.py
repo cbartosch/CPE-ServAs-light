@@ -207,3 +207,29 @@ class TestDarkThemeReadability(unittest.TestCase):
         self.assertEqual(layout["paper_bgcolor"], "rgba(0,0,0,0)")
         self.assertEqual(layout["plot_bgcolor"], "rgba(0,0,0,0)")
         self.assertEqual(layout["font"]["color"], td.INK)
+
+
+class TestEveryCaveatIsMachineDetectable(unittest.TestCase):
+    """A caveat a scanner cannot find is a caveat a reviewer can lose.
+
+    Two blocks previously said "stated positions" and "illustrative", which are
+    honest but invisible to a keyword check. A test that cannot enforce the rule
+    is not enforcing it.
+    """
+
+    KEYWORDS = ("assumed", "synthetic", "shape only", "illustrative",
+                "not measurements", "not lpr")
+
+    def test_no_non_computed_block_hides_its_status(self):
+        offenders = []
+        for block in build(count=30).blocks:
+            if block.provenance == "computed":
+                continue
+            if not any(k in block.note.lower() for k in self.KEYWORDS):
+                offenders.append(f"{block.key} ({block.provenance})")
+        self.assertFalse(offenders,
+                         f"non-computed blocks with no detectable caveat: {offenders}")
+
+    def test_the_synthetic_block_shouts_it(self):
+        note = build(count=30).block("service_health_by_layer").note
+        self.assertIn("SHAPE ONLY", note)

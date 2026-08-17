@@ -93,13 +93,13 @@
   "incident_id": "INC-1003",
   "plant": {
     "technology": "HFC",
-    "household": "HH-PON-9569",
-    "drop": "DROP-PON-9461",
+    "household": "HH-PON-4D00000",
+    "drop": "DROP-PON-8900000",
     "delimiter_type": "tap",
-    "delimiter_id": "TAP-PON-1152",
+    "delimiter_id": "TAP-PON-6D00000",
     "delimiter_serves_households": 6,
     "upstream_type": "hfc_node",
-    "upstream_id": "NODE-PON-4885",
+    "upstream_id": "NODE-PON-9D00000",
     "upstream_serves_households": 450,
     "site_totals": {
       "households": 50741,

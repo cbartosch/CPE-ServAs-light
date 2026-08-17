@@ -322,6 +322,7 @@ def road_leg_records(faults, router=None) -> list[dict[str, Any]]:
     and the label carries the routed distance and duration.
     """
     out = []
+    errors: list[str] = []
     for f in faults:
         if not f.truck_rolls:
             continue
@@ -348,22 +349,35 @@ def road_leg_records(faults, router=None) -> list[dict[str, Any]]:
                 if on_roads:
                     detail = (f"{route.distance_km} km on roads, "
                               f"{route.duration_min} min routed")
-            except Exception:
-                pass                  # keep the straight line for this leg only
+            except Exception as exc:
+                # Keep the straight line for this leg, but do NOT discard why.
+                # A blocked OSRM endpoint previously looked identical to "no
+                # router configured": all straight lines, no explanation. The
+                # first error is carried out so the caption can say so.
+                errors.append(f"{type(exc).__name__}: {exc}")
 
         out.append({"path": path, "colour": ROAD_LEG_RGBA,
                     "label": f"{f.fault_id} road leg: {base.name} to {where}, {detail}",
-                    "on_roads": on_roads})
+                    "on_roads": on_roads,
+                    "router_error": errors[0] if errors else None})
     return out
 
 
 def routing_summary(records: list[dict[str, Any]]) -> dict[str, Any]:
-    """How many legs are genuine road geometry, for the caption to state."""
+    """How many legs are genuine road geometry, and why the rest are not.
+
+    `router_error` matters: without it a blocked endpoint is indistinguishable
+    from no router being configured, which is the failure mode that has cost the
+    most time on this project.
+    """
     total = len(records)
     routed = sum(1 for r in records if r.get("on_roads"))
+    errors = [r.get("router_error") for r in records if r.get("router_error")]
     return {"legs": total, "on_roads": routed,
             "straight_line": total - routed,
-            "all_routed": total > 0 and routed == total}
+            "all_routed": total > 0 and routed == total,
+            "router_error": errors[0] if errors else None,
+            "failed_legs": len(errors)}
 
 
 def ferry_leg_records(faults) -> list[dict[str, Any]]:

@@ -104,13 +104,13 @@
   "incident_id": "INC-1008",
   "plant": {
     "technology": "PON",
-    "household": "HH-CUL-1956",
-    "drop": "DROP-CUL-5734",
+    "household": "HH-CUL-6900000",
+    "drop": "DROP-CUL-A400000",
     "delimiter_type": "odp",
-    "delimiter_id": "ODP-CUL-4204",
+    "delimiter_id": "ODP-CUL-8900000",
     "delimiter_serves_households": 8,
     "upstream_type": "pon_port",
-    "upstream_id": "OLTPORT-CUL-1805",
+    "upstream_id": "OLTPORT-CUL-3E00000",
     "upstream_serves_households": 32,
     "site_totals": {
       "households": 667,

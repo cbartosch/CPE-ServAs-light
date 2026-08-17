@@ -204,7 +204,8 @@ def _automation_funnel(faults) -> Block:
         key="automation_funnel", title="Autonomy by stage", provenance="assumed",
         note=("Only Diagnose is model-derived: the human share equals the rate at "
               "which the RCA gate routes to a person. Detect, Correlate, Act, "
-              "Validate and Learn are stated positions, not measurements."),
+              "Validate and Learn are ASSUMED positions, not measurements. See "
+              "telemetry.DATA_CONTRACT for what would make each one real."),
         data=[
             {"stage": "Detect", "autonomous_pct": 91, "human_pct": 9,
              "source": "assumed"},
@@ -345,7 +346,8 @@ def _playbooks() -> Block:
     return Block(
         key="playbook_backlog", title="Playbook backlog",
         provenance="assumed",
-        note=(f"Effort saved is illustrative. The one grounded comparison: an RCA "
+        note=(f"Success rates are ASSUMED and effort saved is illustrative. The one "
+              f"grounded comparison: an RCA "
               f"gate false alarm costs ${fp:,.2f}, against a wasted dispatch at "
               f"{citation().split('Headline range ')[-1]}"),
         data=[
