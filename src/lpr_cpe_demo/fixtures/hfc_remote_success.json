@@ -1,0 +1,28 @@
+{
+  "name": "hfc_remote_success",
+  "label": "HFC remote reprovision succeeds",
+  "description": "A provisioning mismatch is resolved remotely and validated without a truck roll.",
+  "technology": "HFC",
+  "priority": "P2",
+  "archetype": "Metro / MDU",
+  "source": "auto_detect",
+  "valid": true,
+  "common_cause": false,
+  "topology": {
+    "customer": "CUST-1001",
+    "service": "SVC-1001",
+    "cpe": "CM-1001",
+    "tap": "TAP-SJU-17-04",
+    "node": "NODE-SJU-17"
+  },
+  "evidence": [
+    {"kind": "cpe_health", "source": "NXT", "subject": "CM-1001", "value": {"reachable": true, "rf_normal": true}, "quality": 0.98, "summary": "CPE reachable; RF levels normal."},
+    {"kind": "profile_diff", "source": "Provisioning", "subject": "SVC-1001", "value": {"assigned": "200M", "expected": "500M"}, "quality": 1.0, "summary": "Assigned service profile differs from the customer product."}
+  ],
+  "deterministic_rca": {"domain": "provisioning", "confidence": 0.93, "cause": "Provisioned service profile does not match the customer product."},
+  "llm_rca": {"domain": "provisioning", "confidence": 0.90, "cause": "Evidence is consistent with a recoverable provisioning mismatch."},
+  "action_sequence": ["remote_reprovision"],
+  "execution_outcomes": {"remote_reprovision": ["succeeded"]},
+  "verification_outcomes": [true],
+  "expected_outcome": "Resolved remotely with no field dispatch."
+}

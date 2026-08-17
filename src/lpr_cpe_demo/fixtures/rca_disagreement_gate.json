@@ -1,0 +1,22 @@
+{
+  "name": "rca_disagreement_gate",
+  "label": "High-confidence RCA disagreement gate",
+  "description": "Deterministic and LLM responsibility domains disagree, forcing human review despite high confidence.",
+  "technology": "HFC",
+  "priority": "P2",
+  "archetype": "Metro / MDU",
+  "source": "customer_call",
+  "valid": true,
+  "common_cause": false,
+  "topology": {"customer": "CUST-5001", "service": "SVC-5001", "cpe": "CM-5001", "tap": "TAP-SJU-09-03", "node": "NODE-SJU-09"},
+  "evidence": [
+    {"kind": "peer_health", "source": "NXT", "subject": "TAP-SJU-09-03", "value": {"peers_healthy": true}, "quality": 0.96, "summary": "Neighboring modems remain healthy."},
+    {"kind": "drop_measurement", "source": "Clean Boots history", "subject": "CM-5001", "value": {"loss_db": 8.4}, "quality": 0.90, "summary": "Historical drop loss is elevated but current delimiter measurement is missing."}
+  ],
+  "deterministic_rca": {"domain": "drop", "confidence": 0.88, "cause": "Classifier localizes the impairment to the drop."},
+  "llm_rca": {"domain": "hfc_tap", "confidence": 0.86, "cause": "The available evidence can also support a tap-port impairment."},
+  "action_sequence": ["clean_boots"],
+  "execution_outcomes": {"clean_boots": ["succeeded"]},
+  "verification_outcomes": [true],
+  "expected_outcome": "Human review is mandatory because the responsibility domains disagree."
+}

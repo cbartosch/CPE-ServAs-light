@@ -1,0 +1,64 @@
+{
+  "name": "hfc_common_cause",
+  "label": "HFC common-cause impairment",
+  "description": "Related modem alarms attach to a parent incident and avoid individual customer truck rolls.",
+  "technology": "HFC",
+  "priority": "P1",
+  "archetype": "Metro / MDU",
+  "source": "auto_detect",
+  "valid": true,
+  "common_cause": true,
+  "parent_incident_id": "PARENT-HFC-NODE-17",
+  "topology": {
+    "customer": "CUST-4001",
+    "service": "SVC-4001",
+    "cpe": "CM-4001",
+    "tap": "TAP-SJU-17-09",
+    "node": "NODE-SJU-17"
+  },
+  "evidence": [
+    {
+      "kind": "affected_cluster",
+      "source": "NXT",
+      "subject": "NODE-SJU-17",
+      "value": {
+        "affected_cpes": 47
+      },
+      "quality": 1.0,
+      "summary": "Forty-seven CPEs share the same upstream impairment."
+    },
+    {
+      "kind": "upstream_noise",
+      "source": "PNM",
+      "subject": "NODE-SJU-17",
+      "value": {
+        "snr_db": 21.3
+      },
+      "quality": 0.98,
+      "summary": "Upstream noise is common across the node."
+    }
+  ],
+  "deterministic_rca": {
+    "domain": "shared_network",
+    "confidence": 0.97,
+    "cause": "Multiple CPEs share one upstream HFC impairment."
+  },
+  "llm_rca": {
+    "domain": "shared_network",
+    "confidence": 0.96,
+    "cause": "The clustered evidence indicates a common network cause."
+  },
+  "action_sequence": [
+    "plant_action"
+  ],
+  "execution_outcomes": {
+    "plant_action": [
+      "succeeded"
+    ]
+  },
+  "verification_outcomes": [
+    true
+  ],
+  "expected_outcome": "Attached to parent incident; plant action avoids customer-premises dispatch.",
+  "parent_sla_hours": 6
+}

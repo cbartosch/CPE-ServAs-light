@@ -1,0 +1,16 @@
+# Optional Docker Desktop overlay for smaller laptops.
+# Usage:
+#   docker compose -f docker-compose.yml -f docker-compose.low-resource.yml up --build -d --wait
+services:
+  postgres:
+    mem_limit: 512m
+    cpus: 0.75
+  mcp-sim:
+    mem_limit: 384m
+    cpus: 0.50
+  api:
+    mem_limit: 1024m
+    cpus: 1.25
+  ui:
+    mem_limit: 768m
+    cpus: 1.00

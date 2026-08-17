@@ -1,0 +1,91 @@
+LPR CPE SERVICE ASSURANCE DEMO — BUILD AND TEST REPORT
+======================================================
+Bundle revision: 1.2 improved comparison build
+Assembly date: 2026-08-17
+Build environment: Linux x86_64, Python 3.13.5
+Available host resources observed during assembly: 9 logical CPUs, about 5.9 GB RAM
+Docker availability in assembly environment: NOT AVAILABLE
+
+EXECUTED IN THE ASSEMBLY ENVIRONMENT
+-------------------------------------
+PASS  docker-compose.yml duplicate-key and structural validation
+PASS  Bash script syntax validation
+PASS  Python compileall for src, tests and scripts
+PASS  35 automated tests
+PASS  84.63% measured Python coverage (80% threshold)
+PASS  FastAPI TestClient scenario, role and approval tests
+PASS  strict HTTP MCP compatibility/profile/header tests
+PASS  live FastAPI-to-HTTP-MCP workflows: remote close and failed-plant re-RCA/same-MR update
+PASS  MCP same-key replay and consumed-approval rejection tests
+PASS  stable action/approval key and replay-safe history tests
+PASS  next-best-action override requires fresh policy and approval
+PASS  parent/child SLA authority tests
+PASS  fake/provider fallback and fail-closed configuration tests
+PASS  all 9 deterministic scenario-matrix workflows
+PASS  no embedded OpenAI or Anthropic API key found
+
+SCENARIO MATRIX
+---------------
+PASS  bounded_remote_failure -> escalated after 2 remote attempts
+PASS  hfc_common_cause -> closed via plant action, no CPE field visit
+PASS  hfc_failed_plant_action_rerca -> failed plant action, re-RCA, same MR updated, then closed
+PASS  hfc_remote_fail_clean_success -> remote failure, re-RCA, Clean Boots close
+PASS  hfc_remote_success -> remote close, no field visit
+PASS  hfc_self_help_success -> self-help close
+PASS  pon_odp_handover -> Clean Boots then one jTrack MR
+PASS  pon_reverse_handover -> Dirty Boots/MR then reverse Clean Boots handover
+PASS  rca_disagreement_gate -> human RCA gate despite high confidence
+
+CONTROLS EXERCISED
+------------------
+PASS  deterministic-vs-assisted responsibility-domain disagreement gate
+PASS  conservative confidence fusion
+PASS  named human role authorization
+PASS  restart-stable action and approval identities
+PASS  stable idempotency-key replay returns the stored effect
+PASS  consumed approval cannot authorize a different effect
+PASS  action/approval/incident claim matching
+PASS  safe alternative-action override with a fresh approval
+PASS  bounded diagnostic, remote, field and MR loops
+PASS  common-cause parent/SLA authority behavior
+PASS  HFC tap, PON ODP, failed-MR and reverse-handover behavior
+PASS  replay-safe evidence, timeline, action, work-order and MR histories
+PASS  verification remains separate from action acknowledgement
+PASS  model-provider failure either fails closed or uses the explicitly configured fake fallback
+PASS  corporate CA support keeps TLS verification enabled
+
+NOT EXECUTED IN THE ASSEMBLY ENVIRONMENT
+-----------------------------------------
+Docker Engine/Desktop was unavailable. The exact pinned Streamlit, LangGraph,
+LangChain and MCP packages were not installed locally, and package installation
+from the network was unavailable. Therefore the following were not run here:
+
+NOT RUN  docker compose build/up/healthchecks
+NOT RUN  browser-rendered Streamlit session
+NOT RUN  exact pinned LangGraph 1.2.11 interrupt/resume runtime
+NOT RUN  PostgreSQL-backed LangGraph checkpointer and process recreation
+NOT RUN  live FastAPI-to-network-MCP path inside the Docker network
+NOT RUN  external OpenAI or Anthropic API calls
+
+MANDATORY TARGET-LAPTOP VERIFICATION
+------------------------------------
+Windows PowerShell:
+  .\scripts\verify_docker.ps1
+
+macOS/Linux/WSL:
+  ./scripts/verify_docker.sh
+
+The verification scripts build and start PostgreSQL, the MCP simulator, FastAPI
+and Streamlit; wait for health; validate exact installed application and MCP-image dependency versions;
+run a live FastAPI-to-MCP workflow; execute LangGraph interrupt/resume; recreate
+the workflow service against the same PostgreSQL database and resume the case;
+start Streamlit; execute all nine scenarios; compile the source; and rerun the
+full test suite with coverage.
+
+SAFETY POSTURE
+--------------
+Simulation mode is the default. Production writes are disabled. The included
+.env contains placeholder/demo secrets and no provider API key. Side-effecting
+MCP tools require a signed human approval, matching incident/action claims and a
+restart-stable idempotency key. A failed action must add evidence and return to
+RCA; restoration must be verified before closure.

@@ -1,0 +1,3 @@
+This bundle is a demonstration artifact supplied for the requesting user's internal evaluation.
+It contains no production credentials or vendor API implementation. Review organizational licensing,
+security, privacy, and vendor-contract requirements before reuse outside the demonstration context.

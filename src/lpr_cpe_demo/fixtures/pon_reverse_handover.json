@@ -1,0 +1,24 @@
+{
+  "name": "pon_reverse_handover",
+  "label": "Dirty Boots repair followed by reverse handover",
+  "description": "Plant repair restores optics, but service remains degraded and the same incident returns to Clean Boots.",
+  "technology": "PON",
+  "priority": "P2",
+  "archetype": "Coastal City / Suburb",
+  "source": "customer_call",
+  "valid": true,
+  "common_cause": false,
+  "topology": {"customer": "CUST-6001", "service": "SVC-6001", "cpe": "ONT-6001", "odp": "ODP-FAJ-06-01", "olt": "OLT-FAJ-06"},
+  "evidence": [
+    {"kind": "optical_power", "source": "NXT", "subject": "ONT-6001", "value": {"rx_dbm": -30.1}, "quality": 0.99, "summary": "Initial optical condition is below threshold."},
+    {"kind": "customer_qoe", "source": "Care", "subject": "SVC-6001", "value": {"wifi_degraded": true}, "quality": 0.86, "summary": "Customer also reports persistent in-home Wi-Fi degradation."}
+  ],
+  "deterministic_rca": {"domain": "pon_odp", "confidence": 0.91, "cause": "The initial optical impairment is localized at the ODP."},
+  "llm_rca": {"domain": "pon_odp", "confidence": 0.89, "cause": "Repair the optical boundary first, then verify the customer experience."},
+  "post_failure_rca": {"domain": "wifi_or_home", "confidence": 0.90, "cause": "Optics are restored; residual degradation is now inside the customer domain."},
+  "action_sequence": ["dirty_boots_mr", "clean_boots"],
+  "execution_outcomes": {"dirty_boots_mr": ["succeeded"], "clean_boots": ["succeeded"]},
+  "verification_outcomes": [false, true],
+  "handover": {"delimiter": "ODP-FAJ-06-01", "last_clean_point": "OLT port", "first_failed_point": "ODP output", "evidence_complete": true},
+  "expected_outcome": "The same incident and SLA clock return from Dirty Boots to Clean Boots and close after validation."
+}

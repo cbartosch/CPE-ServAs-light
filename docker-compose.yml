@@ -1,0 +1,156 @@
+name: ${COMPOSE_PROJECT_NAME:-lpr-cpe-demo}
+
+x-build-args: &build-args
+  PIP_INDEX_URL: ${PIP_INDEX_URL:-}
+  HTTP_PROXY: ${HTTP_PROXY:-}
+  HTTPS_PROXY: ${HTTPS_PROXY:-}
+  NO_PROXY: ${NO_PROXY:-}
+
+x-app-common: &app-common
+  build:
+    context: .
+    dockerfile: docker/app.Dockerfile
+    target: runtime
+    args: *build-args
+  env_file:
+    - .env
+  restart: unless-stopped
+  networks:
+    - lpr-demo
+
+services:
+  postgres:
+    image: ${POSTGRES_IMAGE:-postgres:17-alpine}
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-lpr}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-lpr_demo_change_me}
+      POSTGRES_DB: ${POSTGRES_DB:-lpr_cpe_demo}
+      TZ: ${TZ:-America/Puerto_Rico}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-lpr} -d ${POSTGRES_DB:-lpr_cpe_demo}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 10s
+    networks:
+      - lpr-demo
+
+  mcp-sim:
+    build:
+      context: .
+      dockerfile: docker/mcp.Dockerfile
+      args: *build-args
+    env_file:
+      - .env
+    restart: unless-stopped
+    command: >-
+      uvicorn lpr_cpe_demo.mcp_server.app:app
+      --host 0.0.0.0
+      --port 8100
+    ports:
+      - "${MCP_PORT:-8100}:8100"
+    volumes:
+      - mcp-data:/app/data
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request; urllib.request.urlopen('http://localhost:8100/health', timeout=3).read()"
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 15s
+    networks:
+      - lpr-demo
+
+  api:
+    <<: *app-common
+    command: >-
+      uvicorn lpr_cpe_demo.api.main:app
+      --host 0.0.0.0
+      --port 8000
+    ports:
+      - "${API_PORT:-8000}:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      mcp-sim:
+        condition: service_healthy
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request; urllib.request.urlopen('http://localhost:8000/health', timeout=3).read()"
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 20s
+
+  ui:
+    <<: *app-common
+    command: >-
+      streamlit run src/lpr_cpe_demo/ui/app.py
+      --server.address=0.0.0.0
+      --server.port=8501
+      --server.headless=true
+      --browser.gatherUsageStats=false
+    ports:
+      - "${UI_PORT:-8501}:8501"
+    depends_on:
+      api:
+        condition: service_healthy
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request; urllib.request.urlopen('http://localhost:8501/_stcore/health', timeout=3).read()"
+      interval: 10s
+      timeout: 5s
+      retries: 20
+      start_period: 30s
+
+  test:
+    build:
+      context: .
+      dockerfile: docker/app.Dockerfile
+      target: test
+      args: *build-args
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: sqlite+pysqlite:////tmp/lpr_cpe_demo_test.db
+      LANGGRAPH_POSTGRES_DSN: ""
+      USE_LANGGRAPH: "false"
+      WORKFLOW_ENGINE: portable
+      MCP_USE_NETWORK: "false"
+      MODEL_PROVIDER: fake
+    profiles: ["test"]
+    command: >-
+      sh -c "python scripts/validate_compose.py &&
+      python scripts/check_framework_imports.py &&
+      python scripts/check_langgraph_runtime.py &&
+      python scripts/check_streamlit_runtime.py &&
+      python scripts/run_scenario_matrix.py &&
+      python -m compileall -q src tests scripts &&
+      python -m pytest -q --cov=lpr_cpe_demo --cov-report=term-missing"
+    networks:
+      - lpr-demo
+
+volumes:
+  postgres-data:
+  mcp-data:
+
+networks:
+  lpr-demo:
+    driver: bridge

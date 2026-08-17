@@ -1,0 +1,23 @@
+{
+  "name": "hfc_remote_fail_clean_success",
+  "label": "Remote failure then Clean Boots success",
+  "description": "A safe remote action fails; new evidence redirects the same incident to a Clean Boots visit.",
+  "technology": "HFC",
+  "priority": "P2",
+  "archetype": "Coastal City / Suburb",
+  "source": "customer_call",
+  "valid": true,
+  "common_cause": false,
+  "topology": {"customer": "CUST-2001", "service": "SVC-2001", "cpe": "CM-2001", "tap": "TAP-PON-08-11", "node": "NODE-PON-08"},
+  "evidence": [
+    {"kind": "registration", "source": "NXT", "subject": "CM-2001", "value": {"retries": 12}, "quality": 0.94, "summary": "CPE reports repeated registration attempts."},
+    {"kind": "peer_health", "source": "NXT", "subject": "NODE-PON-08", "value": {"peer_impairment": false}, "quality": 0.96, "summary": "Neighboring CPEs are healthy."}
+  ],
+  "deterministic_rca": {"domain": "cpe", "confidence": 0.82, "cause": "CPE recovery is plausible but drop evidence is incomplete."},
+  "llm_rca": {"domain": "cpe", "confidence": 0.80, "cause": "The first safe action is a reversible CPE recovery attempt."},
+  "post_failure_rca": {"domain": "drop", "confidence": 0.89, "cause": "Failed remote recovery plus new evidence localizes the fault to the drop."},
+  "action_sequence": ["remote_reprovision", "clean_boots"],
+  "execution_outcomes": {"remote_reprovision": ["failed"], "clean_boots": ["succeeded"]},
+  "verification_outcomes": [false, true],
+  "expected_outcome": "One failed remote attempt, one Clean Boots visit, verified restoration."
+}

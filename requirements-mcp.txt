@@ -1,0 +1,7 @@
+# Minimal runtime for the stateless MCP simulation service.
+fastapi==0.141.1
+uvicorn[standard]==0.52.3
+mcp==2.0.0
+pydantic==2.13.4
+pydantic-settings==2.14.1
+python-dotenv==1.1.1
