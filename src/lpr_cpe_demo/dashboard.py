@@ -38,6 +38,8 @@ from .ab_metrics import CREW_FOR_DOMAIN
 from .benchmarks import citation, wasted_visit_cost
 from .effort import false_positive_cost
 from .fault_generator import DOMAIN_MIX, generate_faults, summarise
+from .telemetry import (DATA_CONTRACT, Aggregator, IncidentRecord,
+                        contract_summary)
 from .geography import sites_in_cpe_footprint
 from .plant import PLANT_ASSUMPTIONS, footprint_totals, households
 
@@ -360,6 +362,102 @@ def _playbooks() -> Block:
         ])
 
 
+def _data_contract_block() -> Block:
+    """What every other panel needs, and what is still missing.
+
+    This panel exists because the alternative is a caveat in a footnote. Naming
+    the source system per missing field turns the gap into a work list.
+    """
+    summary = contract_summary()
+    rows = []
+    for panel in DATA_CONTRACT:
+        rows.append({
+            "panel": panel.panel,
+            "refresh": panel.refresh,
+            "status": panel.status,
+            "in_flow": sum(1 for r in panel.requirements if r.availability == "in_flow"),
+            "modelled": sum(1 for r in panel.requirements if r.availability == "modelled"),
+            "missing": len(panel.blocking),
+            "blocking_sources": ", ".join(sorted({r.source_system
+                                                  for r in panel.blocking})) or "-",
+        })
+    return Block(
+        key="data_contract", title="Data contract: what would make this real",
+        provenance="computed",
+        note=(f"{summary['fields']} fields across {summary['panels']} panels: "
+              f"{summary['by_availability'].get('in_flow', 0)} available from the "
+              f"workflow today, {summary['by_availability'].get('modelled', 0)} on "
+              f"modelled inputs, {summary['by_availability'].get('missing', 0)} "
+              f"needing a source system that is not wired. "
+              f"{len(summary['missing_source_systems'])} distinct systems would "
+              f"close the gap."),
+        data=rows)
+
+
+def build_from_flow(records: list[IncidentRecord]) -> Dashboard:
+    """Build from real workflow telemetry rather than the fault generator.
+
+    Panels the contract marks as satisfiable are computed from the records and
+    labelled `computed`. Panels needing an unwired source system keep their
+    honest label, so switching to live data does not silently upgrade a synthetic
+    panel.
+    """
+    agg = Aggregator(records=list(records))
+    kpis = agg.kpis()
+    dash = Dashboard(
+        dashboard_id="lpr_e2e_fixed_access_assurance_orchestration_live",
+        title="E2E Fixed Access HFC + PON Service Assurance Orchestration",
+        subtitle=("Populated from workflow telemetry. Panels still needing a "
+                  "source system are labelled, not filled in."),
+        version="1.0-flow", theme=THEME,
+        badges=[{"label": f"{len(agg)} incidents from the flow", "type": "scope"},
+                {"label": "live telemetry", "type": "observability"},
+                {"label": "unwired sources labelled", "type": "caveat"}],
+        control_panel={"assurance_mode": "L2 assisted, human gate on every dispatch",
+                       "incidents": len(agg),
+                       "primary_action": "Refresh from the read model"})
+
+    dash.blocks = [
+        Block("kpis", "Assurance KPIs", "computed",
+              "Counted from closed and in-flight incidents in the workflow.",
+              [{"label": "Incidents", "value": str(kpis["incidents"]),
+                "delta": None, "trend_positive": None,
+                "description": "Projected from workflow state"},
+               {"label": "Resolved remotely",
+                "value": f"{kpis['resolved_remotely_pct']}%", "delta": None,
+                "trend_positive": True, "description": "Closed with no truck roll"},
+               {"label": "Dispatched", "value": str(kpis["dispatched"]),
+                "delta": None, "trend_positive": False,
+                "description": "Incidents that rolled a truck"},
+               {"label": "Escalated", "value": str(kpis["escalated"]),
+                "delta": None, "trend_positive": False,
+                "description": "Hit a budget ceiling or a policy block"},
+               {"label": "Field cost", "value": f"${kpis['cost_usd']:,.0f}",
+                "delta": None, "trend_positive": False,
+                "description": "Effort model; rates still assumed"}]),
+        Block("automation_funnel", "Autonomy by stage", "computed",
+              ("Each stage is counted from durable state: a gate_reason means "
+               "Diagnose asked a person, an approval means Act did. Detect and "
+               "Learn report no observation, because nothing in the flow "
+               "measures them."),
+              agg.autonomy_funnel()),
+        Block("incident_root_cause_mix", "Incident root-cause mix", "computed",
+              ("Approved domain weighted by affected subscribers. Subscriber "
+               "counts are modelled until OSS inventory is wired."),
+              agg.root_cause_mix()),
+        Block("closed_loop_confidence", "Closed-loop counters", "computed",
+              ("Three real counters, not scores: replayed effects that produced "
+               "no second action, rejected approval tokens, and the share of "
+               "incidents where a delimiter was resolved before an MR."),
+              agg.guardrail_counters()),
+        Block("playbook_backlog", "Action outcomes", "computed",
+              "Success rate per action type from action_history.",
+              agg.playbook_success()),
+        _data_contract_block(),
+    ]
+    return dash
+
+
 def build(*, count: int = 60, seed: int = 20260817) -> Dashboard:
     faults = generate_faults(count, seed=seed)
     stats = summarise(faults)
@@ -398,5 +496,6 @@ def build(*, count: int = 60, seed: int = 20260817) -> Dashboard:
         _service_health(),
         _closed_loop(),
         _playbooks(),
+        _data_contract_block(),
     ]
     return dash

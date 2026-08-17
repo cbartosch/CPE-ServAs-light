@@ -1,5 +1,63 @@
 # Changelog
 
+## 1.13.0 - a data contract for the dashboard, and instrumentation in the flow
+
+The control tower was populated by `fault_generator`, which invents incidents.
+Fine for a mockup, useless as an operational view. This release defines what the
+dashboard needs, wires the workflow to supply what it can, and names the source
+system for everything it cannot.
+
+### Added
+- `src/lpr_cpe_demo/telemetry.py`
+  - `DATA_CONTRACT`: 31 fields across 8 panels, each naming its source system,
+    grain, refresh interval and whether the flow can supply it today.
+  - `IncidentRecord` and `project`: the flat row every panel is computed from.
+    The projector reads a duck-typed state, so it is fully tested with a stub even
+    though the real `IncidentState` needs pydantic.
+  - `Aggregator`: rolls records into panel shapes, replacing rather than
+    duplicating a record for an incident already present, because the engine emits
+    on every stage transition.
+- `dashboard.build_from_flow(records)`: builds from workflow telemetry instead of
+  the generator.
+- A **Data contract** panel on the control tower, showing per panel how many
+  fields are in-flow, modelled or missing, and which systems are blocking.
+- `tests/test_telemetry.py`: 42 tests.
+
+### Changed
+- `WorkflowEngine` takes an optional `telemetry_sink`, called from `run_one` —
+  the single choke point every stage transition passes through. A sink failure is
+  counted in `telemetry_failures`, never raised: instrumentation must not fail an
+  incident.
+
+### What the contract says
+| | fields |
+|---|---|
+| available from the workflow today | 15 |
+| computable on modelled inputs | 5 |
+| needing a source system not wired | 11 |
+
+Ten distinct systems would close the gap: CMTS or PNM collector, OLT EMS, IP core
+telemetry, TR-369 or CPE telemetry, OSS work-order history, OSS reclassification
+history, OSS reconciliation, alarm ingest, a learning feedback loop, and a
+time-and-motion baseline.
+
+### The useful finding
+Instrumenting what already exists moves the autonomy funnel from **one** measurable
+stage to **four**. Correlate, Diagnose, Act and Validate are all inferable from
+durable state: a `gate_reason` means Diagnose asked a person, an `approval_result`
+means Act did, a parent attachment means Correlate resolved autonomously.
+
+Detect and Learn remain unmeasurable and now report `None` with an observation
+count of zero, rather than a percentage. A zero would be a claim; `None` is the
+truth. Closed-loop confidence also gains three real counters — replayed effects,
+rejected approval tokens, delimiter-resolved share — replacing three judgement
+scores.
+
+### Note
+`build_from_flow` deliberately omits `service_health_by_layer`. Switching to live
+data must not fabricate a panel whose four fields all need collectors that are not
+wired. A test asserts the omission.
+
 ## 1.12.1 - full bundle audit, with two defects fixed and a coverage gap closed
 
 Report: `docs/AUDIT_v1.12.1.md`. Checks were executed, not asserted.

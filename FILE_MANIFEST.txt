@@ -120,6 +120,7 @@ src/lpr_cpe_demo/persistence/repository.py
 src/lpr_cpe_demo/plant.py
 src/lpr_cpe_demo/retrieval.py
 src/lpr_cpe_demo/routing.py
+src/lpr_cpe_demo/telemetry.py
 src/lpr_cpe_demo/ui/__init__.py
 src/lpr_cpe_demo/ui/app.py
 src/lpr_cpe_demo/ui/artwork.py
@@ -165,5 +166,6 @@ tests/test_plant_effort.py
 tests/test_retrieval_ab.py
 tests/test_routing_theme.py
 tests/test_security_store.py
+tests/test_telemetry.py
 tests/test_ui_widgets.py
 tests/test_workflow.py

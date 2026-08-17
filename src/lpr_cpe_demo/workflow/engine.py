@@ -51,11 +51,19 @@ class PortableWorkflowEngine:
         mcp: MCPClient,
         assistant: RCAAssistant,
         settings: Settings | None = None,
+        telemetry_sink: Callable[[IncidentState], None] | None = None,
     ) -> None:
         self.repository = repository
         self.mcp = mcp
         self.assistant = assistant
         self.settings = settings or get_settings()
+        # Optional dashboard instrumentation. run_one is the single choke point
+        # every stage transition passes through, so one hook there captures the
+        # whole flow. A sink failure must never fail an incident, so it is
+        # swallowed and counted rather than raised. See telemetry.DATA_CONTRACT
+        # for which panels this feeds and which still need a source system.
+        self.telemetry_sink = telemetry_sink
+        self.telemetry_failures = 0
         self._handlers: dict[Stage, Callable[[IncidentState], IncidentState]] = {
             Stage.NEW: self._receive,
             Stage.VALIDATE: self._validate,
@@ -87,7 +95,16 @@ class PortableWorkflowEngine:
         state.updated_at = utc_now()
         state = handler(state)
         self.repository.save_incident(state)
+        self._emit_telemetry(state)
         return state
+
+    def _emit_telemetry(self, state: IncidentState) -> None:
+        if self.telemetry_sink is None:
+            return
+        try:
+            self.telemetry_sink(state)
+        except Exception:  # noqa: BLE001 - instrumentation must not break the flow
+            self.telemetry_failures += 1
 
     def run_until_pause(self, state: IncidentState) -> IncidentState:
         while True:

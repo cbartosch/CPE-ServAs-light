@@ -189,6 +189,13 @@ def render() -> None:
             _chart(health, lambda: st.dataframe(health.data, hide_index=True,
                                                 use_container_width=True))
 
+    contract = dash.block("data_contract")
+    st.markdown(td.card_open(contract.title, contract.provenance, contract.note),
+                unsafe_allow_html=True)
+    st.dataframe(contract.data, hide_index=True, use_container_width=True)
+    st.caption("A panel marked blocked is not a caveat: the named source system "
+               "is the work item that closes it.")
+
     with st.expander("Provenance, and what would make each panel real"):
         for block in dash.blocks:
             st.markdown(f"**{block.title}** — `{block.provenance}`  \n{block.note}")
