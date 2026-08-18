@@ -1,0 +1,97 @@
+{
+  "slates": 11,
+  "total_seconds": 422.7,
+  "total_words": 932,
+  "overall_wpm": 132.3,
+  "resolution": "3840x2160",
+  "shots": [
+    {
+      "name": "01_title",
+      "file": "01_title.png",
+      "seconds": 19.4,
+      "words": 41,
+      "wpm": 126.8,
+      "narration": "This is a working demonstration of end-to-end service assurance orchestration for a fixed access network, HFC and PON, across the Puerto Rico footprint. Everything you will see runs from a seed, so every figure in it can be reproduced and checked."
+    },
+    {
+      "name": "02_problem",
+      "file": "02_problem.png",
+      "seconds": 36.8,
+      "words": 81,
+      "wpm": 132.1,
+      "narration": "The core problem is simple to state and expensive to get wrong. A modem reporting poor performance looks much the same whether the fault is in the customer's drop, at the tap serving eight houses, or at a node serving four hundred and fifty. Each needs a different crew, and sending the wrong one costs a wasted visit. Against a published benchmark that is two hundred and twelve dollars in the metro and six hundred and fifty five on an island."
+    },
+    {
+      "name": "03_footprint",
+      "file": "03_footprint.png",
+      "seconds": 28.1,
+      "words": 61,
+      "wpm": 130.2,
+      "narration": "The fixed footprint is Puerto Rico: seventy eight municipios, including the island municipalities of Vieques and Culebra. The U.S. Virgin Islands are modelled but excluded, because Liberty serves them for mobile while fixed broadband there sits with a separate entity. Six dispatch hubs are modelled. Their locations are assumed, from a practitioner assessment, and the bundle says so everywhere they appear."
+    },
+    {
+      "name": "04_islands",
+      "file": "04_islands.png",
+      "seconds": 45.5,
+      "words": 101,
+      "wpm": 133.2,
+      "narration": "Geography is not decoration here. A fault in Bayam\u00f3n is twenty two minutes from its hub. Utuado is seventy five. Vieques is two hundred and fourteen, because the crew drives to Fajardo and then takes a ferry. Culebra is two hundred and sixty nine, and a round trip plus the work does not fit inside one shift, so it needs an overnight plan. An earlier version of this model billed zero travel whenever a hub sat in the same municipality as the fault. That was a genuine defect, and it was found by reading the output rather than by a test."
+    },
+    {
+      "name": "05_gate",
+      "file": "05_gate.png",
+      "seconds": 38.6,
+      "words": 85,
+      "wpm": 132.1,
+      "narration": "The decision architecture was chosen by the operator, not by me. Agents decide, and policy and the approval gates are the only guard. The deterministic classifier still runs on every incident, but its job changed from deciding to checking. It is the baseline the gate compares against, so any disagreement routes to a person. It is the fallback when the model is unreachable. And it is the floor: on an incident where the agent fails, the outcome is exactly what it would have been before."
+    },
+    {
+      "name": "06_ab",
+      "file": "06_ab.png",
+      "seconds": 52.0,
+      "words": 116,
+      "wpm": 133.8,
+      "narration": "This is the measurement that matters, and one result in it is unflattering. With a scripted model the system behaves exactly as the rules alone do, because the scripted model echoes the rules and the disagreement gate never fires. Anyone demonstrating that configuration and claiming the model contributes is mistaken. With retrieval standing in for the agent, every rules error is caught, at the cost of three false alarms in eighteen cases. And when the agent decides rather than advises, correct answers rise from fourteen of eighteen to sixteen. Gate load is a third of incidents, at roughly twenty dollars each in review time. That is cheap against a wasted visit, but it is not free."
+    },
+    {
+      "name": "07_cost",
+      "file": "07_cost.png",
+      "seconds": 35.5,
+      "words": 78,
+      "wpm": 131.8,
+      "narration": "The economics turn on an asymmetry. A false alarm costs about twenty dollars: an engineer reviews a case that did not need reviewing. A missed gate costs three hundred and fifty four dollars in Arecibo, and a thousand and seventy one on Culebra, where the wasted visit involves a ferry and an overnight stay. That is a factor of eighteen to fifty four. It is why a gate can be wrong quite often and still be worth having."
+    },
+    {
+      "name": "08_predictive",
+      "file": "08_predictive.png",
+      "seconds": 42.9,
+      "words": 95,
+      "wpm": 132.9,
+      "narration": "A separate scheduled branch scans modems nightly and raises two classes of ticket: ones already breaching a threshold, and ones a trend says will breach inside a fortnight. Two numbers come out of it, and they answer different questions. The first run after deployment surfaces four hundred tickets, because everything quietly degrading appears at once. The standing daily workload is four to eleven. A modem is only flagged when the trend fit explains enough of the variance, so erratic signals are correctly ignored, and no modem with a healthy underlying cause was flagged at all."
+    },
+    {
+      "name": "09_provenance",
+      "file": "09_provenance.png",
+      "seconds": 39.4,
+      "words": 87,
+      "wpm": 132.5,
+      "narration": "The bundle separates what is sourced from what is assumed, and it does so on the surface rather than in a footnote. Truck roll cost is published and cited. The CPE parameter names come from the Broadband Forum specifications, and the ticket and work order shapes from TM Forum. Against that, every labour rate, every hub location, every plant ratio and the entire NXT message envelope are assumed. Each panel carries a chip saying which, and that chip travels with the number when you drill into it."
+    },
+    {
+      "name": "10_rigour",
+      "file": "10_rigour.png",
+      "seconds": 45.1,
+      "words": 100,
+      "wpm": 133.0,
+      "narration": "Four audits were run against this bundle, the last of them adversarial. It found four live breaks, and all four share one shape: a check that trusted its caller. A guard let an unrecognised fault domain through to execution because it was not in the forbidden set. A budget arrived inside the request, so the thing being guarded set its own limit. An approval token verified cleanly while a different action was performed, because nothing compared the claims to the work. And twenty nine hundred of San Juan's modelled taps shared an identifier. Each of those looked correct in isolation."
+    },
+    {
+      "name": "11_close",
+      "file": "11_close.png",
+      "seconds": 39.4,
+      "words": 87,
+      "wpm": 132.5,
+      "narration": "So where does this stand. Six hundred and twenty seven tests run with no install and no network. The control tower ships as a single self-contained HTML file that needs no server. The northbound contracts for CPE, work force management and ticketing come from published specifications. What comes next is yours: replace the assumed rates and hub locations with real figures, confirm the NXT message shape against a real message, and run the integration suite, because the workflow engine remains the largest untested surface in the bundle."
+    }
+  ]
+}

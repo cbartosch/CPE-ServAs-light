@@ -1,5 +1,59 @@
 # Changelog
 
+## 1.21.0 - a 7 minute UHD demo video, silent, with a narration script
+
+### What was asked for and what is delivered
+A seven minute UHD video with a female narration. The video exists: 3840x2160,
+422.75 seconds, eleven shots. **The narration does not, and cannot be produced
+here.** No text-to-speech engine is installed and there is no network to reach one,
+so a female voice-over is outside what this environment can do. The video therefore
+ships silent, with a recording script and the command to mux the audio in.
+
+### Added
+- `docs/video/LPR_CPE_demo_7min_UHD_silent.mp4` — 3840x2160, 7:03, 6.4 MB
+- `docs/video/slates/` — eleven UHD source frames
+- `docs/video/NARRATION.md` — the script, per shot, with in-points
+- `docs/video/narration.json` — machine-readable timings
+- `scripts/generate_video_slates.py`
+
+### Narration length drives shot length
+The first pass set shot durations by eye and produced **207 words per minute**,
+which no narrator can deliver: unhurried professional narration sits at 130 to 150.
+Durations are now computed from each shot's own word count at 138 wpm plus a 1.6
+second pause, so a cut never lands mid-breath. Result: 932 words over 423 seconds
+at 132 wpm overall, and no individual shot outside 127 to 134.
+
+That is the correct dependency. Writing to a duration makes a narrator rush; timing
+to the words makes the picture fit the voice.
+
+### Every figure on screen comes from the model
+No number was typed into a slate. `gather_numbers()` pulls them from the running
+model, so a slate can be regenerated and checked: 23 sites, 54,875 taps, 10,431
+ODPs, $212 and $655 wasted-visit costs. A demo video quoting figures a viewer
+cannot reproduce is a liability.
+
+### What is deliberately not shown
+Eight of the ten Streamlit pages have never been rendered in any environment.
+Showing them would mean fabricating screens, so the video does not. The visuals are
+the generated footprint map, figures the harnesses actually print, and typeset
+slates. `NARRATION.md` states this.
+
+The script also keeps the unflattering results in, including that a scripted model
+changes nothing because it echoes the rules, and that four audits found four live
+breaks. A demo that omits those is selling rather than demonstrating.
+
+### Technical notes
+- `wkhtmltoimage` cannot render the interactive control tower: its WebKit is too old
+  for the page's JavaScript and produced a 44 pixel blank strip. Frames are composed
+  with PIL instead, which also gives control over typography at UHD, where a slide
+  designed for 1080p is illegible when scaled.
+- Encoded at 12 fps. The content is entirely static, so a low frame rate costs
+  nothing visually and cut the encode from roughly eighteen minutes to six.
+- Encoded in two halves and joined with stream copy, because a single UHD pass
+  exceeded a sensible run time.
+
+627 stdlib tests pass, unchanged.
+
 ## 1.20.0 - red team: four live breaks found and fixed
 
 Report: `docs/RED_TEAM_v1.20.0.md`. Adversarial rather than tidy: every attack was
