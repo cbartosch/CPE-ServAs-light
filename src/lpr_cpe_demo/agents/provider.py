@@ -150,7 +150,15 @@ def provider_from_env(env: dict[str, str] | None = None,
     """
     source = env if env is not None else os.environ
     key = source.get("ANTHROPIC_API_KEY", "").strip()
-    if not key or source.get("LLM_PROVIDER", "").strip().lower() == "fake":
+    # Two switches existed and disagreed. MODEL_PROVIDER already governed the RCA
+    # assistant, and LLM_PROVIDER governed the agents, so MODEL_PROVIDER=fake with
+    # a key present sent the assistant to the fake and the agents live. Either
+    # switch set to fake now forces the fake, which is the safe direction: a demo
+    # that meant to stay offline stays offline.
+    forced_fake = "fake" in {
+        source.get("LLM_PROVIDER", "").strip().lower(),
+        source.get("MODEL_PROVIDER", "").strip().lower()}
+    if not key or forced_fake:
         return fallback or FakeProvider()
     return AnthropicProvider(
         api_key=key,

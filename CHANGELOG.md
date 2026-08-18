@@ -1,5 +1,51 @@
 # Changelog
 
+## 1.16.1 - audit: the agent layer was never reachable
+
+Report: `docs/AUDIT_v1.16.1.md`. Six findings, all against my own work.
+
+### The serious one
+**v1.16.0 shipped five agent modules and 55 tests that the running system never
+called.** `WorkflowEngine` still set `approved_rca = deterministic` and imported
+nothing from `agents`; the predictive pipeline used its own gate logic. The claim
+"agents decide, rules check" was true of the modules and false of the system.
+
+Second occurrence. v1.11.0 shipped a router the page never invoked, and I wrote the
+lesson down then. Fifty-five passing tests gave no signal, because every test
+constructed its own agent.
+
+Fixed for the predictive branch, which is standard library and testable here: the
+triage agent and `guards.evaluate` are wired into `process`. A new test scans
+application sources outside the `agents` package and fails if nothing constructs an
+agent; verified by reverting the wiring and watching it fail. `WorkflowEngine`
+remains unwired and is listed as open rather than done.
+
+### Also fixed
+- **The predictive branch could not refuse anything.** `Verdict` declared
+  `"blocked"` and no code path returned it, in a branch that deliberately bypasses
+  the main engine's gate. It now consults the policy guard before a truck roll.
+- **Two provider switches disagreed.** `MODEL_PROVIDER=fake` with a key present
+  sent the RCA assistant to the fake and the agents live, so a demo meant to stay
+  offline would have made real API calls. Either switch now forces the fake.
+- **The committed A/B harness measured a configuration the bundle no longer used.**
+  An `agent_decides` arm was added. Wrong answers fall from 4 to 2 because the
+  approved domain is now the agent's; gate precision falls from 0.571 to 0.286 for
+  the same reason, since a larger share of gates are the rules objecting to a
+  correct answer. Reporting one without the other would flatter the change.
+- **`HIGH_BLAST_RADIUS` had no stated basis.** Now documented and exposed through
+  `guards.assumptions()`.
+
+### Not fixed, deliberately
+Thirteen settings are declared and read nowhere. Most are pre-existing v1.2 fields,
+and removing settings that compose or the UI may reference by string is a change I
+cannot verify without running the stack.
+
+### New standing check
+A module no application code imports is a claim, not a capability. Unit tests
+cannot detect it, because each test supplies its own caller.
+
+512 stdlib tests pass.
+
 ## 1.16.0 - agents decide, rules check
 
 The operator chose that agents decide and that policy and the gates are the only

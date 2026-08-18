@@ -15,6 +15,13 @@ Arms
                            score-weighted vote of retrieved neighbours, and the
                            cited references are the retrieved document ids.
 
+SUPERSEDED IN PART BY v1.16.0. The three arms below were built when the
+deterministic classifier decided and the model could only lower confidence or
+force a gate. The operator has since chosen that agents decide, so the
+`agent_decides` arm was added: it reports the same benchmark under the inverted
+authority, where accuracy is a real outcome rather than identical across arms by
+construction. See docs/AGENT_AUTHORITY.md.
+
 Scope: this measures the fusion and gating decision only, not the full
 workflow. It uses the same `controls.fuse_and_gate` the engine calls, so the
 rule under test is the shipped one, not a reimplementation.
@@ -116,6 +123,36 @@ def arm_retrieval(cases: list[dict], *, k: int = 5) -> ArmReport:
     return report
 
 
+def arm_agent_decides(cases: list[dict], *, k: int = 5) -> ArmReport:
+    """The inverted authority: the agent's domain IS the approved domain.
+
+    Retrieval stands in for the agent, as it does in the advisory arm, so the two
+    are comparable. The difference is what happens to the answer: here it is the
+    outcome, and the deterministic classifier is the check that gates on
+    disagreement.
+    """
+    index = build_index(KB)
+    report = ArmReport("agent_decides")
+    for case in cases:
+        det = case["deterministic"]
+        hits = index.search(case["signature"], k=k, technology=case["technology"])
+        vote = vote_domain(hits)
+        agent_domain = vote.domain or det["domain"]
+        gated = agent_domain != det["domain"] or (
+            vote.confidence or det["confidence"]) < THRESHOLD
+        report.cases.append(CaseResult(
+            case_id=case["case_id"],
+            # the APPROVED domain is now the agent's, which is the whole change
+            deterministic_domain=agent_domain,
+            true_domain=case["true_domain"], site_id=case.get("site_id", ""),
+            gate_raised=gated,
+            gate_reason="domain_disagreement" if agent_domain != det["domain"]
+                        else ("low_confidence" if gated else "none"),
+            model_domain=agent_domain,
+            model_correct=agent_domain == case["true_domain"]))
+    return report
+
+
 def detail(report: ArmReport) -> str:
     lines = [f"\n  {report.arm}"]
     for c in report.cases:
@@ -144,7 +181,8 @@ def main() -> int:
     args = ap.parse_args()
 
     cases = load_cases()
-    reports = [arm_deterministic(cases), arm_scripted(cases), arm_retrieval(cases, k=args.k)]
+    reports = [arm_deterministic(cases), arm_scripted(cases),
+               arm_retrieval(cases, k=args.k), arm_agent_decides(cases, k=args.k)]
 
     print(f"RCA gate A/B matrix — {len(cases)} benchmark cases, "
           f"confidence threshold {THRESHOLD}\n")

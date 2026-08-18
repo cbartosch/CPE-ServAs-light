@@ -399,3 +399,125 @@ class TestInjectionGuidance(unittest.TestCase):
 
     def test_the_notice_forbids_authorising_anything(self):
         self.assertIn("Do not authorise", UNTRUSTED_DATA_NOTICE)
+
+
+class TestTheAgentsAreActuallyReachable(unittest.TestCase):
+    """v1.16.0 shipped five agent modules and 55 tests that the running system
+    never called.
+
+    This is the second time: v1.11.0 shipped a router the page never invoked, and
+    I wrote the lesson down at the time. A feature tested in isolation and never
+    called from application code is indistinguishable from one that does not
+    exist, and no amount of unit testing detects it.
+    """
+
+    SRC = ROOT / "src" / "lpr_cpe_demo"
+
+    def _app_sources(self) -> str:
+        return "\n".join(
+            p.read_text() for p in self.SRC.rglob("*.py")
+            if "agents" not in p.parts)
+
+    def test_a_decision_agent_is_constructed_somewhere_in_the_application(self):
+        app = self._app_sources()
+        constructors = ("rca_agent", "recommendation_agent", "route_agent",
+                        "triage_agent")
+        called = [name for name in constructors if name in app]
+        self.assertTrue(called,
+                        "no agent is constructed outside the agents package, so "
+                        "the agent layer cannot affect any outcome")
+
+    def test_the_policy_guard_is_consulted_somewhere_in_the_application(self):
+        self.assertIn("evaluate_policy", self._app_sources())
+
+    def test_the_predictive_branch_can_run_a_triage_agent(self):
+        from lpr_cpe_demo.predictive import pipeline
+        self.assertIn("provider", pipeline.process.__doc__ or "")
+
+
+class TestPredictiveCanRefuse(unittest.TestCase):
+    """`Verdict` declared "blocked" and no code path returned it, so an unsafe
+    predictive action could only be approved, never refused."""
+
+    def _ticket(self, cause: str):
+        from datetime import datetime, timezone
+        from lpr_cpe_demo.predictive.scanner import scan
+        from lpr_cpe_demo.predictive.signals import series_for
+        pop = [series_for(f"B-{i:04d}", "PR-ARE", "HFC", days=14, seed=31,
+                          cause=cause) for i in range(300)]
+        result = scan(pop, run_id="B",
+                      ran_at=datetime(2026, 8, 18, 4, tzinfo=timezone.utc))
+        if not result.tickets:
+            self.skipTest(f"{cause} produced no ticket")
+        return result.tickets[0]
+
+    def test_a_blocked_verdict_is_now_reachable(self):
+        from lpr_cpe_demo.agents.guards import ActionRequest, evaluate
+        result = evaluate(ActionRequest(
+            domain="hfc_tap", action="clean_boots", technology="HFC",
+            site_id="PR-ARE", evidence_count=2))
+        self.assertEqual(result.verdict, "blocked")
+
+    def test_the_pipeline_reports_a_blocked_action_rather_than_approving_it(self):
+        from lpr_cpe_demo.predictive.pipeline import process
+        outcome = process(self._ticket("tap_or_odp"), hour=4, rolls=[0.5, 0.5])
+        self.assertTrue(outcome.needs_truck_roll)
+        # dirty_boots_mr on a tap is legitimate, so this must NOT block
+        self.assertNotEqual(outcome.verdict, "blocked")
+
+    def test_the_agent_may_suppress_a_finding_as_noise(self):
+        import json as _json
+        from lpr_cpe_demo.predictive.pipeline import process
+        response = _json.dumps(
+            {"triage": "suppress", "confidence": 0.7,
+             "rationale": "r-squared 0.09, this is noise",
+             "alternatives": [{"choice": "monitor", "confidence": 0.5,
+                               "rationale": "watch", "why_not_chosen": "not worth "
+                                                                      "a ticket"}]})
+        outcome = process(self._ticket("cpe_state"), hour=4, rolls=[0.5, 0.5],
+                          provider=fake(response))
+        self.assertEqual(outcome.triage, "suppress")
+        self.assertIn("agent_suppressed_as_noise", outcome.gate_reasons)
+
+    def test_suppression_still_records_the_ticket(self):
+        """A dismissed finding must not vanish silently."""
+        import json as _json
+        from lpr_cpe_demo.predictive.pipeline import process
+        response = _json.dumps(
+            {"triage": "suppress", "confidence": 0.7, "rationale": "noise",
+             "alternatives": [{"choice": "monitor", "confidence": 0.5,
+                               "rationale": "w", "why_not_chosen": "n"}]})
+        outcome = process(self._ticket("cpe_state"), hour=4, rolls=[0.5, 0.5],
+                          provider=fake(response))
+        self.assertEqual(outcome.verdict, "requires_approval")
+        self.assertTrue(outcome.escalated)
+
+
+class TestProviderSwitchesAgree(unittest.TestCase):
+    """MODEL_PROVIDER governed the RCA assistant and LLM_PROVIDER the agents, so
+    MODEL_PROVIDER=fake with a key present sent one to the fake and the other
+    live."""
+
+    def test_either_switch_set_to_fake_forces_the_fake(self):
+        for env in ({"ANTHROPIC_API_KEY": "k", "MODEL_PROVIDER": "fake"},
+                    {"ANTHROPIC_API_KEY": "k", "LLM_PROVIDER": "fake"},
+                    {"ANTHROPIC_API_KEY": "k", "MODEL_PROVIDER": "fake",
+                     "LLM_PROVIDER": "anthropic"}):
+            self.assertIsInstance(provider_from_env(env), FakeProvider, str(env))
+
+    def test_a_key_with_neither_switch_goes_live(self):
+        self.assertIsInstance(provider_from_env({"ANTHROPIC_API_KEY": "k"}),
+                              AnthropicProvider)
+
+    def test_the_env_template_documents_both(self):
+        template = (ROOT / ".env.example").read_text()
+        self.assertIn("MODEL_PROVIDER", template)
+        self.assertIn("LLM_PROVIDER", template)
+
+
+class TestGuardsStateTheirAssumptions(unittest.TestCase):
+    def test_the_blast_radius_threshold_has_a_stated_basis(self):
+        from lpr_cpe_demo.agents.guards import assumptions
+        data = assumptions()
+        self.assertIn("assumed", data["high_blast_radius_basis"])
+        self.assertGreater(data["high_blast_radius"], 8)

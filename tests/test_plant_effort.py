@@ -237,7 +237,8 @@ class TestSimulationScript(unittest.TestCase):
         payload = json.loads(pathlib.Path("/tmp/ab_cost.json").read_text())
         by_arm = {c["arm"]: c for c in payload["error_cost"]}
         self.assertEqual(set(by_arm),
-                         {"deterministic", "plus_scripted_model", "plus_retrieval"})
+                         {"deterministic", "plus_scripted_model", "plus_retrieval",
+                          "agent_decides"})
         # retrieval trades false negatives for cheaper false positives
         self.assertEqual(by_arm["plus_retrieval"]["false_negatives"], 0)
         self.assertGreater(by_arm["deterministic"]["false_negatives"], 0)

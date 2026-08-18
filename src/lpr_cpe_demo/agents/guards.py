@@ -40,7 +40,23 @@ PHYSICAL_DOMAINS = frozenset({"drop", "hfc_tap", "pon_odp", "plant",
 PLANT_DOMAINS = frozenset({"hfc_tap", "pon_odp", "plant", "shared_network"})
 # Above this many households, any action is a plant event and gets a second pair
 # of eyes regardless of what it is.
+#
+# ASSUMED. 24 is three times the largest modelled tap (8 households in metro), so
+# it sits above any single delimiter and below a node. Replace with LPR's own
+# escalation threshold; a test asserts only that it is above one tap.
 HIGH_BLAST_RADIUS = 24
+HIGH_BLAST_RADIUS_BASIS = ("assumed: three times the largest modelled tap, so it "
+                           "clears any single delimiter and sits below a node")
+
+
+def assumptions() -> dict[str, object]:
+    return {"high_blast_radius": HIGH_BLAST_RADIUS,
+            "high_blast_radius_basis": HIGH_BLAST_RADIUS_BASIS,
+            "physical_domains": sorted(PHYSICAL_DOMAINS),
+            "plant_domains": sorted(PLANT_DOMAINS),
+            "basis": "policy thresholds are assumed; the domain sets follow from "
+                     "what a remote action and a clean-boots technician can "
+                     "physically do"}
 
 
 @dataclass(frozen=True, slots=True)

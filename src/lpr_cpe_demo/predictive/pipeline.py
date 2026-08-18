@@ -24,6 +24,11 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Literal, Sequence
 
+from ..agents.base import AgentDecision
+from ..agents.decisions import (baseline_triage_for, triage_agent,
+                                triage_prompt)
+from ..agents.guards import ActionRequest, evaluate as evaluate_policy
+from ..agents.provider import Provider, provider_from_env
 from .config import (DEFAULT_REMEDIATION, DEFAULT_SCAN,
                      HARD_FAILURE_KPIS, PHYSICAL_CAUSES,
                      RemediationConfig, ScanConfig)
@@ -34,6 +39,13 @@ ActionType = Literal["remote_reboot", "remote_reprovision", "monitor"]
 
 # Actions that interrupt service, so they may only run inside the window.
 SERVICE_AFFECTING = frozenset({"remote_reboot"})
+
+# Predictive suspected cause to the responsibility domain policy reasons about.
+_DOMAIN_FOR_CAUSE = {
+    "cpe_state": "cpe", "config_drift": "provisioning", "firmware": "cpe",
+    "wifi_env": "wifi_or_home", "drop": "drop", "tap_or_odp": "hfc_tap",
+    "plant": "plant", "stable": "unknown",
+}
 
 NOTIFY_TRUCK_ROLL = "truck_roll_required"
 NOTIFY_HARD_FAILURE = "hard_failure_forecast"
@@ -62,6 +74,12 @@ class Outcome:
     needs_truck_roll: bool
     escalated: bool
     service_interruption_minutes: int
+    # Populated when a triage agent ran. `None` means the deterministic path was
+    # used, which is the default and needs no provider.
+    triage: str | None = None
+    triage_source: str | None = None
+    triage_agrees_with_baseline: bool | None = None
+    policy_blocked: tuple[str, ...] = ()
 
     @property
     def notification_required(self) -> bool:
@@ -147,12 +165,35 @@ def notification_reasons(ticket: PredictiveTicket, *, needs_truck_roll: bool,
 
 def process(ticket: PredictiveTicket, *, hour: int, rolls: Sequence[float],
             scan_config: ScanConfig = DEFAULT_SCAN,
-            remediation: RemediationConfig = DEFAULT_REMEDIATION) -> Outcome:
+            remediation: RemediationConfig = DEFAULT_REMEDIATION,
+            provider: Provider | None = None,
+            households_affected: int = 1) -> Outcome:
     """Run one ticket to a verdict.
 
     `rolls` supplies the random draws, so a run is reproducible and a test can
     force success or failure rather than retrying until it sees both.
+
+    `provider` opts the triage agent in. Without one the deterministic triage
+    stands, which is the default: the branch must run with no key and no network.
     """
+    triage: str | None = None
+    triage_source: str | None = None
+    triage_agrees: bool | None = None
+    if provider is not None:
+        decision: AgentDecision[str] = triage_agent(
+            provider, baseline_triage=baseline_triage_for(ticket)).decide(
+                triage_prompt(ticket, households_affected=households_affected))
+        triage = decision.decision
+        triage_source = decision.source
+        triage_agrees = decision.agrees_with_baseline
+        # The agent may dismiss a finding as noise. Suppression still records the
+        # ticket; it does not silently vanish.
+        if triage == "suppress":
+            return Outcome(ticket.ticket_id, ticket.modem_id, (), False,
+                           "requires_approval",
+                           ("agent_suppressed_as_noise",), (), False, True, 0,
+                           triage, triage_source, triage_agrees, ())
+
     attempts: list[Attempt] = []
     resolved = False
     interruption = 0
@@ -193,10 +234,30 @@ def process(ticket: PredictiveTicket, *, hour: int, rolls: Sequence[float],
     if deferred and not resolved:
         gate_reasons.append("deferred_to_maintenance_window")
 
-    verdict: Verdict = "requires_approval" if gate_reasons else "allowed"
+    # A hard stop the branch previously could not express. `Verdict` declared
+    # "blocked" and no code path returned it, so an unsafe predictive action could
+    # only ever be approved by a human rather than refused outright.
+    blocked: tuple[str, ...] = ()
+    if needs_truck_roll:
+        policy = evaluate_policy(ActionRequest(
+            domain=_DOMAIN_FOR_CAUSE.get(ticket.suspected_cause, "unknown"),
+            action="dirty_boots_mr" if ticket.suspected_cause in PHYSICAL_CAUSES
+                   else "clean_boots",
+            technology=ticket.technology, site_id=ticket.site_id,
+            evidence_count=len(ticket.findings),
+            agent_agrees_with_baseline=triage_agrees,
+            agent_is_fallback=triage_source == "deterministic_fallback"))
+        if policy.verdict == "blocked":
+            blocked = policy.reasons
+
+    verdict: Verdict = ("blocked" if blocked else
+                        "requires_approval" if gate_reasons else "allowed")
     return Outcome(
         ticket_id=ticket.ticket_id, modem_id=ticket.modem_id,
         attempts=tuple(attempts), resolved=resolved, verdict=verdict,
         gate_reasons=tuple(gate_reasons), notify_reasons=tuple(notify),
         needs_truck_roll=needs_truck_roll,
-        escalated=bool(gate_reasons), service_interruption_minutes=interruption)
+        escalated=bool(gate_reasons) or bool(blocked),
+        service_interruption_minutes=interruption,
+        triage=triage, triage_source=triage_source,
+        triage_agrees_with_baseline=triage_agrees, policy_blocked=blocked)

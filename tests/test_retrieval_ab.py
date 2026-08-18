@@ -210,9 +210,24 @@ class TestHarnessEndToEnd(unittest.TestCase):
         self.result = json.loads(pathlib.Path("/tmp/ab_result.json").read_text())
         self.arms = {a["arm"]: a for a in self.result["arms"]}
 
-    def test_all_three_arms_run(self):
+    def test_every_arm_runs(self):
+        """The fourth arm was added in v1.16.1 when the operator inverted authority.
+
+        Asserting exactly three arms would now force the harness to keep measuring
+        a configuration the bundle no longer uses.
+        """
         self.assertEqual(set(self.arms),
-                         {"deterministic", "plus_scripted_model", "plus_retrieval"})
+                         {"deterministic", "plus_scripted_model", "plus_retrieval",
+                          "agent_decides"})
+
+    def test_the_agent_arm_makes_accuracy_a_real_outcome(self):
+        """In the advisory arms the approved domain is always deterministic, so
+        `rules_wrong` is identical across them by construction. Under agent
+        authority it changes, which is the whole point of the inversion."""
+        advisory = self.arms["plus_retrieval"]["rules_wrong"]
+        decisive = self.arms["agent_decides"]["rules_wrong"]
+        self.assertEqual(advisory, self.arms["deterministic"]["rules_wrong"])
+        self.assertLess(decisive, advisory)
 
     def test_scripted_model_adds_nothing(self):
         """The shipped default echoes the rules, so it can never dissent.
