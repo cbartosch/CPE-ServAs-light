@@ -28,6 +28,7 @@ from dataclasses import dataclass, field
 from typing import Any, Callable, Generic, Iterable, TypeVar
 
 from .provider import Completion, Provider, ProviderError
+from .status import RECORDER, AgentRun, StatusRecorder
 
 T = TypeVar("T")
 
@@ -160,6 +161,9 @@ class Agent(Generic[T]):
     baseline: Callable[[], T]
     max_tokens: int = 1200
     failures: int = field(default=0, repr=False)
+    # Every decision is recorded so an inactive agent layer is visible. Injectable
+    # so a test does not pollute the module default.
+    recorder: StatusRecorder | None = None
 
     def decide(self, user_prompt: str) -> AgentDecision[T]:
         fallback_reason: str | None = None
@@ -171,9 +175,12 @@ class Agent(Generic[T]):
             raw = completion.text
             decision, confidence, rationale, alternatives, notes = self.parse(
                 extract_json(raw))
-            return AgentDecision(self.name, decision, bounded_confidence(confidence),
-                                 rationale, alternatives, self.baseline(),
-                                 completion.source, None, raw, notes)
+            result = AgentDecision(self.name, decision,
+                                   bounded_confidence(confidence), rationale,
+                                   alternatives, self.baseline(),
+                                   completion.source, None, raw, notes)
+            self._record(result)
+            return result
         except (ProviderError, AgentError) as exc:
             fallback_reason = f"{type(exc).__name__}: {exc}"
         except Exception as exc:                       # noqa: BLE001
@@ -184,8 +191,17 @@ class Agent(Generic[T]):
         # incident.
         self.failures += 1
         baseline = self.baseline()
-        return AgentDecision(self.name, baseline, 0.5,
-                             "Deterministic fallback: the agent produced no usable "
-                             "decision, so the rules-based answer stands.",
-                             (), baseline, "deterministic_fallback",
-                             fallback_reason, raw)
+        result = AgentDecision(self.name, baseline, 0.5,
+                               "Deterministic fallback: the agent produced no "
+                               "usable decision, so the rules-based answer stands.",
+                               (), baseline, "deterministic_fallback",
+                               fallback_reason, raw)
+        self._record(result)
+        return result
+
+    def _record(self, decision: "AgentDecision[T]") -> None:
+        (self.recorder or RECORDER).record(AgentRun(
+            agent=self.name, source=decision.source,
+            accepted=not decision.is_fallback,
+            fallback_reason=decision.fallback_reason,
+            agreed_with_baseline=decision.agrees_with_baseline))

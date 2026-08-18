@@ -364,6 +364,13 @@ def build_html(count: int, seed: int) -> str:
             entry["table"] = table(["playbook", "success %", "risk", "action"],
                                    [(p["name"], p["success_pct"], p["risk"],
                                      p["action"]) for p in block.data])
+        elif block.key == "agent_status":
+            entry["table"] = table(["metric", "value"],
+                                   [(d["metric"], d["value"]) for d in block.data])
+            headline = next((d["value"] for d in block.data
+                             if d["metric"] == "provider"), "")
+            entry["preview"] = (f'<div class="kpi"><div class="l">provider</div>'
+                                f'<div class="v">{esc(headline)}</div></div>')
         elif block.key == "kpis":
             continue
         panels.append(entry)

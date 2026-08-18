@@ -41,6 +41,12 @@ def render() -> None:
     st.markdown(td.hero(dash.title, dash.subtitle, dash.badges),
                 unsafe_allow_html=True)
 
+    # State the agent layer's status before any number, because an inactive layer
+    # changes what every number below means.
+    status = dash.block("agent_status")
+    banner = st.error if status.provenance != "computed" else st.success
+    banner(f"**Agent status.** {status.note}", icon="🤖")
+
     counts = dash.provenance_counts()
     strip = st.columns([2, 1, 1, 1])
     strip[0].markdown(

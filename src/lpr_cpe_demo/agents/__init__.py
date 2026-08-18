@@ -17,4 +17,4 @@ gap `test_every_package_directory_has_an_init` was written for in v1.6.1 after
 
 from __future__ import annotations
 
-__all__ = ["provider", "base", "decisions", "guards"]
+__all__ = ["provider", "base", "decisions", "guards", "status"]

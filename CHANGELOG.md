@@ -1,5 +1,61 @@
 # Changelog
 
+## 1.18.0 - honest provider names, and agent status made visible
+
+Both fixes come from a question that exposed them: how do the agents work, and what
+happens with no key.
+
+### Fixed: "fake" meant two opposite things
+`agents.provider.FakeProvider` produced **nothing** and forced the deterministic
+fallback. v1.2's `llm/service.py` fake produces a plausible scripted RCA proposal.
+Same word, opposite behaviour, and the misleading one was mine — I had been
+describing it as "a scripted fallback", which implies it returns something.
+
+Split into two honest names:
+- **`NullProvider`** — every call raises. This is what a missing key gives you, and
+  it carries a `reason` distinguishing "no key is set" from "a key is set but a
+  switch deliberately bypasses the model".
+- **`ScriptedProvider`** — a script is a **required** argument. A scripted provider
+  with no script was a null provider, and conflating them caused the confusion.
+
+`Completion.source` is now `scripted` rather than `fake`, so a canned response is
+never mistaken for a live one.
+
+### Fixed: nothing reported that the agent layer was inactive
+With no key every agent fell back and **no page, panel or metric said so**. The
+Control Tower looked identical to a fully agentic run: same numbers, same layout.
+Every other figure in this bundle carries a provenance label; this was the one place
+a reader could be misled with no way to check.
+
+`agents/status.py` adds:
+- `describe_provider()` — what is configured, answerable **before anything runs**,
+  which is exactly when someone is checking whether their key took effect. The key
+  itself is never read into the snapshot, only whether one is present, and a test
+  asserts a secret cannot leak into it.
+- `StatusRecorder` — what actually happened, per agent, with fallback reasons.
+  `fallback_rate` returns `None` rather than `0.0` on an empty recorder, because
+  zero would read as "no fallbacks, all healthy", which is the opposite of what no
+  observation means.
+- A four-way verdict that distinguishes **INACTIVE** (no model reachable) from
+  **CONFIGURED but nothing has run**, from **every attempt fell back**, from
+  **ACTIVE**. Those are four different operational situations and one message for
+  all of them would be useless.
+
+Surfaced in three places: an `agent_status` block on the dashboard, a banner above
+the metrics on the Streamlit Control Tower, and a hero badge reading "No model
+active: every decision is the deterministic rules". The block is labelled
+`assumed` rather than `computed` when no model is active, because labelling an
+inactive layer `computed` would be the original problem again.
+
+### Notes
+- With no key: nothing breaks, nothing stalls, no second-best is produced, and
+  policy requires a human for every action because `agent_is_fallback` is itself a
+  gate condition. The system runs on the deterministic rules and now says so.
+- A cosmetic bug fixed in passing: `.capitalize()` on the reason string turned
+  `ANTHROPIC_API_KEY` into `Anthropic_api_key`.
+
+573 stdlib tests pass.
+
 ## 1.17.0 - northbound message contracts for NXT, CPE, WFM and jTrack
 
 Explicit message shapes for the four northbound systems, with adapters that parse

@@ -34,6 +34,7 @@ from __future__ import annotations
 from dataclasses import asdict, dataclass, field
 from typing import Any, Literal
 
+from .agents.status import RECORDER, describe_provider
 from .ab_metrics import CREW_FOR_DOMAIN
 from .benchmarks import citation, wasted_visit_cost
 from .effort import false_positive_cost
@@ -364,6 +365,40 @@ def _playbooks() -> Block:
         ])
 
 
+def _agent_status_block() -> Block:
+    """Whether the agent layer is actually doing anything.
+
+    Added because it was possible to run the whole stack with no API key, see
+    every panel populated, and have no way to tell that not one model call had
+    succeeded. Every other figure in this bundle carries a provenance label; this
+    was the one place a reader could be misled with no way to check.
+    """
+    snapshot = RECORDER.snapshot()
+    rows = [{"metric": "provider", "value": snapshot["provider_kind"]},
+            {"metric": "model", "value": snapshot["provider_model"] or "none"},
+            {"metric": "API key present", "value": "yes" if snapshot["key_present"]
+                                                   else "no"},
+            {"metric": "decisions attempted", "value": snapshot["attempted"]},
+            {"metric": "decisions accepted", "value": snapshot["accepted"]},
+            {"metric": "fell back to the rules", "value": snapshot["fell_back"]},
+            {"metric": "fallback rate",
+             "value": "no observation" if snapshot["fallback_rate"] is None
+                      else f"{snapshot['fallback_rate']:.0%}"}]
+    for entry in snapshot["fallback_reasons"][:3]:
+        rows.append({"metric": f"reason ({entry['count']})",
+                     "value": entry["reason"]})
+
+    provenance: Provenance = "computed" if snapshot["provider_active"] else "assumed"
+    return Block(
+        key="agent_status", title="Agent status", provenance=provenance,
+        note=(f"{snapshot['verdict']} Reason: {snapshot['provider_reason']}. "
+              f"When no model is active every decision below is the deterministic "
+              f"rules and the panels look no different, which is why this one "
+              f"exists. Any agent-derived figure on this dashboard is then ASSUMED "
+              f"rather than model-produced."),
+        data=rows)
+
+
 def _data_contract_block() -> Block:
     """What every other panel needs, and what is still missing.
 
@@ -455,6 +490,7 @@ def build_from_flow(records: list[IncidentRecord]) -> Dashboard:
         Block("playbook_backlog", "Action outcomes", "computed",
               "Success rate per action type from action_history.",
               agg.playbook_success()),
+        _agent_status_block(),
         _data_contract_block(),
     ]
     return dash
@@ -474,6 +510,8 @@ def build(*, count: int = 60, seed: int = 20260817) -> Dashboard:
         version="1.0-lpr",
         theme=THEME,
         badges=[
+            {"label": describe_provider().headline,
+             "type": "observability" if describe_provider().active else "caveat"},
             {"label": f"{totals['households']:,} modelled households",
              "type": "scope"},
             {"label": f"{len(sites_in_cpe_footprint())} municipios, "
@@ -498,6 +536,7 @@ def build(*, count: int = 60, seed: int = 20260817) -> Dashboard:
         _service_health(),
         _closed_loop(),
         _playbooks(),
+        _agent_status_block(),
         _data_contract_block(),
     ]
     return dash

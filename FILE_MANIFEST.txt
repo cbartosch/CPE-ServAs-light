@@ -94,6 +94,7 @@ src/lpr_cpe_demo/agents/base.py
 src/lpr_cpe_demo/agents/decisions.py
 src/lpr_cpe_demo/agents/guards.py
 src/lpr_cpe_demo/agents/provider.py
+src/lpr_cpe_demo/agents/status.py
 src/lpr_cpe_demo/api/__init__.py
 src/lpr_cpe_demo/api/main.py
 src/lpr_cpe_demo/benchmarks.py

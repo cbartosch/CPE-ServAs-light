@@ -44,21 +44,40 @@ class Provider(Protocol):
 
 
 @dataclass(slots=True)
-class FakeProvider:
-    """Returns a scripted response. The fallback, and the default.
+class NullProvider:
+    """Provides nothing. Every call raises, so every agent falls back.
 
-    `responder` receives the user prompt and returns the JSON string the agent
-    would have received, so a test can drive any branch without a network.
+    This is what a missing API key gives you, and the name says so. It was
+    previously called `NullProvider`, which was actively misleading: `fake`
+    suggests a stand-in that produces plausible output, and v1.2's
+    `llm/service.py` has a fake that does exactly that. This one produces
+    nothing. With no key the system runs entirely on the deterministic rules, and
+    a name implying otherwise hides that.
     """
 
-    responder: Callable[[str], str] | None = None
-    name: str = "fake"
+    name: str = "null"
+    reason: str = "no API key configured, so no model is reachable"
 
     def complete(self, *, system: str, user: str,
                  max_tokens: int = 1200) -> Completion:
-        if self.responder is None:
-            raise ProviderError("fake provider has no responder configured")
-        return Completion(self.responder(user), "fake", 0, 1)
+        raise ProviderError(self.reason)
+
+
+@dataclass(slots=True)
+class ScriptedProvider:
+    """Returns a canned response. For tests and offline demonstrations.
+
+    `responder` is REQUIRED. A scripted provider with no script is a
+    `NullProvider`, and conflating the two is what made the old `NullProvider`
+    confusing.
+    """
+
+    responder: Callable[[str], str]
+    name: str = "scripted"
+
+    def complete(self, *, system: str, user: str,
+                 max_tokens: int = 1200) -> Completion:
+        return Completion(self.responder(user), "scripted", 0, 1)
 
 
 @dataclass(slots=True)
@@ -142,11 +161,12 @@ def _extract_text(data: dict[str, Any]) -> str:
 
 def provider_from_env(env: dict[str, str] | None = None,
                       fallback: Provider | None = None) -> Provider:
-    """Real provider when a key is present, otherwise the fake.
+    """Real provider when a key is present, otherwise a `NullProvider`.
 
-    Default is the fake. A missing key must degrade to a working demo rather than
-    a stack trace, which is also what happens in a container that cannot reach the
-    internet.
+    A missing key degrades to the deterministic rules rather than a stack trace,
+    which is also what happens in a container that cannot reach the internet. It
+    does NOT degrade to a plausible-looking model answer: nothing invents a
+    decision on the operator's behalf.
     """
     source = env if env is not None else os.environ
     key = source.get("ANTHROPIC_API_KEY", "").strip()
@@ -158,8 +178,13 @@ def provider_from_env(env: dict[str, str] | None = None,
     forced_fake = "fake" in {
         source.get("LLM_PROVIDER", "").strip().lower(),
         source.get("MODEL_PROVIDER", "").strip().lower()}
-    if not key or forced_fake:
-        return fallback or FakeProvider()
+    if not key:
+        return fallback or NullProvider(
+            reason="no ANTHROPIC_API_KEY is set, so no model is reachable")
+    if forced_fake:
+        return fallback or NullProvider(
+            reason="MODEL_PROVIDER or LLM_PROVIDER is set to fake, so the model "
+                   "is deliberately bypassed")
     return AnthropicProvider(
         api_key=key,
         endpoint=source.get("ANTHROPIC_ENDPOINT", DEFAULT_ENDPOINT),

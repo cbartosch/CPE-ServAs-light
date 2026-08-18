@@ -28,8 +28,10 @@ from lpr_cpe_demo.agents.decisions import (ACTIONS, DOMAINS, TRIAGE,  # noqa: E4
                                            route_options, triage_agent)
 from lpr_cpe_demo.agents.guards import (ActionRequest, HIGH_BLAST_RADIUS,  # noqa: E402
                                         evaluate)
-from lpr_cpe_demo.agents.provider import (AnthropicProvider, FakeProvider,  # noqa: E402
-                                          ProviderError, _extract_text,
+from lpr_cpe_demo.agents.provider import (AnthropicProvider,  # noqa: E402
+                                          NullProvider, ProviderError,
+                                          ScriptedProvider,
+                                          _extract_text,
                                           provider_from_env)
 
 
@@ -47,8 +49,8 @@ def canned(payload: dict):
     return opener
 
 
-def fake(text: str) -> FakeProvider:
-    return FakeProvider(lambda _prompt: text)
+def scripted(text: str) -> ScriptedProvider:
+    return ScriptedProvider(lambda _prompt: text)
 
 
 class TestProvider(unittest.TestCase):
@@ -106,7 +108,7 @@ class TestProvider(unittest.TestCase):
         self.assertEqual(result.attempts, 2)
 
     def test_the_default_needs_no_key_and_no_network(self):
-        self.assertIsInstance(provider_from_env({}), FakeProvider)
+        self.assertIsInstance(provider_from_env({}), NullProvider)
 
     def test_a_key_selects_the_real_provider(self):
         self.assertIsInstance(provider_from_env({"ANTHROPIC_API_KEY": "x"}),
@@ -115,7 +117,7 @@ class TestProvider(unittest.TestCase):
     def test_the_fake_can_be_forced_even_with_a_key(self):
         self.assertIsInstance(
             provider_from_env({"ANTHROPIC_API_KEY": "x", "LLM_PROVIDER": "fake"}),
-            FakeProvider)
+            NullProvider)
 
 
 class TestResponseParsing(unittest.TestCase):
@@ -154,7 +156,7 @@ class TestFallbackToDeterminism(unittest.TestCase):
     """The rules no longer decide, but they still catch the agent."""
 
     def _agent(self, text: str | None):
-        provider = fake(text) if text is not None else FakeProvider()
+        provider = scripted(text) if text is not None else NullProvider()
         return rca_agent(provider, baseline_domain="drop")
 
     def test_a_valid_decision_is_used(self):
@@ -210,14 +212,14 @@ class TestFallbackToDeterminism(unittest.TestCase):
 class TestSecondBest(unittest.TestCase):
     def test_a_recommendation_without_an_alternative_is_refused(self):
         """An approver needs something to overturn to."""
-        decision = recommendation_agent(fake(json.dumps(
+        decision = recommendation_agent(scripted(json.dumps(
             {"action": "remote_reboot", "confidence": 0.8, "rationale": "r",
              "alternatives": []})), baseline_action="clean_boots").decide("{}")
         self.assertTrue(decision.is_fallback)
         self.assertIn("second best", decision.fallback_reason)
 
     def test_an_alternative_without_a_reason_it_lost_is_refused(self):
-        decision = recommendation_agent(fake(json.dumps(
+        decision = recommendation_agent(scripted(json.dumps(
             {"action": "remote_reboot", "confidence": 0.8, "rationale": "r",
              "alternatives": [{"choice": "clean_boots", "confidence": 0.4,
                                "rationale": "could visit"}]})),
@@ -225,7 +227,7 @@ class TestSecondBest(unittest.TestCase):
         self.assertTrue(decision.is_fallback)
 
     def test_best_and_second_best_are_both_exposed(self):
-        decision = recommendation_agent(fake(json.dumps(
+        decision = recommendation_agent(scripted(json.dumps(
             {"action": "remote_reprovision", "confidence": 0.77,
              "rationale": "config drift signature",
              "alternatives": [{"choice": "remote_reboot", "confidence": 0.5,
@@ -238,7 +240,7 @@ class TestSecondBest(unittest.TestCase):
         self.assertTrue(decision.second_best.why_not_chosen)
 
     def test_no_second_best_when_the_agent_fell_back(self):
-        self.assertIsNone(recommendation_agent(FakeProvider(),
+        self.assertIsNone(recommendation_agent(NullProvider(),
                                               baseline_action="monitor")
                           .decide("{}").second_best)
 
@@ -263,13 +265,13 @@ class TestRouteAgent(unittest.TestCase):
         self.assertIn("splice_kit", nearest["missing_parts"])
 
     def test_a_base_outside_the_candidate_set_is_refused(self):
-        decision = route_agent(fake(json.dumps(
+        decision = route_agent(scripted(json.dumps(
             {"base_id": "BASE-ATLANTIS", "confidence": 0.9, "rationale": "r"})),
             candidates=self.ids, baseline_base="BASE-CAR").decide("{}")
         self.assertTrue(decision.is_fallback)
 
     def test_the_agent_may_overrule_proximity_for_parts(self):
-        decision = route_agent(fake(json.dumps(
+        decision = route_agent(scripted(json.dumps(
             {"base_id": "BASE-CAG", "confidence": 0.72, "rationale": "has the kit",
              "alternatives": [{"choice": "BASE-CAR", "confidence": 0.6,
                                "rationale": "nearest",
@@ -286,7 +288,7 @@ class TestTriageAgent(unittest.TestCase):
         self.assertEqual(baseline_triage_for(T()), "act_now")
 
     def test_an_unknown_triage_value_falls_back(self):
-        decision = triage_agent(fake(json.dumps(
+        decision = triage_agent(scripted(json.dumps(
             {"triage": "panic", "confidence": 0.9, "rationale": "r"})),
             baseline_triage="schedule").decide("{}")
         self.assertTrue(decision.is_fallback)
@@ -475,7 +477,7 @@ class TestPredictiveCanRefuse(unittest.TestCase):
                                "rationale": "watch", "why_not_chosen": "not worth "
                                                                       "a ticket"}]})
         outcome = process(self._ticket("cpe_state"), hour=4, rolls=[0.5, 0.5],
-                          provider=fake(response))
+                          provider=scripted(response))
         self.assertEqual(outcome.triage, "suppress")
         self.assertIn("agent_suppressed_as_noise", outcome.gate_reasons)
 
@@ -488,7 +490,7 @@ class TestPredictiveCanRefuse(unittest.TestCase):
              "alternatives": [{"choice": "monitor", "confidence": 0.5,
                                "rationale": "w", "why_not_chosen": "n"}]})
         outcome = process(self._ticket("cpe_state"), hour=4, rolls=[0.5, 0.5],
-                          provider=fake(response))
+                          provider=scripted(response))
         self.assertEqual(outcome.verdict, "requires_approval")
         self.assertTrue(outcome.escalated)
 
@@ -503,7 +505,7 @@ class TestProviderSwitchesAgree(unittest.TestCase):
                     {"ANTHROPIC_API_KEY": "k", "LLM_PROVIDER": "fake"},
                     {"ANTHROPIC_API_KEY": "k", "MODEL_PROVIDER": "fake",
                      "LLM_PROVIDER": "anthropic"}):
-            self.assertIsInstance(provider_from_env(env), FakeProvider, str(env))
+            self.assertIsInstance(provider_from_env(env), NullProvider, str(env))
 
     def test_a_key_with_neither_switch_goes_live(self):
         self.assertIsInstance(provider_from_env({"ANTHROPIC_API_KEY": "k"}),
@@ -521,3 +523,139 @@ class TestGuardsStateTheirAssumptions(unittest.TestCase):
         data = assumptions()
         self.assertIn("assumed", data["high_blast_radius_basis"])
         self.assertGreater(data["high_blast_radius"], 8)
+
+
+class TestProviderNamesAreHonest(unittest.TestCase):
+    """`FakeProvider` produced nothing and forced the deterministic fallback, while
+    v1.2's `llm/service.py` fake produces a plausible scripted proposal. Two things
+    called fake with opposite behaviour, and the misleading one was mine."""
+
+    def test_a_null_provider_always_refuses(self):
+        from lpr_cpe_demo.agents.provider import NullProvider
+        with self.assertRaises(ProviderError):
+            NullProvider().complete(system="s", user="u")
+
+    def test_a_null_provider_says_why(self):
+        from lpr_cpe_demo.agents.provider import NullProvider
+        with self.assertRaises(ProviderError) as ctx:
+            provider_from_env({}).complete(system="s", user="u")
+        self.assertIn("ANTHROPIC_API_KEY", str(ctx.exception))
+
+    def test_a_forced_fake_says_it_was_deliberate_not_missing(self):
+        provider = provider_from_env({"ANTHROPIC_API_KEY": "k",
+                                      "MODEL_PROVIDER": "fake"})
+        self.assertIn("deliberately bypassed", provider.reason)
+
+    def test_a_scripted_provider_requires_a_script(self):
+        from lpr_cpe_demo.agents.provider import ScriptedProvider
+        with self.assertRaises(TypeError):
+            ScriptedProvider()
+
+    def test_a_scripted_provider_labels_its_source_distinctly(self):
+        from lpr_cpe_demo.agents.provider import ScriptedProvider
+        result = ScriptedProvider(lambda _: "{}").complete(system="s", user="u")
+        self.assertEqual(result.source, "scripted")
+
+    def test_the_misleading_name_is_gone(self):
+        import lpr_cpe_demo.agents.provider as module
+        self.assertFalse(hasattr(module, "FakeProvider"))
+
+
+class TestAgentStatusIsVisible(unittest.TestCase):
+    """With no key every agent fell back and nothing reported it. The Control Tower
+    looked identical to a fully agentic run."""
+
+    def setUp(self):
+        from lpr_cpe_demo.agents.status import StatusRecorder
+        self.recorder = StatusRecorder()
+
+    def _agent(self, provider, baseline="drop"):
+        agent = rca_agent(provider, baseline_domain=baseline)
+        agent.recorder = self.recorder
+        return agent
+
+    def test_a_fresh_recorder_reports_no_observation_not_zero(self):
+        """Zero would read as "no fallbacks, all healthy"."""
+        self.assertIsNone(self.recorder.snapshot({})["fallback_rate"])
+
+    def test_no_key_is_reported_as_inactive_before_anything_runs(self):
+        from lpr_cpe_demo.agents.status import describe_provider
+        description = describe_provider({})
+        self.assertFalse(description.active)
+        self.assertIn("deterministic rules", description.headline)
+
+    def test_a_forced_fake_is_reported_as_inactive_too(self):
+        from lpr_cpe_demo.agents.status import describe_provider
+        self.assertFalse(describe_provider({"ANTHROPIC_API_KEY": "k",
+                                            "MODEL_PROVIDER": "fake"}).active)
+
+    def test_the_key_itself_is_never_placed_in_the_snapshot(self):
+        snapshot = self.recorder.snapshot({"ANTHROPIC_API_KEY": "sk-secret-123"})
+        self.assertNotIn("sk-secret-123", str(snapshot))
+        self.assertTrue(snapshot["key_present"])
+
+    def test_every_fallback_is_counted_with_its_reason(self):
+        agent = self._agent(provider_from_env({}))
+        for _ in range(3):
+            agent.decide("{}")
+        snapshot = self.recorder.snapshot({})
+        self.assertEqual(snapshot["attempted"], 3)
+        self.assertEqual(snapshot["fell_back"], 3)
+        self.assertEqual(snapshot["fallback_rate"], 1.0)
+        self.assertTrue(snapshot["fallback_reasons"][0]["reason"])
+
+    def test_an_accepted_decision_is_counted_as_accepted(self):
+        import json as _json
+        good = _json.dumps({"domain": "hfc_tap", "confidence": 0.8,
+                            "rationale": "r", "alternatives": []})
+        agent = self._agent(scripted(good))
+        agent.decide("{}")
+        snapshot = self.recorder.snapshot({"ANTHROPIC_API_KEY": "k"})
+        self.assertEqual(snapshot["accepted"], 1)
+        self.assertEqual(snapshot["fell_back"], 0)
+
+    def test_disagreement_with_the_baseline_is_counted_per_agent(self):
+        import json as _json
+        good = _json.dumps({"domain": "hfc_tap", "confidence": 0.8,
+                            "rationale": "r", "alternatives": []})
+        agent = self._agent(scripted(good), baseline="drop")
+        agent.decide("{}")
+        self.assertEqual(self.recorder.by_agent()[0]["disagreed"], 1)
+
+    def test_the_verdict_distinguishes_inactive_from_all_attempts_failing(self):
+        inactive = self.recorder.snapshot({})["verdict"]
+        self.assertIn("INACTIVE", inactive)
+        agent = self._agent(scripted("not json"))
+        agent.decide("{}")
+        configured = self.recorder.snapshot({"ANTHROPIC_API_KEY": "k"})["verdict"]
+        self.assertIn("every attempt fell back", configured)
+
+    def test_a_configured_provider_with_no_runs_says_so(self):
+        verdict = self.recorder.snapshot({"ANTHROPIC_API_KEY": "k"})["verdict"]
+        self.assertIn("nothing has run yet", verdict)
+
+    def test_the_recorder_is_bounded_so_a_long_run_cannot_grow_forever(self):
+        from lpr_cpe_demo.agents.status import AgentRun, StatusRecorder
+        recorder = StatusRecorder(limit=10)
+        for index in range(50):
+            recorder.record(AgentRun("x", "scripted", True))
+        self.assertEqual(recorder.attempted, 10)
+
+    def test_the_dashboard_carries_an_agent_status_block(self):
+        from lpr_cpe_demo.dashboard import build
+        block = build(count=20).block("agent_status")
+        self.assertTrue(block.note)
+        metrics = {row["metric"] for row in block.data}
+        self.assertIn("API key present", metrics)
+        self.assertIn("fallback rate", metrics)
+
+    def test_the_block_is_not_labelled_computed_when_no_model_is_active(self):
+        """Labelling an inactive layer `computed` would be the original problem."""
+        from lpr_cpe_demo.dashboard import build
+        self.assertEqual(build(count=20).block("agent_status").provenance,
+                         "assumed")
+
+    def test_the_hero_badge_states_the_provider_status(self):
+        from lpr_cpe_demo.dashboard import build
+        labels = [badge["label"] for badge in build(count=20).badges]
+        self.assertTrue(any("model" in label.lower() for label in labels))
