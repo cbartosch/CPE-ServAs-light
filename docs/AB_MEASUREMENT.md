@@ -1,5 +1,14 @@
 # Measuring what the model and retrieval actually buy you
 
+> **Superseded in part by v1.16.0.** The finding below — that the model can never
+> change an outcome — was true when the deterministic classifier decided. The
+> operator has since chosen that agents decide and that policy and the gates are
+> the only guard, so the approved domain is now the agent's. The measurement that
+> replaces it is in `docs/AGENT_AUTHORITY.md`. This document is kept because the
+> reasoning about dissent quality still holds; only the direction of authority
+> changed.
+
+
 ## The question
 
 "How do I see the advantage of using an LLM with RAG on top?"

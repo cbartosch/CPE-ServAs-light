@@ -21,6 +21,7 @@ docker/mcp.Dockerfile
 docker-compose.low-resource.yml
 docker-compose.yml
 docs/AB_MEASUREMENT.md
+docs/AGENT_AUTHORITY.md
 docs/API.md
 docs/ARCHITECTURE.md
 docs/AUDIT_DEEP_v1.13.2.md
@@ -86,6 +87,11 @@ scripts/verify_docker.sh
 scripts/verify_manifest.py
 src/lpr_cpe_demo/__init__.py
 src/lpr_cpe_demo/ab_metrics.py
+src/lpr_cpe_demo/agents/__init__.py
+src/lpr_cpe_demo/agents/base.py
+src/lpr_cpe_demo/agents/decisions.py
+src/lpr_cpe_demo/agents/guards.py
+src/lpr_cpe_demo/agents/provider.py
 src/lpr_cpe_demo/api/__init__.py
 src/lpr_cpe_demo/api/main.py
 src/lpr_cpe_demo/benchmarks.py
@@ -165,6 +171,7 @@ src/lpr_cpe_demo/workflow/scenarios.py
 src/lpr_cpe_demo/workflow/service.py
 tests/__init__.py
 tests/conftest.py
+tests/test_agents.py
 tests/test_api.py
 tests/test_assets.py
 tests/test_benchmarks.py

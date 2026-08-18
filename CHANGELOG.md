@@ -1,5 +1,70 @@
 # Changelog
 
+## 1.16.0 - agents decide, rules check
+
+The operator chose that agents decide and that policy and the gates are the only
+guard. That inverts the bundle's central property, so it is implemented as an
+inversion rather than as an addition, and the claim it invalidates has been
+re-measured rather than left standing.
+
+### Added
+`src/lpr_cpe_demo/agents/`, standard library only:
+- `provider.py` real Anthropic API calls over `urllib`, with a fake fallback
+- `base.py` schema validation, second-best parsing, deterministic fallback
+- `decisions.py` four agents: RCA, recommendation, routing, predictive triage
+- `guards.py` the policy that is now the only guard
+- `tests/test_agents.py`, 55 tests
+- `docs/AGENT_AUTHORITY.md`
+
+### What the rules do now
+They stopped deciding and started checking. Every `AgentDecision` carries the
+deterministic answer as its **baseline** (disagreement gates), its **fallback**
+(unreachable provider, unparsable output, unknown value, confidence outside 0 to 1)
+and its **floor** (on an incident where the agent fails, it *is* the rules).
+
+### The measurement that replaces the old one
+The A/B harness's headline finding — the model can never change an outcome — was
+true and is now false. Re-measured on the same 18 cases:
+
+| | |
+|---|---|
+| Deterministic correct | 14 / 18 |
+| Agent correct | **16 / 18** |
+| Disagreements, all gated | 6 |
+| Agent right when they disagree | 4 |
+| Rules right when they disagree | 2 |
+| Agent wrong **and** rules agree, nothing gates | **0** |
+
+Accuracy is now a real outcome rather than identical across arms by construction.
+Gate load is 33% of incidents at about $19.67 each, which is cheap against a
+misdispatch at $354 to $1,071 but is not free.
+
+**The new exposure is the agent wrong and the rules agreeing**, because then
+nothing gates. It is zero on this benchmark, which is a small sample and not a
+property. It is why the rules must keep running: delete them and that failure mode
+becomes silent.
+
+### Policy became load-bearing, so it was made strong
+`_policy` checked two things. `guards.evaluate` now blocks a remote action against
+a physical fault, clean boots on a plant fault, an attempt past budget, a dispatch
+to a base without the skill or part, and any action with no evidence. `BLOCKED`
+beats `REQUIRES_APPROVAL`, so a human cannot approve what must never happen.
+
+### Second-best is enforced, not optional
+A recommendation with no alternative, or an alternative with no `why_not_chosen`,
+is rejected and falls back. An approver at a gate needs something to overturn to;
+a list entry without a reason it lost is not that.
+
+### Notes
+- Every agent prompt carries the untrusted-data notice, asserted by test.
+- No live provider call has been made here: no network. The seam is exercised
+  against canned responses for 4xx without retry, 5xx with retry, transport
+  failure, missing text block, unparsable output, schema violation and provider
+  absence.
+- The default stays the fake, so a missing key degrades to a working demo.
+
+501 stdlib tests pass.
+
 ## 1.15.0 - predictive modem scanning as a scheduled branch
 
 A daily scan that flags poorly performing modems, auto-remediates, and hands the
