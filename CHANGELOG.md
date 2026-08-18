@@ -1,5 +1,49 @@
 # Changelog
 
+## 1.18.1 - the daemon cannot pull the base image, which no in-image fix reaches
+
+A new failure, upstream of every TLS fix in the bundle:
+
+```
+failed to resolve source metadata for docker.io/library/python:3.12-slim:
+tls: failed to verify certificate: x509: certificate signed by unknown authority
+```
+
+### Why nothing already in the bundle helps
+The Docker **daemon** fetches the image manifest before any build layer exists. The
+CA staged into `docker/certs/` is read by `update-ca-certificates` on line 23 of
+`app.Dockerfile`, inside a layer that never runs. The four-tier pip install, the
+vendored wheels and `capture-ca.ps1` all address pip failing **inside** a build.
+This is the host and daemon failing **before** one.
+
+### Changed
+- `ARG BASE_IMAGE=python:3.12-slim` in both Dockerfiles, with `FROM ${BASE_IMAGE}`.
+  Compose passes it through, so an internal mirror needs no file edits:
+  `BASE_IMAGE=artifactory.example.com/docker-remote/python:3.12-slim`
+- `.env.example` documents it and states why the in-image CA cannot help.
+
+### Added
+`scripts/registry-doctor.ps1` and `.sh`, which check whether the image is already
+local, inspect the chain the registry presents, and specifically check
+`LocalMachine\Root` rather than `CurrentUser\Root` — Docker Desktop reads the
+machine store, so a certificate imported for the user only will not be seen. Both
+say explicitly that `capture-ca` cannot help with this failure.
+
+### Six tests
+No Dockerfile may hardcode `FROM python:`, the ARG must be declared before the FROM
+that uses it (an undeclared ARG expands to empty and fails obscurely), the default
+must still work, compose must pass it to all three built services, and both doctors
+must mention `capture-ca` so nobody reaches for the wrong tool again.
+
+### The three routes out, most reliable first
+1. **Internal mirror.** Avoids the registry and needs no certificate work.
+2. **Load from a tar.** `docker save` on a machine that can pull, `docker load`
+   here, then `docker compose build --pull never`.
+3. **Trust the root in the daemon.** Import into LocalMachine Trusted Root and
+   restart Docker Desktop entirely.
+
+579 stdlib tests pass.
+
 ## 1.18.0 - honest provider names, and agent status made visible
 
 Both fixes come from a question that exposed them: how do the agents work, and what

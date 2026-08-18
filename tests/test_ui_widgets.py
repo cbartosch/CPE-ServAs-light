@@ -488,3 +488,55 @@ class TestRoutingIsActuallyWired(unittest.TestCase):
     def test_road_leg_records_receives_the_router(self):
         text = self.SIM.read_text()
         self.assertIn("road_leg_records(shown, router)", text)
+
+
+class TestBaseImageIsParameterised(unittest.TestCase):
+    """The Docker daemon pulls the base image before any build layer exists.
+
+    A corporate TLS intercept therefore fails the build at manifest resolution,
+    upstream of everything the bundle does about certificates: the CA staged into
+    `docker/certs/` is only read by `update-ca-certificates` inside a layer that
+    never gets to run. Pointing `BASE_IMAGE` at an internal mirror is the only fix
+    that needs no daemon trust changes.
+    """
+
+    DOCKERFILES = ("docker/app.Dockerfile", "docker/mcp.Dockerfile")
+
+    def _text(self, name: str) -> str:
+        return (ROOT / name).read_text()
+
+    def test_no_dockerfile_hardcodes_the_base_image(self):
+        for name in self.DOCKERFILES:
+            text = self._text(name)
+            self.assertNotIn("FROM python:", text, name)
+            self.assertIn("${BASE_IMAGE}", text, name)
+
+    def test_each_dockerfile_declares_the_arg_before_using_it(self):
+        """An undeclared ARG in a FROM expands to empty and the build fails oddly."""
+        for name in self.DOCKERFILES:
+            text = self._text(name)
+            self.assertLess(text.index("ARG BASE_IMAGE"),
+                            text.index("FROM ${BASE_IMAGE}"), name)
+
+    def test_the_arg_has_a_working_default(self):
+        for name in self.DOCKERFILES:
+            self.assertIn("ARG BASE_IMAGE=python:3.12-slim", self._text(name))
+
+    def test_compose_passes_the_base_image_to_every_built_service(self):
+        import yaml
+        compose = yaml.safe_load((ROOT / "docker-compose.yml").read_text())
+        for service in ("api", "mcp-sim", "test"):
+            args = compose["services"][service]["build"]["args"]
+            self.assertIn("BASE_IMAGE", args, service)
+
+    def test_the_env_template_explains_why_the_in_image_ca_does_not_help(self):
+        template = (ROOT / ".env.example").read_text()
+        self.assertIn("BASE_IMAGE", template)
+        self.assertIn("before any build layer", template)
+
+    def test_a_registry_doctor_exists_for_both_platforms(self):
+        for name in ("scripts/registry-doctor.ps1", "scripts/registry-doctor.sh"):
+            path = ROOT / name
+            self.assertTrue(path.exists(), name)
+            self.assertIn("capture-ca", path.read_text(),
+                          "it must say why the existing CA script cannot help here")

@@ -65,6 +65,8 @@ scripts/generate_landmark_band.py
 scripts/install-host-ca.ps1
 scripts/install-host-ca.sh
 scripts/preflight.py
+scripts/registry-doctor.ps1
+scripts/registry-doctor.sh
 scripts/run_ab_matrix.py
 scripts/run_dispatch_simulation.py
 scripts/run_predictive_scan.py
