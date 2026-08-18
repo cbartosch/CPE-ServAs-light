@@ -30,6 +30,36 @@ from ..plant import blast_radius
 
 Verdict = Literal["allowed", "requires_approval", "blocked"]
 
+# The guard validates its own inputs. Red-team finding: a domain outside this set
+# is not in PHYSICAL_DOMAINS, so the physical-fault rule could not fire and
+# `domain="totally_made_up"` with `remote_reboot` reached ALLOWED. A guard that
+# trusts its caller to pass clean input is not a guard.
+KNOWN_DOMAINS = frozenset({
+    "cpe", "wifi_or_home", "premise_wiring", "provisioning", "drop", "hfc_tap",
+    "pon_odp", "plant", "shared_network", "unknown"})
+KNOWN_ACTIONS = frozenset({
+    "remote_reprovision", "remote_reboot", "self_help", "clean_boots",
+    "dirty_boots_mr", "joint_dispatch", "plant_action", "manual_review",
+    "monitor"})
+
+# Requirements implied by the domain, so the check cannot be evaded by a caller
+# that simply omits them. Red-team finding: a pon_odp dispatch to a base with no
+# splice kit passed because `required_parts` was left empty.
+IMPLIED_SKILLS: dict[str, tuple[str, ...]] = {
+    "pon_odp": ("fibre_splice",), "hfc_tap": ("hfc_plant",),
+    "plant": ("hfc_plant",), "shared_network": ("hfc_plant",),
+}
+IMPLIED_PARTS: dict[str, tuple[str, ...]] = {
+    "pon_odp": ("splice_kit",), "hfc_tap": ("connectors",),
+    "drop": ("drop",), "cpe": ("cpe",),
+}
+
+# Ceilings live here, not in the request. Red-team finding: the request carried
+# max_remote_attempts, so the thing being guarded set its own limit and
+# `max_remote_attempts=1000` with 99 attempts already spent reached ALLOWED.
+HARD_MAX_REMOTE_ATTEMPTS = 2
+HARD_MAX_FIELD_VISITS = 3
+
 REMOTE_ACTIONS = frozenset({"remote_reboot", "remote_reprovision", "self_help"})
 FIELD_ACTIONS = frozenset({"clean_boots", "dirty_boots_mr", "joint_dispatch",
                            "plant_action"})
@@ -81,6 +111,8 @@ class ActionRequest:
     max_remote_attempts: int = 2
     max_field_visits: int = 3
     base_id: str | None = None
+    # Additional to whatever the domain implies. The domain's own requirements are
+    # added by `evaluate`, so omitting these cannot weaken the check.
     required_skills: Sequence[str] = ()
     required_parts: Sequence[str] = ()
     evidence_count: int = 0
@@ -91,10 +123,40 @@ class ActionRequest:
 
 
 def evaluate(request: ActionRequest) -> PolicyResult:
-    """Decide whether the agent's plan may proceed, needs a human, or must not run."""
+    """Decide whether the agent's plan may proceed, needs a human, or must not run.
+
+    Validates its own inputs first. Everything after that assumes a recognised
+    domain and action, a non-negative attempt count and a ceiling this module owns
+    rather than one the caller supplied.
+    """
     blocked: list[str] = []
     approvals: list[str] = []
     kind: str | None = None
+
+    # -------------------------------------------------- input validation first
+    if request.domain not in KNOWN_DOMAINS:
+        blocked.append(
+            f"domain {request.domain!r} is not a recognised responsibility domain; "
+            f"no rule can reason about it, so nothing is permitted")
+    if request.action not in KNOWN_ACTIONS:
+        blocked.append(f"action {request.action!r} is not a recognised action")
+    if request.remote_attempts < 0 or request.field_visits < 0:
+        blocked.append(
+            f"negative attempt counts (remote={request.remote_attempts}, "
+            f"field={request.field_visits}) cannot be trusted")
+    if blocked:
+        return PolicyResult("blocked", tuple(blocked), None)
+
+    # Ceilings are the lower of what this module allows and what the caller asked
+    # for, so a caller can tighten a budget but never loosen one.
+    max_remote = min(request.max_remote_attempts, HARD_MAX_REMOTE_ATTEMPTS)
+    max_field = min(request.max_field_visits, HARD_MAX_FIELD_VISITS)
+
+    # Requirements the domain implies, unioned with anything the caller declared.
+    skills = set(request.required_skills) | set(
+        IMPLIED_SKILLS.get(request.domain, ()))
+    parts = set(request.required_parts) | set(
+        IMPLIED_PARTS.get(request.domain, ()))
 
     households = blast_radius(request.domain, request.site_id, request.technology)
 
@@ -107,20 +169,20 @@ def evaluate(request: ActionRequest) -> PolicyResult:
         blocked.append(
             f"a clean-boots technician cannot resolve a {request.domain} fault "
             f"affecting {households} households; it needs plant work")
-    if request.action in REMOTE_ACTIONS and \
-            request.remote_attempts >= request.max_remote_attempts:
-        blocked.append(
-            f"remote attempt budget exhausted at {request.remote_attempts}")
-    if request.action in FIELD_ACTIONS and \
-            request.field_visits >= request.max_field_visits:
-        blocked.append(f"field visit budget exhausted at {request.field_visits}")
+    if request.action in REMOTE_ACTIONS and request.remote_attempts >= max_remote:
+        blocked.append(f"remote attempt budget exhausted at "
+                       f"{request.remote_attempts} against a ceiling of "
+                       f"{max_remote}")
+    if request.action in FIELD_ACTIONS and request.field_visits >= max_field:
+        blocked.append(f"field visit budget exhausted at {request.field_visits} "
+                       f"against a ceiling of {max_field}")
     if request.action in FIELD_ACTIONS and request.base_id:
         base = BASE_BY_ID.get(request.base_id)
         if base is None:
             blocked.append(f"unknown dispatch base {request.base_id}")
         else:
-            missing_skills = set(request.required_skills) - set(base.skills)
-            missing_parts = set(request.required_parts) - set(base.van_stock)
+            missing_skills = skills - set(base.skills)
+            missing_parts = parts - set(base.van_stock)
             if missing_skills:
                 blocked.append(f"{request.base_id} lacks required skills "
                                f"{sorted(missing_skills)}")

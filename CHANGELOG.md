@@ -1,5 +1,59 @@
 # Changelog
 
+## 1.20.0 - red team: four live breaks found and fixed
+
+Report: `docs/RED_TEAM_v1.20.0.md`. Adversarial rather than tidy: every attack was
+executed against the running code. Six findings, all against my own work.
+
+### Fixed
+1. **The guard did not validate its own domain.** `domain="totally_made_up"` with
+   `remote_reboot` reached **ALLOWED**, because an unrecognised domain is not in
+   `PHYSICAL_DOMAINS` so the physical-fault rule could not fire. `guards.evaluate`
+   is the only guard in a design where agents decide, and it trusted its caller to
+   supply a valid domain.
+2. **The thing being guarded supplied its own ceiling.** `max_remote_attempts=1000`
+   with 99 attempts spent reached **ALLOWED**, and a negative count passed every
+   comparison. Ceilings now live in the guard and the effective limit is
+   `min(requested, hard)`, so a caller may tighten a budget and never loosen one.
+3. **Skills and parts were only checked if declared.** A `pon_odp` dispatch to a
+   base with no splice kit passed because the caller omitted `required_parts`.
+   Requirements are now derived from the domain and unioned with the declaration.
+4. **A valid approval token authorised any action.** `verify_approval_token`
+   returns `incident_id`, `action_type` and `idempotency_key`, and a grep found
+   **no caller comparing them to the action being performed**. A token issued for
+   `INC-A`/`clean_boots` would verify while `dirty_boots_mr` ran on `INC-B`. New
+   `verify_approval_for` raises `ApprovalMismatch`, which subclasses
+   `ApprovalTokenError` so existing handlers do not miss it.
+5. **An injected suppression erased the dispatch and the notification.** A
+   prompt-injected `suppress` on an already-breached critical ticket returned before
+   `evaluate_policy` ran, clearing `needs_truck_roll` and every notification reason.
+   It could not cause a wrong action, but it could cause a customer not to be told.
+   Suppression is now refused when a threshold has already been crossed; a forecast
+   with no breach can still be dismissed as noise.
+
+### Held
+The effect store took the heaviest attack and did not move: a replayed key does not
+overwrite, one approval cannot authorise a second action or a second incident, and
+**20 concurrent commits of one approval produced exactly 1 effect and 19 refusals**.
+
+### Recorded, not fixed
+The merge rule lets a case be born already breached — a customer calling a month
+later inherits an SLA that expired weeks ago. That rule was chosen deliberately, and
+what is missing is a policy decision about whether a stale predictive parent expires,
+which is a question rather than a bug. `attach_customer_call` also has no registry,
+so uniqueness belongs in the engine at merge time, which is in the untestable region.
+
+### What the exercise says
+All four live breaks share one shape: **a check that trusted its caller.** Each was
+one layer deep and each looked correct in isolation. That is the failure mode to
+expect from here, because letting agents decide moved the load onto exactly these
+checks.
+
+Two new standing checks: a guard that trusts its caller is not a guard; and a token
+that says what it authorises must be compared to what is being done.
+
+627 stdlib tests pass, 25 of them red-team regressions.
+
 ## 1.19.0 - model and activation state on the sidebar, every page
 
 ### Added

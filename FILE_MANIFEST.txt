@@ -33,6 +33,7 @@ docs/ENVIRONMENT_COMPATIBILITY.md
 docs/LAPTOP_RESOURCE_GUIDE.md
 docs/OFFLINE_AND_LOW_RESOURCE.md
 docs/PACKAGE_VERSIONS.md
+docs/RED_TEAM_v1.20.0.md
 docs/RUNBOOK.md
 docs/SECURITY.md
 docs/SECURITY_CONTROLS.md
@@ -198,6 +199,7 @@ tests/test_mcp_http.py
 tests/test_northbound.py
 tests/test_plant_effort.py
 tests/test_predictive.py
+tests/test_red_team.py
 tests/test_retrieval_ab.py
 tests/test_routing_theme.py
 tests/test_security_store.py

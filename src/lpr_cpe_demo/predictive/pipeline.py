@@ -186,9 +186,25 @@ def process(ticket: PredictiveTicket, *, hour: int, rolls: Sequence[float],
         triage = decision.decision
         triage_source = decision.source
         triage_agrees = decision.agrees_with_baseline
-        # The agent may dismiss a finding as noise. Suppression still records the
-        # ticket; it does not silently vanish.
+        # The agent may dismiss a finding as noise, but it may not do so for a
+        # breach that is already in effect.
+        #
+        # Red-team finding: an injected `suppress` on a critical proactive ticket
+        # returned before `evaluate_policy` was reached, and cleared
+        # `needs_truck_roll` and every notification reason along with it. A
+        # suppression therefore erased the customer notification that the
+        # un-suppressed path would have produced. Suppression is now refused
+        # outright when a threshold has already been crossed, and otherwise still
+        # goes to a human.
         if triage == "suppress":
+            already_breached = [f for f in ticket.findings if f.breached_now]
+            if already_breached:
+                return Outcome(
+                    ticket.ticket_id, ticket.modem_id, (), False, "blocked",
+                    ("agent_suppression_refused_breach_in_effect",), (),
+                    True, True, 0, triage, triage_source, triage_agrees,
+                    (f"{already_breached[0].kpi} has already crossed its alarm "
+                     f"threshold, so the finding cannot be dismissed as noise",))
             return Outcome(ticket.ticket_id, ticket.modem_id, (), False,
                            "requires_approval",
                            ("agent_suppressed_as_noise",), (), False, True, 0,

@@ -59,3 +59,34 @@ def verify_approval_token(token: str, secret: str) -> dict[str, Any]:
     if datetime.fromtimestamp(float(expires_at), UTC) <= datetime.now(UTC):
         raise ApprovalTokenError("APPROVAL_TOKEN_EXPIRED")
     return claims
+
+
+class ApprovalMismatch(ApprovalTokenError):
+    """A valid token, issued for a different action."""
+
+
+def verify_approval_for(token: str, secret: str, *, incident_id: str,
+                        action_type: str, idempotency_key: str) -> dict[str, Any]:
+    """Verify the signature AND that the token authorises THIS action.
+
+    Red-team finding: `verify_approval_token` returns `incident_id`,
+    `action_type` and `idempotency_key`, and no caller compared them to the action
+    being performed. A token legitimately issued for one incident and lane could
+    therefore authorise a different one — a confused deputy. The claims existed
+    precisely to prevent that and nothing read them.
+
+    Signature verification alone answers "was this issued by us". It does not
+    answer "was this issued for what I am about to do", and only the second
+    question protects a customer from a crew arriving to do something nobody
+    approved.
+    """
+    claims = verify_approval_token(token, secret)
+    expected = {"incident_id": incident_id, "action_type": action_type,
+                "idempotency_key": idempotency_key}
+    for field, wanted in expected.items():
+        actual = claims.get(field)
+        if actual != wanted:
+            raise ApprovalMismatch(
+                f"APPROVAL_SCOPE_MISMATCH: token authorises {field}={actual!r} "
+                f"but the action is {field}={wanted!r}")
+    return claims
