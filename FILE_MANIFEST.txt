@@ -69,6 +69,7 @@ scripts/run_ab_matrix.py
 scripts/run_dispatch_simulation.py
 scripts/run_predictive_scan.py
 scripts/run_scenario_matrix.py
+scripts/show_northbound_messages.py
 scripts/smoke_test.py
 scripts/stage-ca.ps1
 scripts/stage-ca.sh
@@ -127,6 +128,10 @@ src/lpr_cpe_demo/mcp_server/app.py
 src/lpr_cpe_demo/mcp_server/security.py
 src/lpr_cpe_demo/mcp_server/store.py
 src/lpr_cpe_demo/mcp_server/tools.py
+src/lpr_cpe_demo/northbound/__init__.py
+src/lpr_cpe_demo/northbound/adapters.py
+src/lpr_cpe_demo/northbound/contracts.py
+src/lpr_cpe_demo/northbound/samples.py
 src/lpr_cpe_demo/persistence/__init__.py
 src/lpr_cpe_demo/persistence/repository.py
 src/lpr_cpe_demo/plant.py
@@ -186,6 +191,7 @@ tests/test_html_report.py
 tests/test_llm_boundary.py
 tests/test_mcp_controls.py
 tests/test_mcp_http.py
+tests/test_northbound.py
 tests/test_plant_effort.py
 tests/test_predictive.py
 tests/test_retrieval_ab.py

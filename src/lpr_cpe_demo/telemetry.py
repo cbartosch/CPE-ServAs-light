@@ -93,7 +93,8 @@ DATA_CONTRACT: tuple[PanelContract, ...] = (
              "incident", "in_flow"),
         _req("resolution_cost_usd", "effort model", "incident", "modelled",
              "rates are assumed; replace effort.RATES with LPR figures"),
-        _req("no_fault_found_rate", "OSS work-order history", "monthly",
+        _req("no_fault_found_rate",
+             "WFM TMF697 characteristic noFaultFound on completion", "monthly",
              "missing",
              "the denominator for truck-roll avoidance. Without it the KPI stays "
              "a range"),
@@ -105,9 +106,11 @@ DATA_CONTRACT: tuple[PanelContract, ...] = (
     PanelContract("incident_root_cause_mix", "hourly", (
         _req("approved_rca.recommended_domain", "workflow state", "incident",
              "in_flow"),
-        _req("subscribers_affected", "OSS inventory: tap and ODP membership",
+        _req("subscribers_affected",
+             "NXT topology.householdsBehindDelimiter",
              "plant element", "modelled",
-             "currently from plant.blast_radius on assumed serving ratios"),
+             "MODELLED envelope: the NXT field name is a placeholder. Currently "
+             "from plant.blast_radius on assumed serving ratios"),
     )),
     PanelContract("automation_funnel", "hourly", (
         _req("Detect autonomy", "alarm ingest: auto-raised vs operator-raised",
@@ -142,9 +145,15 @@ DATA_CONTRACT: tuple[PanelContract, ...] = (
              "in_flow"),
     )),
     PanelContract("service_health_by_layer", "1 minute", (
-        _req("HFC MER, codeword errors, upstream SNR", "CMTS or PNM collector",
-             "node, 1 min", "missing"),
-        _req("PON optical Rx, LOS, BER", "OLT EMS", "PON port, 1 min", "missing"),
+        _req("HFC MER, codeword errors, upstream SNR",
+             "CPE via TR-369 USP: docsIf3SignalQualityExtRxMER, "
+             "docsIfSigQUncorrectables", "modem, hourly", "missing",
+             "contract in northbound.contracts.CPE_CONTRACT; values arrive in "
+             "tenths and counters are cumulative"),
+        _req("PON optical Rx, LOS, BER",
+             "CPE via TR-369 USP: Device.Optical.Interface.1.*",
+             "ONT, hourly", "missing",
+             "values arrive in hundredths of a dBm"),
         _req("core and aggregation health", "IP core telemetry", "device, 1 min",
              "missing"),
         _req("WiFi airtime, client counts", "TR-369 or CPE telemetry",
@@ -162,7 +171,8 @@ DATA_CONTRACT: tuple[PanelContract, ...] = (
              "plant element", "missing"),
     )),
     PanelContract("playbook_backlog", "daily", (
-        _req("action_type outcomes over time", "workflow action_history",
+        _req("action_type outcomes over time",
+             "workflow action_history, plus WFM resolutionCode",
              "action", "in_flow",
              "success rate is computable once enough incidents have closed"),
         _req("ops effort saved", "time-and-motion baseline", "action type",

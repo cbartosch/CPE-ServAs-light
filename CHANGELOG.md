@@ -1,5 +1,63 @@
 # Changelog
 
+## 1.17.0 - northbound message contracts for NXT, CPE, WFM and jTrack
+
+Explicit message shapes for the four northbound systems, with adapters that parse
+them into the internal model.
+
+### Provenance, because three of four are real and one is not
+| System | Provenance | Basis |
+|---|---|---|
+| CPE | **STANDARD** | TR-181 parameter paths over TR-369 USP; DOCSIS counters use CM-SP-CM-OSSI MIB object names |
+| WFM | **STANDARD** | TM Forum TMF697 Work Order Management |
+| jTrack | **STANDARD** | TM Forum TMF621 Trouble Ticket Management |
+| NXT | **MODELLED** | No specification available to me. Every field name is a placeholder |
+
+The TMF and TR-181 shapes are real: field names, enumerations and envelope
+structure come from published specifications. **The NXT envelope is invented.** It
+is the shape a system like that plausibly emits, not the shape yours emits, and a
+test asserts every NXT field is marked MODELLED so nobody mistakes it.
+
+### Added
+- `northbound/contracts.py` 39 field specs, each recording whether its name comes
+  from a specification or from me
+- `northbound/samples.py` the messages as they arrive on the wire
+- `northbound/adapters.py` validating parsers
+- `scripts/show_northbound_messages.py`
+- `tests/test_northbound.py`, 41 tests
+
+### Three conversions integrations get wrong, handled explicitly
+**Scaling.** DOCSIS power and MER arrive in tenths, TR-181 optical power in
+hundredths. Read as plain units, a downstream Rx of `-118` becomes -118 dBmV: a
+modem reported dead when it is at -11.8 and in service.
+
+**Counters, not rates.** `docsIfSigQUncorrectables` is cumulative since boot, so a
+single sample cannot yield a rate. Treating the raw counter as one flags every
+modem that has been up for a year.
+
+**Counter wrap and reboot.** A later counter lower than the earlier one means a
+reboot or a wrap. The delta is not negative, it is unknown, and the adapter returns
+`None` rather than a negative rate.
+
+Also refused rather than guessed: a naive timestamp with no timezone, because
+assuming one silently shifts every measurement by the offset.
+
+### The identifiers have to join up
+The delimiter `TAP-ARE-AD00042` appears in the NXT topology, the WFM
+`characteristic` and the jTrack `suspectResource`; the jTrack ticket appears in the
+NXT snapshot's `openTickets`; and a predictive ticket id survives into jTrack
+through `externalIdentifier`, so a scan-originated incident stays traceable once it
+becomes a real ticket. Tests assert all three joins. Without a shared delimiter
+identifier none of this correlates, which is the first thing to confirm against
+real messages.
+
+### The data contract now names real sources
+`telemetry.DATA_CONTRACT` said "CMTS or PNM collector" and "OSS work-order
+history". It now names the specific parameters and TMF fields, so a blocked panel
+points at a message rather than a department.
+
+554 stdlib tests pass.
+
 ## 1.16.1 - audit: the agent layer was never reachable
 
 Report: `docs/AUDIT_v1.16.1.md`. Six findings, all against my own work.
