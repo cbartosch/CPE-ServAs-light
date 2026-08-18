@@ -19,7 +19,7 @@ st.set_page_config(
 # Visual identity. Artwork is original SVG confined to the header band and a
 # corner watermark, at an opacity capped in ui.theme; readability of every text
 # pairing is asserted by tests/test_theme.py rather than eyeballed.
-from lpr_cpe_demo.ui import artwork, theme  # noqa: E402
+from lpr_cpe_demo.ui import artwork, sidebar as model_sidebar, theme  # noqa: E402
 
 st.markdown(
     theme.css(header_svg_data_uri=artwork.band_data_uri(),
@@ -30,6 +30,9 @@ st.markdown(
 
 with st.sidebar:
     st.header("LPR CPE Assurance")
+    # Global fact, so it belongs on the only surface every page shares. Without it
+    # a reader on any other page cannot tell whether a model produced the numbers.
+    model_sidebar.render()
     st.session_state.demo_user = st.text_input(
         "Demo user", value=st.session_state.get("demo_user", "demo.operator")
     )

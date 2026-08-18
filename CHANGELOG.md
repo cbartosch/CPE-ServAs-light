@@ -1,5 +1,60 @@
 # Changelog
 
+## 1.19.0 - model and activation state on the sidebar, every page
+
+### Added
+`src/lpr_cpe_demo/ui/sidebar.py`, rendered from `app.py` inside the shared
+`with st.sidebar` block so it appears on all ten pages. It shows the model name,
+whether a key activated it, what has happened so far, and what the state means.
+
+The Control Tower already had an agent-status block, but it is one page of ten.
+Someone on the Incident Workbench or the Decision Center saw numbers with no way to
+tell whether a model produced them. The sidebar is the only surface every page
+shares, so a global fact belongs there.
+
+### Three states, not two
+```
+LLM ACTIVE       claude-sonnet-4-6
+                 Activated by ANTHROPIC_API_KEY
+                 Agents decide; the deterministic rules check them.
+
+LLM NOT ACTIVE   none
+                 ANTHROPIC_API_KEY is not set
+                 Every decision is the deterministic rules. Agent-derived
+                 figures elsewhere are ASSUMED, not model-produced.
+
+LLM BYPASSED     none
+                 A key is set, but MODEL_PROVIDER or LLM_PROVIDER is fake
+```
+`BYPASSED` is separate deliberately. A key that is set and then overridden by a
+switch is a different situation from no key, and the fix is different: one is
+"add a key", the other is "remove a switch". Collapsing them would send someone to
+the wrong place.
+
+Once decisions have run the panel adds live counts, and reads "No decision attempted
+yet" rather than a zero, because zero fallbacks would read as healthy.
+
+### The key is never rendered
+Only the variable name and whether it is set. Two tests assert the secret reaches
+neither the markup nor the text lines.
+
+### Readable under both themes
+The app injects the light theme globally and the Control Tower injects the dark one
+on top, so the sidebar background differs by page. The panel sets its own
+background rather than inheriting, and contrast is measured against that fixed
+surface: 15.89 for body text, 8.46 for captions, and 6.47 to 10.43 for the three
+indicator colours, all against a 4.5 requirement. A status indicator that becomes
+unreadable on one page is worse than none, because it is unreadable exactly when
+someone is looking at it.
+
+### Notes
+- `streamlit` is imported inside `render()` rather than at module scope, so the
+  panel's text and contrast are testable without it. A test asserts that.
+- A test asserts `model_sidebar.render()` is called from `app.py` before page
+  dispatch, since a panel only one page shows would not solve the problem.
+
+602 stdlib tests pass.
+
 ## 1.18.1 - the daemon cannot pull the base image, which no in-image fix reaches
 
 A new failure, upstream of every TLS fix in the bundle:

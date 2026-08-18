@@ -171,6 +171,7 @@ src/lpr_cpe_demo/ui/pages/model_monitor.py
 src/lpr_cpe_demo/ui/pages/scenarios.py
 src/lpr_cpe_demo/ui/pages/simulator.py
 src/lpr_cpe_demo/ui/pages/system.py
+src/lpr_cpe_demo/ui/sidebar.py
 src/lpr_cpe_demo/ui/theme.py
 src/lpr_cpe_demo/ui/theme_dark.py
 src/lpr_cpe_demo/workflow/__init__.py
@@ -200,6 +201,7 @@ tests/test_predictive.py
 tests/test_retrieval_ab.py
 tests/test_routing_theme.py
 tests/test_security_store.py
+tests/test_sidebar.py
 tests/test_telemetry.py
 tests/test_ui_widgets.py
 tests/test_workflow.py
