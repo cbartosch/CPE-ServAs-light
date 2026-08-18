@@ -65,6 +65,7 @@ scripts/install-host-ca.sh
 scripts/preflight.py
 scripts/run_ab_matrix.py
 scripts/run_dispatch_simulation.py
+scripts/run_predictive_scan.py
 scripts/run_scenario_matrix.py
 scripts/smoke_test.py
 scripts/stage-ca.ps1
@@ -122,6 +123,16 @@ src/lpr_cpe_demo/mcp_server/tools.py
 src/lpr_cpe_demo/persistence/__init__.py
 src/lpr_cpe_demo/persistence/repository.py
 src/lpr_cpe_demo/plant.py
+src/lpr_cpe_demo/predictive/__init__.py
+src/lpr_cpe_demo/predictive/config.py
+src/lpr_cpe_demo/predictive/estate.py
+src/lpr_cpe_demo/predictive/handoff.py
+src/lpr_cpe_demo/predictive/params.py
+src/lpr_cpe_demo/predictive/pipeline.py
+src/lpr_cpe_demo/predictive/scan.py
+src/lpr_cpe_demo/predictive/scanner.py
+src/lpr_cpe_demo/predictive/service.py
+src/lpr_cpe_demo/predictive/signals.py
 src/lpr_cpe_demo/retrieval.py
 src/lpr_cpe_demo/routing.py
 src/lpr_cpe_demo/telemetry.py
@@ -168,6 +179,7 @@ tests/test_llm_boundary.py
 tests/test_mcp_controls.py
 tests/test_mcp_http.py
 tests/test_plant_effort.py
+tests/test_predictive.py
 tests/test_retrieval_ab.py
 tests/test_routing_theme.py
 tests/test_security_store.py

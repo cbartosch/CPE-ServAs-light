@@ -1,5 +1,84 @@
 # Changelog
 
+## 1.15.0 - predictive modem scanning as a scheduled branch
+
+A daily scan that flags poorly performing modems, auto-remediates, and hands the
+rest to the main flow with a human gate. Six design choices were taken by the
+operator and are asserted by test rather than inferred.
+
+### Added
+`src/lpr_cpe_demo/predictive/`, standard library only so the branch runs and is
+testable independently of the pydantic-bound engine:
+
+- `config.py` every threshold, rate, window and cap, with a `basis` string
+- `signals.py` synthetic PNM telemetry with degradation trajectories
+- `scanner.py` classification into two ticket classes, dedup, repeat detection
+- `pipeline.py` auto-remediate then gate, activating `PolicyVerdict.ALLOWED`
+- `handoff.py` the merge into the main flow
+- `service.py` the daily run, with flag history persisted across restarts
+- `scripts/run_predictive_scan.py`
+- `tests/test_predictive.py`, 64 tests
+
+### What makes the simulation realistic rather than random
+Each modem carries a latent root cause and a trajectory consistent with it.
+Physical causes degrade monotonically, configuration and firmware causes step,
+and CPE-state and Wi-Fi causes are erratic. Measured over 40 modems: a degrading
+tap trends at r-squared 0.54 to 0.67, while an erratic cause reaches 0.09 and is
+correctly rejected by the `min_trend_r2` gate. **No modem whose true cause is
+`stable` was ever flagged.**
+
+Each modem also has an onset day spread over 60 days, and a modem whose ticket was
+closed relapses after a cause-specific interval unless the fix was permanent. Both
+are necessary: without onset the first scan flags everything and every later scan
+finds nothing; without relapse the network heals permanently by day three and the
+repeat-offender trigger can never fire.
+
+That produces two distinct numbers, which differ by more than an order of
+magnitude and answer different questions:
+
+| | tickets | auto-closed | to a human |
+|---|---|---|---|
+| Launch backlog (`--backlog`) | 400, capped, 79 suppressed | 29% | 285 |
+| Steady state, per day | 4 to 11 | 30 to 60% | 2 to 8 |
+
+### Three defects found and fixed while building it
+**The hard-failure trigger was vacuous.** The scanner only raises a forecast ticket
+when the breach falls inside the horizon, so "notify when a hard failure is
+forecast inside the horizon" fired on every forecast ticket: 399 of 400 gated.
+`HARD_FAILURE_KPIS` now names the three KPIs whose alarm means loss of service
+rather than degradation. This was a definition I had to make concrete, and it is
+flagged as such in the code.
+
+**Notification was assessed on stale risk.** A forecast failure that remediation
+had already averted still demanded a customer notification. Triggers are now
+evaluated on residual risk; repeat offender is deliberately exempt, because a modem
+flagged three times in a month is worth mentioning even when tonight's reboot
+worked.
+
+**An open ticket counted as a repeat.** Re-flagging a modem nightly while its
+ticket was still open made every modem a repeat offender by day two, the
+notification trigger fired on the whole population, and the auto-close rate fell to
+zero. Only a closed ticket now enters the repeat history, and an open ticket
+suppresses a duplicate finding.
+
+### The consequence of two choices, stated rather than buried
+The operator chose that the forecast class auto-remediates including a reboot, and
+that a service-affecting remediation alone does **not** require notification.
+Together: a working modem can be rebooted with no notice. The maintenance window
+is the only control on that, so it is a first-class parameter and
+`execute_allowed` refuses a service-affecting action outside it. A deferred reboot
+gates rather than being silently dropped.
+
+### The merge rule and what it implies
+The predictive incident stays parent, a later customer call attaches, and the SLA
+runs from when the scan opened it. A customer calling 30 hours later inherits a
+clock that is already breached, so `sla_breached_at_attach` and
+`hours_of_clock_already_spent` are surfaced on the merge decision rather than left
+for an agent to discover.
+
+446 stdlib tests pass. The branch has not been run in a container, and it does not
+schedule itself: cron, a CronJob or a compose loop calls `run_once`.
+
 ## 1.14.1 - fix zero-minute travel, and price the journey to where the work is
 
 You spotted a one-way travel time of 0 minutes. Two defects behind it.
