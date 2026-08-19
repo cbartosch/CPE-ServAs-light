@@ -20,7 +20,7 @@ sys.path.insert(0, str(ROOT / "src"))
 from lpr_cpe_demo.geo_layers import (ARCHETYPE_RGBA, INITIAL_VIEW,  # noqa: E402
                                      OSM_ATTRIBUTION, TILE_URL, dispatch_route,
                                      ferry_arcs, hub_records,
-                                     marker_records, site_records, tile_layer)
+                                     marker_records, site_records, )
 from lpr_cpe_demo.geography import (DISPATCH_BASES, SITE_BY_ID,  # noqa: E402
                                     core_sites, ferry_terminals,
                                     sites_in_cpe_footprint)
@@ -31,15 +31,7 @@ LON_RANGE = (-67.40, -65.15)
 
 
 class TestBasemap(unittest.TestCase):
-    def test_tile_layer_points_at_openstreetmap(self):
-        layer = tile_layer()
-        self.assertEqual(layer["@@type"], "TileLayer")
-        self.assertIn("tile.openstreetmap.org", layer["data"])
-        self.assertIn("{z}/{x}/{y}", layer["data"])
 
-    def test_tile_url_is_overridable_for_an_internal_service(self):
-        layer = tile_layer("https://tiles.internal/{z}/{x}/{y}.png")
-        self.assertEqual(layer["data"], "https://tiles.internal/{z}/{x}/{y}.png")
 
     def test_attribution_is_defined(self):
         self.assertIn("OpenStreetMap", OSM_ATTRIBUTION)

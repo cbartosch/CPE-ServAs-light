@@ -69,18 +69,27 @@ def verify_approval_for(token: str, secret: str, *, incident_id: str,
                         action_type: str, idempotency_key: str) -> dict[str, Any]:
     """Verify the signature AND that the token authorises THIS action.
 
-    Red-team finding: `verify_approval_token` returns `incident_id`,
-    `action_type` and `idempotency_key`, and no caller compared them to the action
-    being performed. A token legitimately issued for one incident and lane could
-    therefore authorise a different one — a confused deputy. The claims existed
-    precisely to prevent that and nothing read them.
+    CORRECTION TO THE v1.20.0 RED-TEAM FINDING. That report claimed no caller
+    compared the claims to the action being performed. **That was wrong.**
+    `mcp_server.tools.ToolRegistry` already compared `incident_id`, `action_type`
+    and `status`, and checked the consumed approval against the idempotency key. My
+    grep pattern looked for `claims[...idempotency_key...]` and missed
+    `claims.get("incident_id") != incident_id`, so I reported a critical break that
+    did not exist.
 
-    Signature verification alone answers "was this issued by us". It does not
-    answer "was this issued for what I am about to do", and only the second
-    question protects a customer from a crew arriving to do something nobody
-    approved.
+    This function is therefore not a fix for a hole. It is the reusable form of a
+    check that existed inline, and it adds one comparison the inline version did
+    not make: the idempotency key itself. Keeping the check in one place is worth
+    doing, but the vulnerability was never live.
+
+    `status` is verified here because the inline version verified it, and a
+    consolidation that quietly dropped a check would be worse than the duplication
+    it replaced.
     """
     claims = verify_approval_token(token, secret)
+    if claims.get("status") != "approved":
+        raise ApprovalMismatch("APPROVAL_NOT_GRANTED: the token does not record "
+                               "an approval")
     expected = {"incident_id": incident_id, "action_type": action_type,
                 "idempotency_key": idempotency_key}
     for field, wanted in expected.items():

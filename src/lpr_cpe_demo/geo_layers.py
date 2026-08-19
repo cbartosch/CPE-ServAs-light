@@ -59,17 +59,6 @@ FERRY_LINE_RGBA = [143, 125, 98, 200]
 ROUTE_RGBA = [12, 84, 87, 210]
 
 
-def tile_layer(url: str = TILE_URL) -> dict[str, Any]:
-    """OSM raster basemap. `map_provider` must be None so deck.gl adds no other."""
-    return {
-        "@@type": "TileLayer",
-        "data": url,
-        "minZoom": 0,
-        "maxZoom": 19,
-        "tileSize": 256,
-        "pickable": False,
-    }
-
 
 def site_records() -> list[dict[str, Any]]:
     out = []
@@ -233,29 +222,6 @@ def premise_link_records(faults) -> list[dict[str, object]]:
         })
     return out
 
-
-def fault_route_records(faults) -> list[dict[str, object]]:
-    """Dispatch base to the intervention point, via the ferry terminal if islanded."""
-    out = []
-    for f in faults:
-        if f.truck_rolls == 0:
-            continue
-        base = next((b for b in DISPATCH_BASES if b.base_id == f.base_id), None)
-        if base is None:
-            continue
-        path = [[base.lon, base.lat]]
-        site = SITE_BY_ID[f.site_id]
-        if f.requires_ferry and site.ferry_from:
-            terminal = SITE_BY_ID[site.ferry_from]
-            path.append([terminal.lon, terminal.lat])
-        path.append([f.intervention_lon, f.intervention_lat])
-        out.append({
-            "path": path,
-            "label": (f"{f.fault_id}: {base.name} to {f.intervention_id}, "
-                      f"{f.travel_minutes} min each way"),
-            "colour": [12, 84, 87, 170],
-        })
-    return out
 
 
 

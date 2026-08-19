@@ -1,5 +1,70 @@
 # Changelog
 
+## 1.23.1 - audit: a retraction, and the third unreachable capability
+
+Report: `docs/AUDIT_v1.23.1.md`. Five findings, all against my own work.
+
+### Retracted: the v1.20.0 confused-deputy finding was wrong
+That report claimed no caller compared the approval-token claims to the action being
+performed. **It was false.** `mcp_server/tools.py` already compared `incident_id`,
+`action_type` and `status`, and checked the consumed approval against the idempotency
+key. My grep looked for `claims[...idempotency_key...]` and missed
+`claims.get("incident_id") != incident_id`. I reported a critical security break that
+did not exist and shipped a fix for a closed hole.
+
+`verify_approval_for` is retained and now wired in, because consolidating four inline
+comparisons into one reusable call is worth doing and it adds the idempotency-key
+comparison the inline version lacked. It is a refactor, not a fix. The `status` check
+was added to it before wiring, since a consolidation that quietly dropped a check
+would be worse than the duplication it replaced. The red-team report carries the
+retraction inline.
+
+**A negative grep is not evidence of absence, and I used one to make the strongest
+claim in that report.**
+
+### The recommended dispatch rule was unreachable — third occurrence
+`schedule_day`, `build_jobs`, `crew_hours` and three others had zero application
+references. I recommended a rule, measured it at 2.2x the incumbent, and the running
+system kept the incumbent.
+
+The v1.12.1 audit ran exactly the right check as a throwaway script, found four
+orphans, and never committed it. After the second occurrence I added a standing check
+and a test — but the test was written for agents specifically, so it did not
+generalise. **A guard written for one instance of a bug does not guard the class.**
+
+`tests/test_reachability.py` now checks every public symbol against application code,
+with a reasoned allowlist. It found 18 orphans on first run. Also still unwired and
+now fixed: `recommendation_agent`, `route_agent` and `route_options` — v1.16.1 wired
+only `triage_agent` while I reported the agent layer as addressed. All three now run
+in the predictive pipeline, each returning a best and a second-best.
+
+### The deadline conversion broke the medical protection
+A fresh medical case on an island scored **139**; a routine metro job 71 hours old
+scored **1,174**. The routine job won by 8.4x. Fixed with two precedence tiers:
+`ABSOLUTE_PRECEDENCE` holds only medical-or-safety and already-breached SLA, about 5%
+of arrivals against 23% for all protections, so it cannot starve the queue.
+
+### The value model trusted a CRM extract
+Negative revenue produced a value at risk of **minus $10,395**, which sorts to the
+bottom of every queue and silently deprioritises that customer forever. An absurd
+figure produced **$2.07bn**. Neither raised anything. `CustomerRecord.__post_init__`
+now validates at the boundary.
+
+### The fairness measurement measured the wrong rule
+`disparate_impact` only accepts the per-visit ranking, so the island-skew figures
+quoted while recommending the density rule were measured on the rule it replaces.
+`schedule_disparate_impact` measures the schedule actually produced, reporting
+worst-wait per archetype and `overdue_deferred`.
+
+### Also
+`tile_layer` and `fault_route_records`, flagged in v1.12.1 and never removed, are
+gone along with the tests that only covered them.
+
+690 stdlib tests pass. Two tests that covered the removed
+fault_route_records were mangled by a regex rather than deleted, leaving an assertion
+that compared a list of faults to a count of truck rolls; both were removed properly.
+Route coverage lives in test_ui_widgets against the real pydeck API.
+
 ## 1.23.0 - a recommended dispatch rule, measured against the one it replaces
 
 Report: `docs/DISPATCH_RULE.md`.

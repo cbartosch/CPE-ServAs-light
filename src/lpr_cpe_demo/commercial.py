@@ -116,9 +116,58 @@ PROTECTION_REASON: dict[str, str] = {
 BLAST_RADIUS_PLANT_EVENT = 4
 
 
+class CustomerDataError(ValueError):
+    """A customer record that cannot be reasoned about.
+
+    The caller here is a CRM extract over a MODELLED contract, so bad data is
+    likely rather than hypothetical. Audit finding: negative monthly revenue
+    produced a value at risk of MINUS $10,395, which sorts to the bottom of every
+    queue and silently deprioritises that customer forever. An absurd figure
+    produced $2.07bn, which dominates every queue. Neither raised anything.
+    """
+
+
+MAX_PLAUSIBLE_MRR = 250_000.0
+
+
 @dataclass(frozen=True, slots=True)
 class CustomerRecord:
     """What the CRM and billing systems supply. See northbound.contracts."""
+
+    def __post_init__(self) -> None:
+        if self.segment not in CHURN_BASE_BY_SEGMENT:
+            raise CustomerDataError(
+                f"{self.account_id}: segment {self.segment!r} is not one of "
+                f"{sorted(CHURN_BASE_BY_SEGMENT)}")
+        if self.contract_status not in CONTRACT_MOBILITY:
+            raise CustomerDataError(
+                f"{self.account_id}: contract_status {self.contract_status!r} is "
+                f"not recognised")
+        if self.payment_status not in PAYMENT_CHURN_FACTOR:
+            raise CustomerDataError(
+                f"{self.account_id}: payment_status {self.payment_status!r} is "
+                f"not recognised")
+        if self.monthly_recurring_revenue < 0:
+            raise CustomerDataError(
+                f"{self.account_id}: monthly_recurring_revenue is negative "
+                f"({self.monthly_recurring_revenue}); a negative value at risk "
+                f"sorts to the bottom of every queue and hides the account")
+        if self.monthly_recurring_revenue > MAX_PLAUSIBLE_MRR:
+            raise CustomerDataError(
+                f"{self.account_id}: monthly_recurring_revenue "
+                f"{self.monthly_recurring_revenue:,.0f} exceeds the plausible "
+                f"ceiling of {MAX_PLAUSIBLE_MRR:,.0f}; one bad extract would "
+                f"dominate every queue")
+        if self.tenure_months < 0:
+            raise CustomerDataError(f"{self.account_id}: tenure_months is negative")
+        if self.contract_months_remaining < 0:
+            raise CustomerDataError(
+                f"{self.account_id}: contract_months_remaining is negative")
+        if self.balance_overdue < 0:
+            raise CustomerDataError(f"{self.account_id}: balance_overdue is negative")
+        if self.faults_in_last_90d < 0:
+            raise CustomerDataError(f"{self.account_id}: faults_in_last_90d is "
+                                    f"negative")
 
     account_id: str
     segment: Segment
@@ -556,6 +605,22 @@ URGENCY_HALF_LIFE_HOURS = 18.0
 MIN_REMOTE_BATCH = 4
 FORCE_RUN_HOURS = 18.0
 
+# Protections that remain a PRECEDENCE CLASS, not merely a deadline.
+#
+# Audit finding: converting every protection to a deadline weakened the ones that
+# matter most. A fresh medical case on an island scored 139 while a routine metro
+# job 71 hours old scored 1,174 — 8.4 times higher — because the routine job had
+# more accumulated urgency and a fraction of the crew-hours. The medical
+# protection is meant to be a floor and it was not one.
+#
+# Only the non-negotiable class gets precedence, which is what keeps this from
+# becoming the lexicographic rule that starved the queue: medical and
+# already-breached SLA are together about 5% of arrivals, against 23% for all
+# protections. Lifeline, vulnerability and repeat-unresolved stay as deadlines,
+# because "within 24 hours" is a genuine and sufficient commitment for those.
+ABSOLUTE_PRECEDENCE: frozenset[str] = frozenset({
+    "medical_or_safety", "sla_breached"})
+
 
 def crew_hours(site_id: str, domain: str, *, crew_type: str = "dirty",
                destination: tuple[float, float] | None = None) -> float:
@@ -628,6 +693,11 @@ class Job:
         return self.age_hours >= self.deadline_hours
 
     @property
+    def absolute(self) -> bool:
+        """A life-safety or already-breached commitment. Precedence, not density."""
+        return bool(set(self.dispatch.protections) & ABSOLUTE_PRECEDENCE)
+
+    @property
     def score(self) -> float:
         """Value per crew-hour, weighted by urgency. Higher is sooner."""
         if self.crew_hours <= 0:
@@ -686,9 +756,15 @@ def schedule_day(jobs: Sequence[Job], *, crew_hours_available: float,
 
     Ordering, in one lexicographic step and then one continuous one:
 
-      1. Overdue jobs, by score. This is the ONLY hard precedence, and it is
-         bounded: a job is overdue or it is not.
-      2. Everything else by score, which is aged value times urgency per crew-hour.
+      1. Absolute-precedence jobs: a medical or safety dependency, or an SLA
+         already breached. Ordered among themselves by score.
+      2. Overdue jobs, by score.
+      3. Everything else by score, which is aged value times urgency per crew-hour.
+
+    Two precedence tiers rather than one, and deliberately narrow. Converting every
+    protection to a deadline let a routine job 71 hours old outrank a fresh medical
+    case by 8.4 times. Tier 1 is about 5% of arrivals, so it cannot starve the
+    queue the way all-protections-first did at 23%.
 
     Remote jobs are held back unless the run is worth making. Batching is what turns
     a $654 island visit into roughly $150 a ticket, and it is the difference between
@@ -709,7 +785,8 @@ def schedule_day(jobs: Sequence[Job], *, crew_hours_available: float,
             remote = []
 
     candidates = mainland + remote
-    candidates.sort(key=lambda j: (0 if j.overdue else 1, -j.score, j.ticket_id))
+    candidates.sort(key=lambda j: (0 if j.absolute else 1 if j.overdue else 2,
+                                   -j.score, j.ticket_id))
 
     scheduled: list[Job] = []
     deferred: list[Job] = []
@@ -729,12 +806,56 @@ def schedule_day(jobs: Sequence[Job], *, crew_hours_available: float,
         value_addressed=round(sum(j.aged_value for j in scheduled), 2))
 
 
+def schedule_disparate_impact(schedule: "DaySchedule") -> dict[str, object]:
+    """Fairness of the value-density SCHEDULE, not of the per-visit ranking.
+
+    Audit finding: `disparate_impact` accepts `RankedDispatch`, which comes from
+    `rank()`. The island-skew figures quoted while recommending the density rule
+    were therefore measured on the rule it replaces. This measures what is actually
+    recommended.
+    """
+    served = [j for j in schedule.scheduled]
+    waiting = [j for j in schedule.deferred] + list(schedule.held_remote)
+    if not served and not waiting:
+        return {"served": 0, "waiting": 0, "note": "nothing to measure"}
+
+    def mix(jobs: Sequence[Job]) -> dict[str, float]:
+        counts: dict[str, int] = {}
+        for job in jobs:
+            archetype = SITE_BY_ID[job.dispatch.site_id].archetype
+            counts[archetype] = counts.get(archetype, 0) + 1
+        return {k: round(v / len(jobs), 3) for k, v in sorted(counts.items())} \
+            if jobs else {}
+
+    served_mix, waiting_mix = mix(served), mix(waiting)
+    skew = {a: round(waiting_mix.get(a, 0.0) - served_mix.get(a, 0.0), 3)
+            for a in set(served_mix) | set(waiting_mix)}
+    worst_wait: dict[str, float] = {}
+    for job in served:
+        archetype = SITE_BY_ID[job.dispatch.site_id].archetype
+        worst_wait[archetype] = max(worst_wait.get(archetype, 0.0), job.age_hours)
+    return {
+        "served": len(served), "waiting": len(waiting),
+        "served_mix": served_mix, "waiting_mix": waiting_mix,
+        "waiting_minus_served": skew,
+        "worst_wait_hours_by_archetype": worst_wait,
+        "absolute_precedence_served": sum(1 for j in served if j.absolute),
+        "overdue_deferred": schedule.overdue_deferred,
+        "note": ("A single day's mix is not the fairness measure; the wait "
+                 "distribution is. Compare worst_wait across archetypes, and read "
+                 "overdue_deferred as a capacity signal rather than a "
+                 "prioritisation one."),
+    }
+
+
 def rule_description() -> str:
     return (
         "Schedule a day's crew-hours in descending order of\n"
         "\n"
         "    score = aged value at risk x urgency / crew-hours consumed\n"
         "\n"
-        "with overdue jobs taken first, remote work batched into runs, and every\n"
-        "protection expressed as a deadline rather than as a place in the queue."
+        "Life-safety and already-breached commitments take absolute precedence,\n"
+        "then overdue work, then everything else by score. Remote work is batched\n"
+        "into runs. The remaining protections are deadlines rather than places in\n"
+        "the queue."
     )

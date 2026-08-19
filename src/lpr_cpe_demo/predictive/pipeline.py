@@ -25,8 +25,9 @@ from datetime import datetime
 from typing import Literal, Sequence
 
 from ..agents.base import AgentDecision
-from ..agents.decisions import (baseline_triage_for, triage_agent,
-                                triage_prompt)
+from ..agents.decisions import (baseline_triage_for, recommendation_agent,
+                                recommendation_prompt, route_agent, route_options,
+                                route_prompt, triage_agent, triage_prompt)
 from ..agents.guards import ActionRequest, evaluate as evaluate_policy
 from ..agents.provider import Provider, provider_from_env
 from ..commercial import CustomerRecord, RankedDispatch, rank
@@ -84,6 +85,11 @@ class Outcome:
     # Commercial ranking, populated when a customer record is supplied. A dispatch
     # decision without one still works; it simply carries no priority.
     priority: RankedDispatch | None = None
+    # Agent-chosen dispatch base and remediation, with the second-best each.
+    chosen_base: str | None = None
+    base_alternative: str | None = None
+    recommended_action: str | None = None
+    action_alternative: str | None = None
 
     @property
     def notification_required(self) -> bool:
@@ -276,6 +282,11 @@ def process(ticket: PredictiveTicket, *, hour: int, rolls: Sequence[float],
     # dispatch is needed. Ranking a ticket that will be fixed remotely would put a
     # customer's value into a decision that never involves a crew.
     priority: RankedDispatch | None = None
+    # Agent-chosen dispatch base and remediation, with the second-best each.
+    chosen_base: str | None = None
+    base_alternative: str | None = None
+    recommended_action: str | None = None
+    action_alternative: str | None = None
     if customer is not None and needs_truck_roll:
         ranked = rank([(ticket.ticket_id, customer, ticket.site_id,
                         {"households_affected": households_affected,
@@ -285,6 +296,41 @@ def process(ticket: PredictiveTicket, *, hour: int, rolls: Sequence[float],
                          "crew_type": ("dirty" if ticket.suspected_cause
                                        in PHYSICAL_CAUSES else "clean")})])
         priority = ranked[0]
+
+    # Let the agents choose the remediation and the base when a crew is going out.
+    # Both carry a second-best, which is what an approver at the gate overturns to.
+    chosen_base: str | None = None
+    base_alternative: str | None = None
+    recommended_action: str | None = None
+    action_alternative: str | None = None
+    if provider is not None and needs_truck_roll:
+        domain = _DOMAIN_FOR_CAUSE.get(ticket.suspected_cause, "unknown")
+        crew = "dirty" if ticket.suspected_cause in PHYSICAL_CAUSES else "clean"
+        baseline_action = ("dirty_boots_mr" if crew == "dirty" else "clean_boots")
+        action = recommendation_agent(
+            provider, baseline_action=baseline_action).decide(
+                recommendation_prompt(
+                    domain=domain, technology=ticket.technology,
+                    households=households_affected,
+                    remote_attempts=sum(1 for a in attempts if a.executed),
+                    field_visits=0, baseline_action=baseline_action,
+                    constraints={"suspected_cause": ticket.suspected_cause,
+                                 "ticket_class": ticket.ticket_class}))
+        recommended_action = action.decision
+        action_alternative = (action.second_best.choice
+                              if action.second_best else None)
+
+        options = route_options(ticket.site_id, crew_type=crew)
+        if options:
+            route = route_agent(
+                provider, candidates=[o["base_id"] for o in options],
+                baseline_base=options[0]["base_id"]).decide(
+                    route_prompt(site_id=ticket.site_id, crew_type=crew,
+                                 required_skills=(), required_parts=(),
+                                 options=options))
+            chosen_base = route.decision
+            base_alternative = (route.second_best.choice
+                                if route.second_best else None)
 
     verdict: Verdict = ("blocked" if blocked else
                         "requires_approval" if gate_reasons else "allowed")
@@ -297,4 +343,6 @@ def process(ticket: PredictiveTicket, *, hour: int, rolls: Sequence[float],
         service_interruption_minutes=interruption,
         triage=triage, triage_source=triage_source,
         triage_agrees_with_baseline=triage_agrees, policy_blocked=blocked,
-        priority=priority)
+        priority=priority, chosen_base=chosen_base,
+        base_alternative=base_alternative, recommended_action=recommended_action,
+        action_alternative=action_alternative)

@@ -139,9 +139,11 @@ class TestTokenIsBoundToTheAction(unittest.TestCase):
     token legitimately issued for one incident could authorise another."""
 
     def setUp(self):
+        # `status` is required: the inline checks it replaces demanded it, and a
+        # consolidation that dropped a check would be worse than the duplication.
         self.claims = {"approval_id": "apr-A", "incident_id": "INC-A",
                        "action_type": "clean_boots", "idempotency_key": "idem-A",
-                       "exp": time.time() + 600}
+                       "status": "approved", "exp": time.time() + 600}
         self.token = create_approval_token(self.claims, SECRET)
 
     def test_the_matching_action_is_accepted(self):
@@ -179,6 +181,23 @@ class TestTokenIsBoundToTheAction(unittest.TestCase):
         """Documented, not a defect: replay protection is the store's job."""
         for _ in range(3):
             verify_approval_token(self.token, SECRET)
+
+    def test_a_token_that_records_no_approval_is_refused(self):
+        """The check the consolidation had to preserve."""
+        unapproved = create_approval_token(
+            dict(self.claims, status="pending"), SECRET)
+        with self.assertRaises(ApprovalMismatch):
+            verify_approval_for(unapproved, SECRET, incident_id="INC-A",
+                                action_type="clean_boots",
+                                idempotency_key="idem-A")
+
+    def test_the_registry_now_uses_the_consolidated_check(self):
+        """Statically verified: tools.py needs pydantic and cannot run here."""
+        text = (ROOT / "src/lpr_cpe_demo/mcp_server/tools.py").read_text()
+        self.assertIn("verify_approval_for", text)
+        self.assertIn("idempotency_key=idempotency_key", text)
+        self.assertNotIn("APPROVAL_INCIDENT_MISMATCH", text,
+                         "the inline checks should be gone, not duplicated")
 
 
 class TestEffectStoreHoldsUnderAttack(unittest.TestCase):

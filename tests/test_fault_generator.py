@@ -18,8 +18,7 @@ from lpr_cpe_demo.fault_generator import (DOMAIN_MIX, generate_faults,  # noqa: 
                                           summarise)
 from lpr_cpe_demo.geo_layers import (COST_BANDS, cost_colour,  # noqa: E402
                                      cost_radius,
-                                     fault_records, fault_route_records,
-                                     premise_link_records)
+                                     fault_records, premise_link_records)
 from lpr_cpe_demo.geography import SITE_BY_ID  # noqa: E402
 from lpr_cpe_demo.plant import households  # noqa: E402
 
@@ -202,14 +201,7 @@ class TestFaultLayers(unittest.TestCase):
         expected = sum(1 for f in self.faults if not f.intervention_is_at_premise)
         self.assertEqual(len(premise_link_records(self.faults)), expected)
 
-    def test_routes_only_exist_where_a_truck_rolled(self):
-        expected = sum(1 for f in self.faults if f.truck_rolls)
-        self.assertEqual(len(fault_route_records(self.faults)), expected)
 
-    def test_island_routes_pass_through_the_terminal(self):
-        for record in fault_route_records(generate_faults(600, seed=42)):
-            if "Culebra" in record["label"] or "Vieques" in record["label"]:
-                self.assertEqual(len(record["path"]), 3)
 
     def test_cost_colour_and_radius_increase_with_cost(self):
         cheap, dear = cost_colour(50.0), cost_colour(2000.0)

@@ -5,7 +5,8 @@ from typing import Any, Callable
 
 from lpr_cpe_demo.config import Settings, get_settings
 from lpr_cpe_demo.domain import stable_id
-from lpr_cpe_demo.mcp_server.security import ApprovalTokenError, verify_approval_token
+from lpr_cpe_demo.mcp_server.security import (ApprovalTokenError,
+                                              verify_approval_for)
 from lpr_cpe_demo.mcp_server.store import EffectStore
 from lpr_cpe_demo.workflow.scenarios import ScenarioCatalog
 
@@ -143,20 +144,20 @@ class ToolRegistry:
             replay["replayed"] = True
             return replay
 
+        # One call in place of four inline comparisons. Same checks, plus the
+        # idempotency key, which the inline version did not compare. See the
+        # correction note in security.verify_approval_for: the v1.20.0 red-team
+        # report wrongly claimed these comparisons were absent.
         try:
-            claims = verify_approval_token(
+            claims = verify_approval_for(
                 approval_token,
                 self.settings.mcp_approval_signing_secret,
+                incident_id=incident_id,
+                action_type=action_type,
+                idempotency_key=idempotency_key,
             )
         except ApprovalTokenError as exc:
             raise ToolRejection(str(exc)) from exc
-
-        if claims.get("incident_id") != incident_id:
-            raise ToolRejection("APPROVAL_INCIDENT_MISMATCH")
-        if claims.get("action_type") != action_type:
-            raise ToolRejection("APPROVAL_ACTION_MISMATCH")
-        if claims.get("status") != "approved":
-            raise ToolRejection("APPROVAL_NOT_GRANTED")
 
         approval_id = str(claims.get("approval_id"))
         consumed = self.store.get_consumed_approval(approval_id)

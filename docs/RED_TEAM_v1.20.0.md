@@ -64,7 +64,18 @@ unable to work. The check could be evaded by forgetting it.
 domain and union it with whatever the caller declared. Omission no longer weakens
 the check.
 
-### 4. A valid approval token authorised any action — CRITICAL
+### 4. ~~A valid approval token authorised any action~~ — **RETRACTED**
+
+> **This finding was wrong and is retracted in v1.23.1.** `mcp_server/tools.py`
+> already compared `incident_id`, `action_type` and `status`, and checked the
+> consumed approval against the idempotency key. My grep looked for
+> `claims[...idempotency_key...]` and missed
+> `claims.get("incident_id") != incident_id`. I reported a critical break that did
+> not exist. `verify_approval_for` is retained as a consolidation of those inline
+> checks, plus the idempotency key comparison, but it fixed nothing. See
+> `docs/AUDIT_v1.23.1.md`. The original text follows for the record.
+
+### 4. A valid approval token authorised any action — RETRACTED, ORIGINAL TEXT
 
 `verify_approval_token` returns `incident_id`, `action_type` and `idempotency_key`.
 **No caller compared them to the action being performed.** A grep for any such
