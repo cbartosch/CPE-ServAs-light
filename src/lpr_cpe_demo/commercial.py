@@ -492,3 +492,249 @@ def assumptions() -> dict[str, object]:
         "protections": sorted(PROTECTION_REASON),
         "basis": ASSUMPTIONS_BASIS,
     }
+
+
+# ============================================================================
+# The recommended rule
+# ============================================================================
+#
+# Ranking by net benefit per VISIT was the operator's stated goal and it has three
+# measured problems, all of which this rule addresses:
+#
+#   1. 78 to 87% of gaps are negative, so the difference cannot gate anything.
+#   2. Protections-first is lexicographic, so 136 protected tickets consumed a
+#      40-slot day entirely and the commercial ranking never ran.
+#   3. Cost is geography, so islands sit at the bottom structurally.
+#
+# The rule below is a value-density scheduling rule with deadlines, which is the
+# standard answer to exactly this shape of problem. Three changes carry the weight:
+#
+# **Divide by crew-hours, not by visits.** A Culebra visit consumes 11 crew-hours
+# and a Bayamon visit 2.7. Treating them as equal claims on capacity is the single
+# largest error in the per-visit rule. Under a capacity constraint the quantity to
+# maximise is value per unit of the scarce resource, which makes this a ratio rather
+# than a difference.
+#
+# **Protections become deadlines, not queue jumps.** A medical dependency does not
+# mean "before everything else forever"; it means "within four hours". Expressing it
+# as a deadline lets the urgency term elevate it as slack shrinks, which is what
+# stops 23% of the queue from swallowing every slot.
+#
+# **Batch the remote runs.** One Culebra ticket cannot pay for a ferry. Six can, at
+# roughly a sixth of the cost each. Holding remote tickets until a batch forms, or
+# until the oldest reaches its deadline, converts a structural exclusion into a
+# scheduled cadence. That is what operators actually do, and it fixes the skew at
+# source rather than compensating for it.
+
+ON_SITE_MINUTES_BY_DOMAIN: dict[str, int] = {
+    "cpe": 45, "wifi_or_home": 60, "premise_wiring": 90, "provisioning": 30,
+    "drop": 75, "hfc_tap": 120, "pon_odp": 135, "plant": 180,
+    "shared_network": 180, "unknown": 90,
+}
+SHIFT_HOURS = 9.5
+
+# Deadline by protection class, in hours from when the fault was raised. These are
+# ASSUMED and are the policy dial an operator actually wants to turn: they encode
+# how long each class may wait, which is a commitment, not a calculation.
+DEADLINE_HOURS: dict[str, float] = {
+    "medical_or_safety": 4.0,
+    "sla_breached": 0.0,              # already past it
+    "total_loss_of_service": 12.0,
+    "regulatory_obligation": 24.0,
+    "vulnerable_customer": 24.0,
+    "repeat_unresolved": 36.0,
+}
+DEFAULT_DEADLINE_HOURS = 72.0
+
+# How hard an approaching deadline pulls a ticket forward. At slack zero the
+# multiplier is URGENCY_AT_DEADLINE; it decays towards 1.0 as slack grows.
+URGENCY_AT_DEADLINE = 12.0
+URGENCY_HALF_LIFE_HOURS = 18.0
+
+# Remote batching. Below MIN_REMOTE_BATCH a remote run is held unless something in
+# it is within FORCE_RUN_HOURS of its deadline.
+MIN_REMOTE_BATCH = 4
+FORCE_RUN_HOURS = 18.0
+
+
+def crew_hours(site_id: str, domain: str, *, crew_type: str = "dirty",
+               destination: tuple[float, float] | None = None) -> float:
+    """Crew time consumed by one visit: round trip plus on-site work.
+
+    A trip that cannot be completed and returned within a shift consumes the whole
+    shift, because the crew is unavailable for anything else that day.
+    """
+    site = SITE_BY_ID[site_id]
+    plan = select_base(site, crew_type=crew_type, destination=destination).plan
+    on_site = ON_SITE_MINUTES_BY_DOMAIN.get(domain, 90)
+    hours = (plan.total_minutes * 2 + on_site) / 60.0
+    if not plan.same_day_feasible:
+        hours = max(hours, SHIFT_HOURS)
+    return round(hours, 2)
+
+
+def deadline_hours_for(protections: Sequence[str]) -> float:
+    """The strictest deadline any applicable protection imposes."""
+    if not protections:
+        return DEFAULT_DEADLINE_HOURS
+    return min(DEADLINE_HOURS.get(p, DEFAULT_DEADLINE_HOURS) for p in protections)
+
+
+def urgency(age_hours: float, deadline_hours: float) -> float:
+    """Multiplier rising as slack to the deadline shrinks.
+
+    Past the deadline the multiplier is capped rather than unbounded: an overdue
+    ticket should go first, but an ancient one must not be able to justify a whole
+    week of capacity on its own.
+    """
+    slack = deadline_hours - age_hours
+    if slack <= 0:
+        return URGENCY_AT_DEADLINE
+    decay = 0.5 ** (slack / URGENCY_HALF_LIFE_HOURS)
+    return round(1.0 + (URGENCY_AT_DEADLINE - 1.0) * decay, 4)
+
+
+def aged_value_at_risk(base: ValueAtRisk, age_hours: float) -> float:
+    """Value at risk grows while a fault waits, because churn propensity does.
+
+    This is what prevents starvation without needing a quota. A low-value ticket
+    that keeps being deferred rises until it outranks a high-value one that has just
+    arrived, and it does so through the model rather than through an override.
+    """
+    days = max(age_hours, 0.0) / 24.0
+    growth = min(1.0 + 0.18 * days, 2.5)
+    return round(base.value_at_risk * growth, 2)
+
+
+@dataclass(frozen=True, slots=True)
+class Job:
+    ticket_id: str
+    dispatch: RankedDispatch
+    domain: str
+    age_hours: float
+    crew_hours: float
+    deadline_hours: float
+
+    @property
+    def urgency(self) -> float:
+        return urgency(self.age_hours, self.deadline_hours)
+
+    @property
+    def aged_value(self) -> float:
+        return aged_value_at_risk(self.dispatch.value, self.age_hours)
+
+    @property
+    def overdue(self) -> bool:
+        return self.age_hours >= self.deadline_hours
+
+    @property
+    def score(self) -> float:
+        """Value per crew-hour, weighted by urgency. Higher is sooner."""
+        if self.crew_hours <= 0:
+            return 0.0
+        return round(self.aged_value * self.urgency / self.crew_hours, 3)
+
+    @property
+    def remote(self) -> bool:
+        return SITE_BY_ID[self.dispatch.site_id].archetype == "remote_island"
+
+
+def build_jobs(ranked: Sequence[RankedDispatch], *,
+               domains: dict[str, str] | None = None,
+               ages: dict[str, float] | None = None) -> list[Job]:
+    domain_map = domains or {}
+    age_map = ages or {}
+    jobs = []
+    for row in ranked:
+        domain = domain_map.get(row.ticket_id, "unknown")
+        age = age_map.get(row.ticket_id, 0.0)
+        deadline = deadline_hours_for(row.protections)
+        jobs.append(Job(row.ticket_id, row, domain, age,
+                        crew_hours(row.site_id, domain,
+                                   crew_type=("dirty" if domain in
+                                              {"hfc_tap", "pon_odp", "plant",
+                                               "shared_network"} else "clean")),
+                        deadline))
+    return jobs
+
+
+@dataclass(frozen=True, slots=True)
+class DaySchedule:
+    crew_hours_available: float
+    scheduled: tuple[Job, ...]
+    deferred: tuple[Job, ...]
+    held_remote: tuple[Job, ...]
+    hours_used: float
+    value_addressed: float
+
+    @property
+    def value_per_crew_hour(self) -> float:
+        return round(self.value_addressed / self.hours_used, 2) if self.hours_used else 0.0
+
+    @property
+    def overdue_scheduled(self) -> int:
+        return sum(1 for j in self.scheduled if j.overdue)
+
+    @property
+    def overdue_deferred(self) -> int:
+        return sum(1 for j in self.deferred if j.overdue)
+
+
+def schedule_day(jobs: Sequence[Job], *, crew_hours_available: float,
+                 batch_remote: bool = True) -> DaySchedule:
+    """Fill a day's crew-hours by value density, deadlines first.
+
+    Ordering, in one lexicographic step and then one continuous one:
+
+      1. Overdue jobs, by score. This is the ONLY hard precedence, and it is
+         bounded: a job is overdue or it is not.
+      2. Everything else by score, which is aged value times urgency per crew-hour.
+
+    Remote jobs are held back unless the run is worth making. Batching is what turns
+    a $654 island visit into roughly $150 a ticket, and it is the difference between
+    an island customer being served on a cadence and never being served at all.
+    """
+    if crew_hours_available < 0:
+        raise ValueError("crew_hours_available must be >= 0")
+
+    remote = [j for j in jobs if j.remote]
+    mainland = [j for j in jobs if not j.remote]
+    held: list[Job] = []
+
+    if batch_remote and remote:
+        forced = any(j.deadline_hours - j.age_hours <= FORCE_RUN_HOURS
+                     for j in remote)
+        if len(remote) < MIN_REMOTE_BATCH and not forced:
+            held = remote
+            remote = []
+
+    candidates = mainland + remote
+    candidates.sort(key=lambda j: (0 if j.overdue else 1, -j.score, j.ticket_id))
+
+    scheduled: list[Job] = []
+    deferred: list[Job] = []
+    remaining = crew_hours_available
+    for job in candidates:
+        if job.crew_hours <= remaining:
+            scheduled.append(job)
+            remaining -= job.crew_hours
+        else:
+            deferred.append(job)
+
+    return DaySchedule(
+        crew_hours_available=crew_hours_available,
+        scheduled=tuple(scheduled), deferred=tuple(deferred),
+        held_remote=tuple(held),
+        hours_used=round(crew_hours_available - remaining, 2),
+        value_addressed=round(sum(j.aged_value for j in scheduled), 2))
+
+
+def rule_description() -> str:
+    return (
+        "Schedule a day's crew-hours in descending order of\n"
+        "\n"
+        "    score = aged value at risk x urgency / crew-hours consumed\n"
+        "\n"
+        "with overdue jobs taken first, remote work batched into runs, and every\n"
+        "protection expressed as a deadline rather than as a place in the queue."
+    )

@@ -336,3 +336,182 @@ class TestWiredIntoTheFlow(unittest.TestCase):
         self.assertIn("ASSUMED", data["basis"])
         self.assertIn("churn_base_by_segment", data)
         self.assertEqual(data["blast_radius_plant_event"], BLAST_RADIUS_PLANT_EVENT)
+
+
+class TestTheRecommendedRule(unittest.TestCase):
+    """Value density with deadlines. Each assertion here was measured before it was
+    written; see docs/DISPATCH_RULE.md."""
+
+    def setUp(self):
+        from lpr_cpe_demo.commercial import build_jobs
+        self.candidates = population()
+        self.ranked = rank(self.candidates)
+        self.jobs = build_jobs(self.ranked)
+
+    def test_crew_hours_are_the_unit_not_visits(self):
+        """A Culebra visit costs the same crew time as four metro ones."""
+        from lpr_cpe_demo.commercial import crew_hours
+        island = crew_hours("PR-CUL", "pon_odp")
+        metro = crew_hours("PR-BAY", "cpe")
+        self.assertGreater(island / metro, 4.0)
+
+    def test_a_trip_that_cannot_return_consumes_a_whole_shift(self):
+        from lpr_cpe_demo.commercial import SHIFT_HOURS, crew_hours
+        self.assertGreaterEqual(crew_hours("PR-CUL", "cpe"), SHIFT_HOURS)
+
+    def test_urgency_rises_as_slack_shrinks(self):
+        from lpr_cpe_demo.commercial import urgency
+        self.assertLess(urgency(0, 72), urgency(48, 72))
+        self.assertLess(urgency(48, 72), urgency(70, 72))
+
+    def test_urgency_is_capped_past_the_deadline(self):
+        """An ancient ticket must not justify a week of capacity on its own."""
+        from lpr_cpe_demo.commercial import URGENCY_AT_DEADLINE, urgency
+        self.assertEqual(urgency(72, 72), URGENCY_AT_DEADLINE)
+        self.assertEqual(urgency(10_000, 72), URGENCY_AT_DEADLINE)
+
+    def test_a_medical_dependency_is_a_deadline_not_a_queue_jump(self):
+        from lpr_cpe_demo.commercial import deadline_hours_for, urgency
+        deadline = deadline_hours_for(("medical_or_safety",))
+        self.assertEqual(deadline, 4.0)
+        # at two hours old it is already far more urgent than a default ticket
+        self.assertGreater(urgency(2, deadline), urgency(2, 72) * 5)
+
+    def test_the_strictest_applicable_deadline_wins(self):
+        from lpr_cpe_demo.commercial import deadline_hours_for
+        self.assertEqual(
+            deadline_hours_for(("vulnerable_customer", "medical_or_safety")), 4.0)
+
+    def test_value_ages_upward_and_is_capped(self):
+        from lpr_cpe_demo.commercial import aged_value_at_risk
+        base = value_at_risk(customer())
+        day_one = aged_value_at_risk(base, 24)
+        day_ten = aged_value_at_risk(base, 240)
+        self.assertGreater(day_one, base.value_at_risk)
+        self.assertGreater(day_ten, day_one)
+        self.assertLessEqual(day_ten, base.value_at_risk * 2.5 + 0.01)
+
+    def test_overdue_jobs_are_taken_first(self):
+        from lpr_cpe_demo.commercial import build_jobs, schedule_day
+        ages = {r.ticket_id: (500.0 if i == len(self.ranked) - 1 else 0.0)
+                for i, r in enumerate(self.ranked)}
+        jobs = build_jobs(self.ranked, ages=ages)
+        plan = schedule_day(jobs, crew_hours_available=200.0)
+        self.assertTrue(plan.scheduled[0].overdue)
+
+    def test_it_beats_the_per_visit_rule_on_value_per_crew_hour(self):
+        """Measured at 2.2x. The margin can move; the ordering must not."""
+        from lpr_cpe_demo.commercial import crew_hours, schedule_day
+        per_visit = allocate_capacity(self.ranked, slots=40)
+        pv_hours = sum(crew_hours(r.site_id, "unknown")
+                       for r in per_visit.scheduled)
+        pv_density = per_visit.value_at_risk_addressed / pv_hours
+        plan = schedule_day(self.jobs, crew_hours_available=110.0)
+        self.assertGreater(plan.value_per_crew_hour, pv_density)
+
+    def test_it_uses_the_capacity_it_was_given(self):
+        from lpr_cpe_demo.commercial import schedule_day
+        plan = schedule_day(self.jobs, crew_hours_available=110.0)
+        self.assertGreater(plan.hours_used, 100.0)
+        self.assertLessEqual(plan.hours_used, 110.0)
+
+    def test_remote_work_is_held_until_a_batch_forms(self):
+        from lpr_cpe_demo.commercial import build_jobs, schedule_day
+        one_island = [c for c in self.candidates if c[2] in {"PR-CUL", "PR-VQS"}][:1]
+        if not one_island:
+            self.skipTest("no island candidate in the sample")
+        jobs = build_jobs(rank(one_island))
+        plan = schedule_day(jobs, crew_hours_available=200.0, batch_remote=True)
+        self.assertEqual(len(plan.held_remote), 1)
+        self.assertEqual(plan.scheduled, ())
+
+    def test_a_deadline_forces_a_remote_run_even_without_a_batch(self):
+        from lpr_cpe_demo.commercial import build_jobs, schedule_day
+        one_island = [c for c in self.candidates if c[2] in {"PR-CUL", "PR-VQS"}][:1]
+        if not one_island:
+            self.skipTest("no island candidate in the sample")
+        ranked_one = rank(one_island)
+        jobs = build_jobs(ranked_one, ages={ranked_one[0].ticket_id: 70.0})
+        plan = schedule_day(jobs, crew_hours_available=200.0, batch_remote=True)
+        self.assertEqual(plan.held_remote, ())
+        self.assertEqual(len(plan.scheduled), 1)
+
+    def test_batching_can_be_switched_off(self):
+        from lpr_cpe_demo.commercial import schedule_day
+        plan = schedule_day(self.jobs, crew_hours_available=110.0,
+                            batch_remote=False)
+        self.assertEqual(plan.held_remote, ())
+
+    def test_negative_capacity_is_rejected(self):
+        from lpr_cpe_demo.commercial import schedule_day
+        with self.assertRaises(ValueError):
+            schedule_day(self.jobs, crew_hours_available=-1.0)
+
+    def test_zero_capacity_schedules_nothing_and_loses_nothing(self):
+        from lpr_cpe_demo.commercial import schedule_day
+        plan = schedule_day(self.jobs, crew_hours_available=0.0)
+        self.assertEqual(plan.scheduled, ())
+        self.assertEqual(len(plan.deferred) + len(plan.held_remote),
+                         len(self.jobs))
+
+    def _run_days(self, days: int, arrivals_per_day: int, hours: float):
+        """Simulate with daily arrivals, which is what a real queue looks like."""
+        from lpr_cpe_demo.commercial import build_jobs, schedule_day
+        backlog: list = []
+        ages: dict[str, float] = {}
+        longest = 0.0
+        overdue_left = 0
+        for day in range(days):
+            fresh = population(arrivals_per_day, seed=9000 + day)
+            backlog += [(f"D{day}-{row[0]}", *row[1:]) for row in fresh]
+            for ticket, *_ in backlog:
+                ages.setdefault(ticket, 0.0)
+            ranked = rank(backlog)
+            jobs = build_jobs(ranked, ages=ages)
+            plan = schedule_day(jobs, crew_hours_available=hours)
+            for job in plan.scheduled:
+                longest = max(longest, job.age_hours)
+            overdue_left = plan.overdue_deferred
+            done = {j.ticket_id for j in plan.scheduled}
+            backlog = [row for row in backlog if row[0] not in done]
+            for ticket in list(ages):
+                if ticket in done:
+                    del ages[ticket]
+                else:
+                    ages[ticket] += 24.0
+        return longest, overdue_left, len(backlog)
+
+    def test_nothing_starves_when_capacity_matches_arrivals(self):
+        """The fairness guarantee, and its precondition.
+
+        Measured at 60 arrivals a day against 110 crew-hours: the maximum wait is
+        three days for every archetype, islands included, because the 72 hour
+        deadline binds and urgency reaches 12x at that point.
+
+        The precondition matters. An earlier version of this test ran a fixed 600
+        fault backlog with no arrivals, which is 1,500 crew-hours of work against
+        110 a day, and a job waited nine days. That is not the rule starving; it is
+        arithmetic. No priority rule can hold a deadline under sustained overload.
+        """
+        longest, _, _ = self._run_days(days=10, arrivals_per_day=60, hours=110.0)
+        self.assertLessEqual(longest / 24.0, 4.0,
+                             f"longest wait {longest/24:.1f} days under balanced "
+                             f"load, so the deadline is not binding")
+
+    def test_under_overload_the_rule_reports_the_shortfall(self):
+        """It must not hide it. The count of overdue jobs left unscheduled is the
+        capacity signal, and it is the number to take to a resourcing conversation.
+        """
+        longest, overdue_left, backlog = self._run_days(
+            days=6, arrivals_per_day=140, hours=60.0)
+        self.assertGreater(overdue_left, 0,
+                           "under overload some overdue work must be visibly "
+                           "deferred rather than silently dropped")
+        self.assertGreater(backlog, 0)
+        self.assertGreater(longest / 24.0, 2.0)
+
+    def test_the_rule_is_documented_in_one_place(self):
+        from lpr_cpe_demo.commercial import rule_description
+        text = rule_description()
+        self.assertIn("crew-hours", text)
+        self.assertIn("deadline", text)

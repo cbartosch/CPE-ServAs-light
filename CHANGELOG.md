@@ -1,5 +1,73 @@
 # Changelog
 
+## 1.23.0 - a recommended dispatch rule, measured against the one it replaces
+
+Report: `docs/DISPATCH_RULE.md`.
+
+```
+score = aged value at risk  x  urgency(slack to deadline)  /  crew-hours consumed
+```
+
+Fill each day's crew-hours in descending score, overdue jobs first, remote work
+batched, and every protection expressed as a deadline rather than a place in the
+queue.
+
+### Why not the largest gap
+Three measured failures in the per-visit rule, each addressed by one term:
+
+**A visit is the wrong unit of capacity.** A Culebra visit consumes **11 crew-hours**
+and a Bayamon visit **2.7**. Ranking per visit treats those as equal claims on the
+crew; one island ticket costs the same crew time as four metro ones. Dividing by
+crew-hours is where most of the improvement comes from.
+
+**Protections-first starves the ranking.** 136 of 600 candidates were protected, so a
+40-slot day filled with protections alone. As deadlines they are elevated by urgency
+as slack shrinks instead of consuming the whole day.
+
+**The gap is negative almost everywhere**, so it cannot gate. Ratio under a capacity
+constraint, not difference.
+
+### Measured, same queue and same 110 crew-hours
+| | per-visit gap | value density |
+|---|---|---|
+| Jobs scheduled | 40 | **50** |
+| Value at risk addressed | $27,372 | **$67,125** |
+| **Value per crew-hour** | **$283** | **$612** |
+| Overdue left unscheduled | not tracked | **0** |
+
+2.2x the value per crew-hour, and it uses the capacity it was given rather than
+leaving 13 hours idle because the next job did not fit a slot.
+
+### The fairness result, and the overclaim I caught
+Over ten days at 60 arrivals a day, the maximum wait is **three days for every
+archetype including the islands**, because the 72 hour deadline binds. That
+reconciles an apparent contradiction: in a single day value density defers distant
+work and mountain's served share falls from 7.5% to 2%, but over ten days everything
+is served inside three days. **The single-day archetype mix is not the fairness
+measure; the wait distribution is.**
+
+**The precondition is not a footnote, and I stated the figure before checking it.** A
+test written afterwards ran a fixed 600-fault backlog with no arrivals — 1,500
+crew-hours against 110 a day — and a job waited **nine days**. That is arithmetic, not
+starvation: no priority rule holds a deadline under sustained overload. What the rule
+must do, and now demonstrably does, is report the shortfall through
+`overdue_deferred`, which is a resourcing number rather than a prioritisation one.
+Both the test and the document were corrected.
+
+### Added
+`crew_hours`, `deadline_hours_for`, `urgency`, `aged_value_at_risk`, `Job`,
+`build_jobs`, `schedule_day`, `rule_description`, plus 18 tests. Aging prevents
+starvation through the model rather than through a quota: a deferred low-value ticket
+rises until it outranks a high-value arrival.
+
+### Two things not to do, stated in the doc
+Do not use the gap as a go/no-go threshold; it declines most residential repairs. And
+do not let payment status deprioritise a repair on its own — it belongs inside the
+churn probability and the collectability factor, and the deadline floor is what keeps
+the rule on the right side of that line.
+
+687 stdlib tests pass.
+
 ## 1.22.0 - commercial dispatch prioritisation: value at risk against cost
 
 ### Added
