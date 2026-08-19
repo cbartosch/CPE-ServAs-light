@@ -170,6 +170,21 @@ DATA_CONTRACT: tuple[PanelContract, ...] = (
         _req("inventory lineage", "OSS reconciliation against plant records",
              "plant element", "missing"),
     )),
+    PanelContract("commercial_priority", "per dispatch decision", (
+        _req("monthly recurring revenue, contract end, arrears age",
+             "CRM via TMF629/TMF666", "account", "missing",
+             "the exposure the whole ranking rests on"),
+        _req("churn score", "retention model, if one exists", "account", "missing",
+             "replaces the churn calculation in commercial.py outright"),
+        _req("medical, vulnerability and Lifeline flags", "CRM account flags",
+             "account", "missing",
+             "these are PROTECTIONS. Absent, the safeguard silently disappears and "
+             "the ranking becomes purely commercial"),
+        _req("truck roll cost for this customer", "geography and effort model",
+             "incident", "modelled"),
+        _req("households behind the element", "plant model", "plant element",
+             "modelled"),
+    )),
     PanelContract("playbook_backlog", "daily", (
         _req("action_type outcomes over time",
              "workflow action_history, plus WFM resolutionCode",

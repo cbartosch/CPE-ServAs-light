@@ -33,16 +33,37 @@ def sample(name: str) -> dict:
 
 
 class TestProvenanceIsExplicit(unittest.TestCase):
-    def test_three_systems_are_standard_and_one_is_modelled(self):
+    def test_the_standard_and_modelled_systems_are_named_exactly(self):
+        """CRM joined in v1.22.0. TMF629 and TMF666 cover customer and billing
+        account, but lifetime value, churn score and vulnerability flags are
+        operator-specific and in no standard, so the system is marked MODELLED."""
         info = summary()
         self.assertEqual(set(info["standard"]), {"CPE", "WFM", "jTrack"})
-        self.assertEqual(info["modelled"], ["NXT"])
+        self.assertEqual(set(info["modelled"]), {"NXT", "CRM"})
 
     def test_nxt_is_modelled_end_to_end(self):
         nxt = contract_for("NXT")
         self.assertEqual(nxt.provenance, "MODELLED")
         for field in nxt.fields:
             self.assertEqual(field.provenance, "MODELLED", field.path)
+
+    def test_the_crm_value_fields_are_marked_modelled_not_standard(self):
+        """Only the account and agreement shapes come from TMF. Everything the
+        ranking actually depends on is invented."""
+        crm = contract_for("CRM")
+        self.assertEqual(crm.provenance, "MODELLED")
+        invented = {f.path for f in crm.fields if f.provenance == "MODELLED"}
+        for field_name in ("monthlyRecurringRevenue", "churnScore",
+                           "medicalOrSafetyFlag", "lifelineSubsidised"):
+            self.assertIn(field_name, invented)
+
+    def test_the_crm_protection_flags_say_they_are_protections(self):
+        """Their absence silently removes a safeguard, so the contract must say so."""
+        crm = contract_for("CRM")
+        for field_name in ("medicalOrSafetyFlag", "vulnerabilityFlag",
+                           "lifelineSubsidised"):
+            spec = next(f for f in crm.fields if f.path == field_name)
+            self.assertIn("PROTECTION", spec.note.upper())
 
     def test_every_standard_field_names_its_specification(self):
         for contract in CONTRACTS:

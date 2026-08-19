@@ -161,8 +161,50 @@ JTRACK_CONTRACT = SystemContract(
                   "renamed from statusChange in TMF621 v5", required=False),
     ))
 
+# ------------------------------------------------------------ CRM and billing
+# MODELLED. TMF629 Customer Management and TMF666 Account Management define the
+# shapes for customer and billing account, and the field names below follow them
+# where they apply. Lifetime value, churn score and vulnerability flags are NOT in
+# those standards: they are operator-specific, so those are invented.
+_TMF629 = "TM Forum TMF629 Customer Management / TMF666 Account Management"
+_CRM_MODELLED = "MODELLED, operator-specific and not in any standard"
+
+CRM_CONTRACT = SystemContract(
+    system="CRM", transport="TMF629 and TMF666 REST, or a nightly extract",
+    provenance="MODELLED",
+    specification=f"{_TMF629}; value and risk fields invented",
+    fields=(
+        FieldSpec("id", "str", "STANDARD", _TMF629, "account identifier"),
+        FieldSpec("accountType", "str", "STANDARD", _TMF666 := _TMF629,
+                  "residential, smb, enterprise, wholesale"),
+        FieldSpec("billingAccount.state", "str", "STANDARD", _TMF629,
+                  "TMF666: active, suspended, closed"),
+        FieldSpec("agreement.validFor.endDateTime", "str", "STANDARD", _TMF629,
+                  "contract end, which is what contract status derives from"),
+        FieldSpec("monthlyRecurringRevenue", "float", "MODELLED", _CRM_MODELLED,
+                  "the exposure the whole ranking rests on"),
+        FieldSpec("lifetimeValue", "float", "MODELLED", _CRM_MODELLED,
+                  "if supplied directly rather than derived from MRR and horizon"),
+        FieldSpec("churnScore", "float", "MODELLED", _CRM_MODELLED,
+                  "if a retention model already exists, it replaces the churn "
+                  "calculation in commercial.py entirely"),
+        FieldSpec("balanceOverdue", "float", "MODELLED", _CRM_MODELLED),
+        FieldSpec("arrearsAgeDays", "int", "MODELLED", _CRM_MODELLED,
+                  "payment status derives from this"),
+        FieldSpec("medicalOrSafetyFlag", "bool", "MODELLED", _CRM_MODELLED,
+                  "a PROTECTION. Its absence silently removes a safeguard, so its "
+                  "presence must be verified rather than assumed"),
+        FieldSpec("vulnerabilityFlag", "bool", "MODELLED", _CRM_MODELLED,
+                  "a PROTECTION, same caution"),
+        FieldSpec("lifelineSubsidised", "bool", "MODELLED", _CRM_MODELLED,
+                  "a PROTECTION carrying a regulatory obligation"),
+        FieldSpec("faultsLast90Days", "int", "MODELLED", _CRM_MODELLED,
+                  "drives the churn uplift and the repeat-unresolved protection"),
+    ))
+
 CONTRACTS: tuple[SystemContract, ...] = (CPE_CONTRACT, NXT_CONTRACT,
-                                         WFM_CONTRACT, JTRACK_CONTRACT)
+                                         WFM_CONTRACT, JTRACK_CONTRACT,
+                                         CRM_CONTRACT)
 
 
 def contract_for(system: str) -> SystemContract:

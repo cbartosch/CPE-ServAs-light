@@ -1,5 +1,72 @@
 # Changelog
 
+## 1.22.0 - commercial dispatch prioritisation: value at risk against cost
+
+### Added
+- `src/lpr_cpe_demo/commercial.py` — the value model, per-customer truck roll cost,
+  net-benefit ranking, protections, capacity allocation and a disparate-impact
+  measurement
+- `scripts/run_commercial_priority.py`
+- A `CRM` northbound contract and a `commercial_priority` data-contract panel
+- Wired into `predictive.pipeline.process` and the Control Tower
+- `tests/test_commercial.py`, 40 tests
+
+### The model is a product, not a weighted sum
+A weighted sum of LTV, churn, contract and payment status is easy to write and hard
+to defend, because nothing constrains the weights. What a commercial decision turns
+on is:
+
+    value at risk = LTV x P(churn | this fault goes unresolved)
+    net benefit   = value at risk - cost of this visit
+
+Contract and payment status enter through the probability rather than as free
+weights, because that is how they operate. A customer nineteen months into a
+twenty-four month term has **$101** at risk; the same lifetime value out of term has
+**$1,094**. Arrears act twice and separately: likelier to leave, and worth less if
+they stay.
+
+Cost is per customer, from the same travel model the effort ledger uses: $212 in
+Bayamón, $255 in Utuado, $654 on Culebra where a ferry and an overnight apply.
+
+### Three findings from measuring it, each of which changed the design
+**1. The gap is an ordering, not a threshold.** On a household-weighted population,
+**78 to 87% of commercially ranked faults have a NEGATIVE gap** — a single
+residential account is worth $20 to $150 at risk against a $212 to $654 visit. A
+"dispatch when the gap is positive" rule would decline most residential repairs.
+`allocate_capacity` is therefore the only supported use, and
+`threshold_would_decline` exists so that argument can be made with the operator's
+own numbers.
+
+**2. Protections exceed a day's capacity.** 136 of 600 candidates are protected, so a
+40-slot day fills with protections alone and no unprotected ticket is visited.
+`slots_before_commercial_ranking_bites` reports the break-even. Value still orders
+*within* the protected band, so the ranking is not inert — but no commercial tuning
+changes the schedule below that capacity.
+
+**3. Cost is geography, so the ranking skews.** Metro is favoured by 11.2 points;
+islands reach **0.0% of the top quartile and 3.4% of the bottom**. That is
+structural, not occasional, and not caused by anything about those customers.
+`disparate_impact` computes it, because a regulator will ask.
+
+### A double count found and removed
+Multi-household faults were both value-multiplied and granted a protection. With 35%
+of candidates protected, a 40-slot day was filled entirely by protections and the
+commercial ranking never ran at all. Blast radius is now expressed once, through the
+multiplier. Protections dropped to 23%.
+
+### Protections override the ranking
+SLA breached, total loss of service, medical or safety dependency, Lifeline
+obligation, vulnerability flag, repeat unresolved fault. Without a floor this is a
+system that leaves the hardest-to-reach customers unvisited and records a commercial
+justification each time. The three flag fields are marked **missing** rather than
+modelled in the data contract, because their absence silently removes a safeguard.
+
+### Note
+A ticket resolved remotely carries no priority at all. Ranking a fault no crew will
+visit puts a customer's value into a decision that never involves one.
+
+667 stdlib tests pass.
+
 ## 1.21.0 - a 7 minute UHD demo video, silent, with a narration script
 
 ### What was asked for and what is delivered

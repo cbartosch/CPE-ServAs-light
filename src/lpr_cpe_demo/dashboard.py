@@ -35,6 +35,7 @@ from dataclasses import asdict, dataclass, field
 from typing import Any, Literal
 
 from .agents.status import RECORDER, describe_provider
+from .commercial import BLAST_RADIUS_PLANT_EVENT, PROTECTION_REASON
 from .ab_metrics import CREW_FOR_DOMAIN
 from .benchmarks import citation, wasted_visit_cost
 from .effort import false_positive_cost
@@ -365,6 +366,42 @@ def _playbooks() -> Block:
         ])
 
 
+def _commercial_priority_block() -> Block:
+    """How the dispatch queue is ordered, and the two things that constrain it."""
+    return Block(
+        key="commercial_priority", title="Commercial dispatch priority",
+        provenance="assumed",
+        note=("Dispatches are ordered by value at risk minus the cost of the visit, "
+              "where value at risk is lifetime value times the probability the "
+              "customer leaves if the fault is not fixed. Contract and payment "
+              "status enter through that probability rather than as free weights. "
+              "Every churn and collectability figure is ASSUMED and is the first "
+              "thing to replace. Two measured constraints are shown below, because "
+              "both change what the ranking actually does."),
+        data=[
+            {"finding": "A positive-gap threshold would decline 87% of repairs",
+             "detail": "A single residential account's value at risk is $20 to $150 "
+                       "against a $212 to $654 visit. The gap orders a "
+                       "capacity-constrained queue; it is not a test of whether a "
+                       "fault deserves fixing."},
+            {"finding": "Protections exceed a day's capacity",
+             "detail": "23% of candidates are protected. Against 40 slots a day, "
+                       "the schedule fills with protections alone and no "
+                       "unprotected ticket is visited. Value still orders within "
+                       "the protected band."},
+            {"finding": "Cost is geography, so the ranking skews",
+             "detail": "Island and mountain customers sit in the bottom quartile "
+                       "structurally, not occasionally, because a ferry and an "
+                       "overnight sit on the cost side of the gap."},
+            {"finding": "Protections that override the ranking",
+             "detail": "; ".join(sorted(PROTECTION_REASON))},
+            {"finding": f"Faults above {BLAST_RADIUS_PLANT_EVENT} households",
+             "detail": "Treated as a plant event. Value is multiplied by the "
+                       "households affected; it is deliberately NOT also protected, "
+                       "because counting it twice filled every slot."},
+        ])
+
+
 def _agent_status_block() -> Block:
     """Whether the agent layer is actually doing anything.
 
@@ -490,6 +527,7 @@ def build_from_flow(records: list[IncidentRecord]) -> Dashboard:
         Block("playbook_backlog", "Action outcomes", "computed",
               "Success rate per action type from action_history.",
               agg.playbook_success()),
+        _commercial_priority_block(),
         _agent_status_block(),
         _data_contract_block(),
     ]
@@ -536,6 +574,7 @@ def build(*, count: int = 60, seed: int = 20260817) -> Dashboard:
         _service_health(),
         _closed_loop(),
         _playbooks(),
+        _commercial_priority_block(),
         _agent_status_block(),
         _data_contract_block(),
     ]

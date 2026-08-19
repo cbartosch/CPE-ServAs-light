@@ -29,6 +29,7 @@ from ..agents.decisions import (baseline_triage_for, triage_agent,
                                 triage_prompt)
 from ..agents.guards import ActionRequest, evaluate as evaluate_policy
 from ..agents.provider import Provider, provider_from_env
+from ..commercial import CustomerRecord, RankedDispatch, rank
 from .config import (DEFAULT_REMEDIATION, DEFAULT_SCAN,
                      HARD_FAILURE_KPIS, PHYSICAL_CAUSES,
                      RemediationConfig, ScanConfig)
@@ -80,6 +81,9 @@ class Outcome:
     triage_source: str | None = None
     triage_agrees_with_baseline: bool | None = None
     policy_blocked: tuple[str, ...] = ()
+    # Commercial ranking, populated when a customer record is supplied. A dispatch
+    # decision without one still works; it simply carries no priority.
+    priority: RankedDispatch | None = None
 
     @property
     def notification_required(self) -> bool:
@@ -167,7 +171,9 @@ def process(ticket: PredictiveTicket, *, hour: int, rolls: Sequence[float],
             scan_config: ScanConfig = DEFAULT_SCAN,
             remediation: RemediationConfig = DEFAULT_REMEDIATION,
             provider: Provider | None = None,
-            households_affected: int = 1) -> Outcome:
+            households_affected: int = 1,
+            customer: CustomerRecord | None = None,
+            sla_breached: bool = False) -> Outcome:
     """Run one ticket to a verdict.
 
     `rolls` supplies the random draws, so a run is reproducible and a test can
@@ -266,6 +272,20 @@ def process(ticket: PredictiveTicket, *, hour: int, rolls: Sequence[float],
         if policy.verdict == "blocked":
             blocked = policy.reasons
 
+    # Rank the dispatch commercially, but only once it is established that a
+    # dispatch is needed. Ranking a ticket that will be fixed remotely would put a
+    # customer's value into a decision that never involves a crew.
+    priority: RankedDispatch | None = None
+    if customer is not None and needs_truck_roll:
+        ranked = rank([(ticket.ticket_id, customer, ticket.site_id,
+                        {"households_affected": households_affected,
+                         "sla_breached": sla_breached,
+                         "service_down": any(f.breached_now
+                                             for f in ticket.findings),
+                         "crew_type": ("dirty" if ticket.suspected_cause
+                                       in PHYSICAL_CAUSES else "clean")})])
+        priority = ranked[0]
+
     verdict: Verdict = ("blocked" if blocked else
                         "requires_approval" if gate_reasons else "allowed")
     return Outcome(
@@ -276,4 +296,5 @@ def process(ticket: PredictiveTicket, *, hour: int, rolls: Sequence[float],
         escalated=bool(gate_reasons) or bool(blocked),
         service_interruption_minutes=interruption,
         triage=triage, triage_source=triage_source,
-        triage_agrees_with_baseline=triage_agrees, policy_blocked=blocked)
+        triage_agrees_with_baseline=triage_agrees, policy_blocked=blocked,
+        priority=priority)

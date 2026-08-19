@@ -84,6 +84,7 @@ scripts/preflight.py
 scripts/registry-doctor.ps1
 scripts/registry-doctor.sh
 scripts/run_ab_matrix.py
+scripts/run_commercial_priority.py
 scripts/run_dispatch_simulation.py
 scripts/run_predictive_scan.py
 scripts/run_scenario_matrix.py
@@ -116,6 +117,7 @@ src/lpr_cpe_demo/agents/status.py
 src/lpr_cpe_demo/api/__init__.py
 src/lpr_cpe_demo/api/main.py
 src/lpr_cpe_demo/benchmarks.py
+src/lpr_cpe_demo/commercial.py
 src/lpr_cpe_demo/config.py
 src/lpr_cpe_demo/controls.py
 src/lpr_cpe_demo/dashboard.py
@@ -202,6 +204,7 @@ tests/test_api.py
 tests/test_assets.py
 tests/test_benchmarks.py
 tests/test_bundle_integrity.py
+tests/test_commercial.py
 tests/test_controls.py
 tests/test_dashboard.py
 tests/test_fault_generator.py
