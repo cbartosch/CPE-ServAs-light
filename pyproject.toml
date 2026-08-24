@@ -7,7 +7,7 @@ name = "lpr-cpe-service-assurance-demo"
 version = "1.23.1"
 description = "Audit-hardened Docker Desktop demonstration of LPR CPE service assurance with LangGraph, Streamlit, FastAPI, MCP and deterministic controls."
 readme = "README.md"
-requires-python = ">=3.12,<3.14"
+requires-python = ">=3.14.2,<3.14.3"
 license = {text = "Proprietary demonstration bundle"}
 authors = [{name = "LPR CPE Service Assurance"}]
 dependencies = [
@@ -56,7 +56,7 @@ markers = [
 ]
 
 [tool.ruff]
-target-version = "py312"
+target-version = "py314"
 line-length = 100
 src = ["src", "tests"]
 
@@ -65,7 +65,7 @@ select = ["E", "F", "I", "B", "UP", "RUF"]
 ignore = ["B008"]
 
 [tool.mypy]
-python_version = "3.12"
+python_version = "3.14"
 strict = true
 packages = ["lpr_cpe_demo"]
 exclude = ["src/lpr_cpe_demo/ui/"]

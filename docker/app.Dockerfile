@@ -4,16 +4,16 @@
 # of the in-image CA staging below is reached. A corporate TLS intercept therefore
 # fails the build with:
 #
-#   failed to resolve source metadata for docker.io/library/python:3.12-slim:
+#   failed to resolve source metadata for docker.io/library/python:3.14.2-slim-bookworm:
 #   tls: failed to verify certificate: x509: certificate signed by unknown authority
 #
 # That is a host and daemon problem, not a pip problem. Point BASE_IMAGE at an
 # internal mirror to avoid the public registry entirely:
 #
-#   BASE_IMAGE=artifactory.example.com/docker-remote/python:3.12-slim
+#   BASE_IMAGE=artifactory.example.com/docker-remote/python:3.14.2-slim-bookworm
 #
 # Set it in .env and compose passes it through.
-ARG BASE_IMAGE=python:3.12-slim
+ARG BASE_IMAGE=python:3.14.2-slim-bookworm
 FROM ${BASE_IMAGE} AS base
 
 ARG PIP_INDEX_URL=
