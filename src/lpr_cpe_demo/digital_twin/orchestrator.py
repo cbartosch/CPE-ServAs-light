@@ -16,6 +16,7 @@ from pathlib import Path
 
 from pydantic import ValidationError
 
+from .care import build_care_records, refresh_care_status
 from .decision import (
     SCENARIO_POLICIES,
     deterministic_decision,
@@ -25,6 +26,7 @@ from .decision import (
     unavailable_agent_decision,
 )
 from .models import AgentDecision, GenerationConfig, HumanDecision
+from .predictive_bridge import build_snapshot
 from .providers import build_structured_client, invoke_structured
 from .storage import (
     atomic_write_jsonl_gz,
@@ -56,6 +58,10 @@ DATASETS = (
     "reconciliation_records",
     "human_decisions",
     "action_events",
+    "predictive_modem_pulls",
+    "predictive_tickets",
+    "care_tickets",
+    "care_ticket_reviews",
 )
 
 REGIONS = ("metro", "coastal", "mountain", "remote_island")
@@ -136,6 +142,32 @@ def _case_count(config: GenerationConfig) -> int:
 
 def _telemetry_count(config: GenerationConfig) -> int:
     return max(1, min(config.homes, math.ceil(config.homes * PROFILE_TELEMETRY_RATE[config.profile])))
+
+
+def _predictive_count(config: GenerationConfig, total_cases: int) -> int:
+    if not config.enable_predictive:
+        return 0
+    requested = config.predictive_population
+    if requested > 0:
+        return min(config.homes, max(total_cases, requested))
+    return min(config.homes, max(total_cases, min(_telemetry_count(config), 20_000)))
+
+
+def _predictive_subscribers(
+    config: GenerationConfig,
+    total_cases: int,
+    case_subscribers: dict[str, dict],
+) -> list[dict]:
+    target = _predictive_count(config, total_cases)
+    if target == 0:
+        return []
+    selected = dict(case_subscribers)
+    for index in _sample_indices(config.homes, target, config.seed + 47):
+        sub = _subscriber(index, config.homes)
+        selected.setdefault(sub["service_id"], sub)
+        if len(selected) >= target:
+            break
+    return list(selected.values())[:target]
 
 
 def _coprime_step(n: int, seed: int) -> int:
@@ -769,6 +801,37 @@ def _generate_into(config: GenerationConfig, run_path: Path, run_id: str, config
         })
         _materialize_effect(rows, case, det["best_action"], action_time)
 
+    scenario_by_service: dict[str, str] = {}
+    for manifest in rows["scenario_manifests"]:
+        scenario_by_service.setdefault(manifest["service_id"], manifest["scenario"])
+    predictive_subscribers = _predictive_subscribers(config, total_cases, case_subscribers)
+    if predictive_subscribers:
+        predictive = build_snapshot(
+            predictive_subscribers,
+            scenario_by_service=scenario_by_service,
+            ran_at=base - timedelta(hours=1),
+            seed=config.seed,
+            days=config.predictive_days,
+            scan_id=f"PRED-{run_id}",
+        )
+        rows["predictive_modem_pulls"] = predictive.pulls
+        rows["predictive_tickets"] = predictive.tickets
+    else:
+        predictive = None
+
+    care_tickets, care_reviews = build_care_records(
+        contacts=rows["contacts"],
+        manifests=rows["scenario_manifests"],
+        incidents=rows["incidents"],
+        subscribers=case_subscribers,
+        predictive_tickets=rows["predictive_tickets"],
+        deterministic=rows["deterministic_decisions"],
+        agent=rows["agent_decisions"],
+        reconciliation=rows["reconciliation_records"],
+    )
+    rows["care_tickets"] = care_tickets
+    rows["care_ticket_reviews"] = care_reviews
+
     files: list[dict] = []
     master_path = run_path / "subscriber_master.jsonl.gz"
     master_count = write_jsonl_gz(master_path, (_subscriber(i, config.homes) for i in range(config.homes)))
@@ -789,7 +852,7 @@ def _generate_into(config: GenerationConfig, run_path: Path, run_id: str, config
     files = [file_by_name[name] for name in DATASETS]
 
     quality_rows = dict(rows)
-    quality_rows["subscriber_master"] = list(case_subscribers.values())
+    quality_rows["subscriber_master"] = list({**case_subscribers, **{s["service_id"]: s for s in predictive_subscribers}}.values())
     quality = quality_check(quality_rows)
     if master_count != config.homes:
         quality["errors"].append("subscriber master count does not match configured homes")
@@ -807,7 +870,7 @@ def _generate_into(config: GenerationConfig, run_path: Path, run_id: str, config
 
     catalog = {
         "version": "2.4.0",
-        "release": "P0 Fixed R3",
+        "release": "P0 Fixed R3 Hotfix5",
         "run_id": run_id,
         "config": config.model_dump(mode="json"),
         "config_sha256": config_digest,
@@ -820,12 +883,158 @@ def _generate_into(config: GenerationConfig, run_path: Path, run_id: str, config
             "root_incidents": len(rows["incidents"]),
             "repeat_attempts": repeat_count,
             "background_telemetry_rows": _telemetry_count(config),
+            "predictive_modems_scanned": 0 if predictive is None else predictive.scanned,
+            "predictive_tickets": 0 if predictive is None else len(predictive.tickets),
+            "care_tickets": len(rows["care_tickets"]),
             "case_attempt_rate_per_home": total_cases / config.homes,
         },
         "production_writes": False,
     }
     (run_path / "catalog.json").write_text(json.dumps(catalog, indent=2, sort_keys=True), encoding="utf-8")
     return catalog
+
+
+def run_predictive_scan(
+    run_path: Path,
+    *,
+    population: int,
+    days: int,
+    day_index: int = 0,
+) -> dict:
+    """Create an immutable predictive modem-pull artifact under an existing run.
+
+    Canonical run datasets remain unchanged. Each parameter set gets a deterministic
+    scan id and its own directory, so an operator can compare predictive pulls
+    without changing the evidence that produced the parent run id.
+    """
+    catalog_path = run_path / "catalog.json"
+    if not catalog_path.exists():
+        raise ValueError("run not found")
+    catalog = json.loads(catalog_path.read_text(encoding="utf-8"))
+    config = GenerationConfig.model_validate(catalog["config"])
+    if population < 1 or population > config.homes:
+        raise ValueError(f"population must be between 1 and {config.homes}")
+    if days < 7 or days > 60:
+        raise ValueError("days must be between 7 and 60")
+    if day_index < 0 or day_index > 365:
+        raise ValueError("day_index must be between 0 and 365")
+
+    manifests = load_jsonl_gz(run_path / "scenario_manifests.jsonl.gz")
+    scenario_by_service: dict[str, str] = {}
+    for manifest in manifests:
+        scenario_by_service.setdefault(manifest["service_id"], manifest["scenario"])
+    case_subscribers = {
+        row["service_id"]: row
+        for row in _case_master_projection(run_path, manifests)
+    }
+    target = min(config.homes, max(population, len(case_subscribers)))
+    selected = dict(case_subscribers)
+    for index in _sample_indices(config.homes, target, config.seed + 83 + day_index):
+        sub = _subscriber(index, config.homes)
+        selected.setdefault(sub["service_id"], sub)
+        if len(selected) >= target:
+            break
+
+    payload = json.dumps(
+        {"run_id": catalog["run_id"], "population": target, "days": days, "day_index": day_index},
+        sort_keys=True,
+        separators=(",", ":"),
+    ).encode()
+    scan_id = "SCAN-" + hashlib.sha256(payload).hexdigest().upper()[:16]
+    root = run_path / "predictive_scans"
+    root.mkdir(parents=True, exist_ok=True)
+    final = root / scan_id
+    summary_path = final / "summary.json"
+    if summary_path.exists():
+        return json.loads(summary_path.read_text(encoding="utf-8"))
+
+    ran_at = datetime(
+        config.run_date.year,
+        config.run_date.month,
+        config.run_date.day,
+        3,
+        0,
+        tzinfo=UTC,
+    ) + timedelta(days=day_index)
+    snapshot = build_snapshot(
+        list(selected.values())[:target],
+        scenario_by_service=scenario_by_service,
+        ran_at=ran_at,
+        seed=config.seed + day_index * 1009,
+        days=days,
+        scan_id=scan_id,
+    )
+
+    care_rows = load_jsonl_gz(run_path / "care_tickets.jsonl.gz")
+    predictive_by_service: dict[str, list[dict]] = defaultdict(list)
+    for ticket in snapshot.tickets:
+        predictive_by_service[str(ticket["service_id"])].append(ticket)
+    matches = 0
+    for care in care_rows:
+        care_time = _parse_ts(care.get("opened_at"))
+        if care_time is None:
+            continue
+        if any(
+            (_parse_ts(ticket.get("opened_at")) or care_time + timedelta(seconds=1)) <= care_time
+            for ticket in predictive_by_service.get(str(care.get("service_id")), [])
+        ):
+            matches += 1
+
+    summary = {
+        **snapshot.summary(),
+        "canonical_run_id": catalog["run_id"],
+        "requested_population": population,
+        "effective_population": target,
+        "trend_window_days": days,
+        "day_index": day_index,
+        "care_tickets_correlated": matches,
+        "production_writes": False,
+    }
+    build = root / f".{scan_id}.tmp-{os.getpid()}-{uuid.uuid4().hex}"
+    build.mkdir(parents=False, exist_ok=False)
+    try:
+        write_jsonl_gz(build / "predictive_modem_pulls.jsonl.gz", snapshot.pulls)
+        write_jsonl_gz(build / "predictive_tickets.jsonl.gz", snapshot.tickets)
+        (build / "summary.json").write_text(
+            json.dumps(summary, indent=2, sort_keys=True),
+            encoding="utf-8",
+        )
+        if final.exists():
+            shutil.rmtree(final)
+        replace_with_retry(build, final)
+    except Exception:
+        shutil.rmtree(build, ignore_errors=True)
+        raise
+    return summary
+
+
+def list_predictive_scans(run_path: Path) -> list[dict]:
+    root = run_path / "predictive_scans"
+    if not root.exists():
+        return []
+    result = []
+    for path in sorted(root.glob("SCAN-*/summary.json"), reverse=True):
+        try:
+            result.append(json.loads(path.read_text(encoding="utf-8")))
+        except (OSError, json.JSONDecodeError):
+            continue
+    return result
+
+
+def load_predictive_scan(run_path: Path, scan_id: str, *, limit: int = 100) -> dict:
+    if not scan_id.startswith("SCAN-") or len(scan_id) != 21 or any(
+        char not in "0123456789ABCDEF" for char in scan_id[5:]
+    ):
+        raise ValueError("invalid scan_id")
+    path = run_path / "predictive_scans" / scan_id
+    if not path.is_dir():
+        raise KeyError(scan_id)
+    summary = json.loads((path / "summary.json").read_text(encoding="utf-8"))
+    return {
+        "summary": summary,
+        "tickets": load_jsonl_gz(path / "predictive_tickets.jsonl.gz", limit=limit),
+        "pulls": load_jsonl_gz(path / "predictive_modem_pulls.jsonl.gz", limit=limit),
+    }
 
 
 def _unique_errors(rows: list[dict], field: str, label: str) -> list[str]:
@@ -866,6 +1075,10 @@ def quality_check(rows: dict[str, list[dict]]) -> dict:
         ("reconciliation_records", "case_id", "reconciliation case_id"),
         ("human_decisions", "case_id", "human case_id"),
         ("action_events", "case_id", "action case_id"),
+        ("predictive_modem_pulls", "pull_id", "predictive pull_id"),
+        ("predictive_tickets", "ticket_id", "predictive ticket_id"),
+        ("care_tickets", "care_ticket_id", "care ticket_id"),
+        ("care_ticket_reviews", "care_ticket_id", "care review ticket_id"),
     ):
         errors.extend(_unique_errors(rows.get(dataset, []), field, label))
 
@@ -1320,6 +1533,96 @@ def quality_check(rows: dict[str, list[dict]]) -> dict:
             if not linked:
                 errors.append("closed root incident lacks resolution history")
 
+    # 17. Predictive pulls and tickets must be service/device correlated and evidence-backed.
+    checks += 1
+    pulls = rows.get("predictive_modem_pulls", [])
+    pulls_by_device = {r.get("device_id"): r for r in pulls}
+    predictive_by_id = {r.get("ticket_id"): r for r in rows.get("predictive_tickets", [])}
+    for pull in pulls:
+        sub = master.get(pull.get("service_id"))
+        if sub is None or sub.get("device_id") != pull.get("device_id"):
+            errors.append("predictive pull is not correlated to subscriber master")
+        if not pull.get("kpis") or int(pull.get("trend_window_days", 0)) < 7:
+            errors.append("predictive pull lacks trend evidence")
+    for ticket in predictive_by_id.values():
+        pull = pulls_by_device.get(ticket.get("device_id"))
+        if pull is None or pull.get("service_id") != ticket.get("service_id"):
+            errors.append("predictive ticket lacks matching modem pull")
+            continue
+        findings = ticket.get("findings") or []
+        if not findings:
+            errors.append("predictive ticket lacks findings")
+        if ticket.get("ticket_class") == "proactive" and not any(f.get("breached_now") is True for f in findings):
+            errors.append("proactive ticket has no breached KPI")
+        if ticket.get("ticket_class") == "forecast":
+            if any(f.get("breached_now") is True for f in findings):
+                errors.append("forecast ticket contains current breach")
+            if not any(f.get("days_to_breach") is not None for f in findings):
+                errors.append("forecast ticket lacks days-to-breach evidence")
+        elif ticket.get("ticket_class") != "proactive":
+            errors.append("unknown predictive ticket class")
+
+    # 18. Care tickets must attach to the canonical root incident and never duplicate it.
+    checks += 1
+    contacts_by_id = {r.get("contact_id"): r for r in rows.get("contacts", [])}
+    care_by_id = {r.get("care_ticket_id"): r for r in rows.get("care_tickets", [])}
+    for care in care_by_id.values():
+        contact = contacts_by_id.get(care.get("contact_id"))
+        manifest = manifests.get(care.get("case_id"))
+        incident = incidents_by_id.get(care.get("incident_id"))
+        if contact is None or manifest is None or incident is None:
+            errors.append("care ticket has orphan contact/case/incident")
+            continue
+        if care.get("incident_id") != manifest.get("root_incident_id") or care.get("service_id") != manifest.get("service_id"):
+            errors.append("care ticket is not attached to canonical root incident")
+        if care.get("duplicate_incident_suppressed") is not True or care.get("production_write") is not False:
+            errors.append("care ticket duplicate/production-write safety contract violated")
+        expected_status = "CLOSED" if incident.get("status") == "CLOSED" else "OPEN"
+        if care.get("status") != expected_status:
+            errors.append("care ticket status disagrees with root incident")
+
+    # 19. Predictive-to-care correlation must be causal and service-local.
+    checks += 1
+    for care in care_by_id.values():
+        predictive_id = care.get("predictive_ticket_id")
+        if care.get("predictive_match") is True:
+            predictive_ticket = predictive_by_id.get(predictive_id)
+            if predictive_ticket is None:
+                errors.append("care predictive match references missing ticket")
+                continue
+            if predictive_ticket.get("service_id") != care.get("service_id"):
+                errors.append("care predictive match crosses service identity")
+            pred_time = _parse_ts(predictive_ticket.get("opened_at"))
+            care_time = _parse_ts(care.get("opened_at"))
+            if pred_time is None or care_time is None or pred_time > care_time:
+                errors.append("care predictive match is not predictive-before-contact")
+            if care.get("correlation_disposition") != "ATTACH_TO_PREDICTIVE_ROOT_INCIDENT":
+                errors.append("predictive care match has wrong correlation disposition")
+        elif predictive_id is not None:
+            errors.append("care ticket carries predictive id without predictive match")
+
+    # 20. Care reviews must reconcile deterministic, agent and predictive context.
+    checks += 1
+    reviews = {r.get("care_ticket_id"): r for r in rows.get("care_ticket_reviews", [])}
+    if set(reviews) != set(care_by_id):
+        errors.append("care review coverage does not match care ticket queue")
+    for care_id, review in reviews.items():
+        care = care_by_id.get(care_id)
+        if care is None:
+            continue
+        case_id = care.get("case_id")
+        det = deterministic.get(case_id, {})
+        agent_row = agents.get(case_id, {})
+        rec = reconciliations.get(case_id, {})
+        if review.get("deterministic_domain") != det.get("recommended_domain") or review.get("deterministic_action") != det.get("best_action"):
+            errors.append("care review disagrees with deterministic branch")
+        if review.get("agent_source") != agent_row.get("source") or review.get("agent_action") != agent_row.get("best_action"):
+            errors.append("care review disagrees with agent decision")
+        if review.get("reconciled_human_review_required") != rec.get("human_review_required"):
+            errors.append("care review disagrees with reconciliation")
+        if review.get("predictive_match") != care.get("predictive_match") or review.get("predictive_ticket_id") != care.get("predictive_ticket_id"):
+            errors.append("care review disagrees with predictive correlation")
+
     return {"passed": not errors, "errors": errors, "checks": checks}
 
 
@@ -1332,8 +1635,13 @@ def _load_run_rows(run_path: Path) -> dict[str, list[dict]]:
     return rows
 
 
-def _case_master_projection(run_path: Path, manifests: list[dict]) -> list[dict]:
+def _case_master_projection(
+    run_path: Path,
+    manifests: list[dict],
+    extra_service_ids: set[str] | None = None,
+) -> list[dict]:
     wanted = {m["service_id"] for m in manifests}
+    wanted.update(extra_service_ids or set())
     found: dict[str, dict] = {}
     for row in iter_jsonl_gz(run_path / "subscriber_master.jsonl.gz"):
         sid = row.get("service_id")
@@ -1346,7 +1654,16 @@ def _case_master_projection(run_path: Path, manifests: list[dict]) -> list[dict]
 
 def _quality_projection(run_path: Path, rows: dict[str, list[dict]]) -> dict[str, list[dict]]:
     result = dict(rows)
-    result["subscriber_master"] = _case_master_projection(run_path, rows["scenario_manifests"])
+    predictive_services = {
+        str(row["service_id"])
+        for row in rows.get("predictive_modem_pulls", [])
+        if row.get("service_id")
+    }
+    result["subscriber_master"] = _case_master_projection(
+        run_path,
+        rows["scenario_manifests"],
+        predictive_services,
+    )
     result["telemetry_tr181"] = [r for r in rows["telemetry_tr181"] if r.get("case_id") is not None]
     return result
 
@@ -1432,6 +1749,16 @@ def materialize_live_decision(
     else:
         human["status"] = "ESCALATED"
         action["status"] = "BLOCKED_ESCALATED"
+
+    care_changed, review_changed = refresh_care_status(
+        rows.get("care_tickets", []),
+        rows.get("care_ticket_reviews", []),
+        rows["incidents"],
+    )
+    if care_changed:
+        changed.add("care_tickets")
+    if review_changed:
+        changed.add("care_ticket_reviews")
 
     projected = _quality_projection(run_path, rows)
     quality = quality_check(projected)

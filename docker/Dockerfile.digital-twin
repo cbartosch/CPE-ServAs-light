@@ -1,9 +1,45 @@
-FROM python:3.14.2-slim-bookworm
-ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1
+# Digital Twin runtime image.
+#
+# Corporate TLS interception is common on managed laptops. The base image is
+# parameterized so an internal registry mirror can be used, and trusted corporate
+# CA certificates staged in docker/certs/*.crt are installed before pip runs.
+ARG BASE_IMAGE=python:3.14.2-slim-bookworm
+FROM ${BASE_IMAGE}
+
+ARG PIP_INDEX_URL=
+ARG HTTP_PROXY=
+ARG HTTPS_PROXY=
+ARG NO_PROXY=
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1 \
+    PIP_NO_CACHE_DIR=1 \
+    PIP_CERT=/etc/ssl/certs/ca-certificates.crt \
+    REQUESTS_CA_BUNDLE=/etc/ssl/certs/ca-certificates.crt \
+    SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt
+
 WORKDIR /app
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+# Optional organization-approved root / issuing CAs. Debian only imports *.crt.
+COPY docker/certs/ /usr/local/share/ca-certificates/lpr-extra/
+RUN update-ca-certificates
+
 COPY requirements-digital-twin.txt /app/
-RUN pip install --no-cache-dir -r requirements-digital-twin.txt
+RUN set -eu; \
+    if [ -n "${PIP_INDEX_URL:-}" ]; then \
+      python -m pip install --index-url "$PIP_INDEX_URL" -r requirements-digital-twin.txt; \
+    else \
+      python -m pip install -r requirements-digital-twin.txt; \
+    fi
+
 COPY src /app/src
 ENV PYTHONPATH=/app/src
-RUN useradd --create-home --uid 10001 lpr && mkdir -p /data && chown -R lpr:lpr /app /data
+RUN useradd --create-home --uid 10001 lpr \
+    && mkdir -p /data \
+    && chown -R lpr:lpr /app /data
 USER 10001

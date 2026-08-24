@@ -1,16 +1,23 @@
-# Architecture — v2.4.0 P0 Fixed R3
+# Architecture — v2.4.0 P0 Fixed R3 Hotfix5
 
-R3 separates the synthetic data plane, deterministic/model decision plane, policy recomputation, hard operating controls and durable human-decision state. Production writes remain disabled.
+Hotfix5 keeps the R3 operating-control architecture and adds a first-class predictive-modem and Customer Care correlation plane. Production writes remain disabled.
 
 ```mermaid
 flowchart LR
   CFG[Generation config] --> MASTER[Subscriber footprint]
+  MASTER --> PULL[TR-069/TR-181 predictive modem pull]
+  PULL --> PRED[Predictive scanner: forecast / proactive]
   MASTER --> CASE[Root incident + attempt graph]
-  CASE --> PRE[Pre-action evidence]
+  CASE --> PRE[Pre-action telemetry / NXT alarm / contact]
+  PRED --> CORR[Service + device correlation]
+  PRE --> CORR
+  CORR --> CARE[Customer Care ticket]
   PRE --> DET[Deterministic RCA/policy]
   PRE --> LLM[LLM challenge or explicit unavailable/fake]
   DET --> REC[Recomputed reconciliation]
   LLM --> REC
+  CARE --> REVIEW[Care review: deterministic + agent + predictive context]
+  REC --> REVIEW
   REC --> HUMAN[Human/supervisor gate]
   REC --> AUTO[Policy auto only when safe]
   HUMAN --> READY[Diagnosis + skill + parts/CPE + access readiness]
@@ -19,24 +26,32 @@ flowchart LR
   ACT --> BRANCH[Remote / Clean Boots / CPE swap / MR+Plant / evidence-only]
   BRANCH --> VERIFY[Objective evidence + checklist]
   VERIFY --> CLOSE[Root incident resolution]
+  CLOSE --> CARECLOSE[Linked care-ticket closure]
 ```
 
-## Canonical graph
+## Predictive assurance plane
 
-Each attempt has a unique `case_id` but carries `root_case_id` and `root_incident_id`. A repeat keeps the original root incident and service identity, links to the prior attempt, increments `repeat_sequence`, and requires supervisor escalation. No repeat row creates a second incident.
+The integrated host repository already contains `lpr_cpe_demo.predictive`. Hotfix5's Digital Twin adapter uses that scanner when installed. The standalone release contains a compatible deterministic fallback so the bundle remains runnable by itself.
+
+A predictive scan operates on service/device-correlated modem series and classifies:
+
+- `proactive`: a modem KPI has already crossed an alarm threshold before the customer call;
+- `forecast`: the fitted KPI trend reaches an alarm threshold inside the configured horizon while service still works.
+
+Canonical generation writes a predictive snapshot. Additional operator-requested scans are stored under `RUN-.../predictive_scans/SCAN-...` as immutable child artifacts, so they do not mutate the parent run identity or catalog.
+
+## Customer Care plane
+
+Each synthetic contact is promoted to a `care_ticket`. The ticket stays on the canonical `root_incident_id`; it never creates a second incident. If a predictive ticket for the same `service_id` and `device_id` predates the contact, the care ticket is marked `ATTACH_TO_PREDICTIVE_ROOT_INCIDENT`. Otherwise it attaches to the existing reactive root incident.
+
+`care_ticket_reviews` expose deterministic RCA, model/agent output, reconciliation state, predictive context, and evidence references in one record for operational review.
+
+## Canonical graph and hard controls
+
+Each attempt has a unique `case_id` but carries `root_case_id` and `root_incident_id`. Repeats keep the original root incident and service identity and require supervisor escalation. No repeat or Customer Care record creates a second incident.
+
+The original gates remain non-bypassable: diagnosis/readiness before dispatch, skill/parts/access confirmation, failed CPE diagnostic before swap, evidence before MR acceptance/completion, and objective restoration plus checklist before closure.
 
 ## Quality/control plane
 
-The quality checker recomputes reconciliation from deterministic + agent facts and case-local evidence. Stored `human_review_required` flags cannot authorize themselves. Every service/incident/delimiter foreign key is validated against the root case and subscriber master.
-
-## Action gates
-
-- `remote_repair`: no truck roll; healthy post-fix telemetry -> validation/checklist -> resolution.
-- `collect_evidence`: no truck roll and no false restoration.
-- `dispatch_clean`: diagnosis/readiness -> assignment/dispatch -> Clean Boots evidence -> validation/checklist -> resolution.
-- `cpe_swap`: readiness plus a separate failed CPE diagnostic before replacement starts -> replacement evidence -> validation/checklist -> resolution.
-- `create_mr` / `plant_repair`: case-local tap/ODP + pre-existing evidence -> MR create/accept -> ready plant assignment -> repair/completion evidence -> validation/checklist -> resolution.
-
-## Runtime hardening
-
-Run generation uses a per-run lock and hidden staging directory; only a complete run with a catalog is atomically promoted. Incomplete run directories are rebuilt. Live approvals use atomic dataset replacement and update catalog hashes after quality passes.
+The fail-closed quality checker now runs 20 groups. In addition to the R3 graph, policy and closure invariants, it validates predictive pull-to-ticket evidence, care-to-root-incident attachment, predictive-before-contact causality, service-local correlation, and deterministic/agent/reconciliation consistency in the care review.

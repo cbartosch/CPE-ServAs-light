@@ -16,6 +16,6 @@ cat_files=list(Path('.verify-data').glob('RUN-*/catalog.json'))
 assert len(cat_files)==1
 cat=json.loads(cat_files[0].read_text())
 assert cat['quality']['passed'] is True
-assert cat['dataset_count']==16
+assert cat['dataset_count']==20
 print('smoke quality PASS',cat['run_id'])
 PY

@@ -1,8 +1,16 @@
+x-digital-twin-build: &digital-twin-build
+  context: .
+  dockerfile: docker/Dockerfile.digital-twin
+  args:
+    BASE_IMAGE: ${DT_BASE_IMAGE:-python:3.14.2-slim-bookworm}
+    PIP_INDEX_URL: ${PIP_INDEX_URL:-}
+    HTTP_PROXY: ${HTTP_PROXY:-}
+    HTTPS_PROXY: ${HTTPS_PROXY:-}
+    NO_PROXY: ${NO_PROXY:-}
+
 services:
   api:
-    build:
-      context: .
-      dockerfile: docker/Dockerfile.digital-twin
+    build: *digital-twin-build
     command: uvicorn lpr_cpe_demo.digital_twin.api:app --host 0.0.0.0 --port 8001
     env_file: [.env.digital-twin]
     ports: ["127.0.0.1:${DT_API_PORT:-8001}:8001"]
@@ -18,9 +26,7 @@ services:
       retries: 10
 
   ui:
-    build:
-      context: .
-      dockerfile: docker/Dockerfile.digital-twin
+    build: *digital-twin-build
     command: streamlit run src/lpr_cpe_demo/digital_twin/streamlit_app.py --server.address=0.0.0.0 --server.port=8502
     environment:
       DT_API_URL: http://api:8001
