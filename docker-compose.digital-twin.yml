@@ -1,0 +1,44 @@
+services:
+  api:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.digital-twin
+    command: uvicorn lpr_cpe_demo.digital_twin.api:app --host 0.0.0.0 --port 8001
+    env_file: [.env.digital-twin]
+    ports: ["127.0.0.1:${DT_API_PORT:-8001}:8001"]
+    volumes: ["lpr_dt_data:/data"]
+    read_only: true
+    tmpfs: ["/tmp"]
+    cap_drop: ["ALL"]
+    security_opt: ["no-new-privileges:true"]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8001/health', timeout=3)"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  ui:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.digital-twin
+    command: streamlit run src/lpr_cpe_demo/digital_twin/streamlit_app.py --server.address=0.0.0.0 --server.port=8502
+    environment:
+      DT_API_URL: http://api:8001
+      DT_USER: ${DT_USER:-demo}
+      DT_PASSWORD: ${DT_PASSWORD:-CHANGE_ME}
+    ports: ["127.0.0.1:${DT_UI_PORT:-8502}:8502"]
+    read_only: true
+    tmpfs: ["/tmp", "/home/lpr/.streamlit"]
+    cap_drop: ["ALL"]
+    security_opt: ["no-new-privileges:true"]
+    depends_on:
+      api:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8502/_stcore/health', timeout=3)"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  lpr_dt_data:
