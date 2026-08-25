@@ -7,11 +7,18 @@ from pathlib import Path
 
 from fastapi import Depends, FastAPI, HTTPException, Query
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from . import __version__
 from .models import GenerationConfig, HumanDecision
-from .orchestrator import DATASETS, generate, materialize_live_decision
+from .orchestrator import (
+    DATASETS,
+    generate,
+    list_predictive_scans,
+    load_predictive_scan,
+    materialize_live_decision,
+    run_predictive_scan,
+)
 from .storage import iter_jsonl_gz, load_jsonl_gz, safe_run_path
 from .workflow import CaseStore
 
@@ -29,6 +36,12 @@ class RunRequest(BaseModel):
     config: GenerationConfig
 
 
+class PredictiveScanRequest(BaseModel):
+    population: int = Field(default=20_000, ge=1, le=500_000)
+    days: int = Field(default=14, ge=7, le=60)
+    day_index: int = Field(default=0, ge=0, le=365)
+
+
 app = FastAPI(title="LPR CPE Digital Twin", version=__version__)
 
 
@@ -41,7 +54,7 @@ def _run_path(run_id: str) -> Path:
 
 @app.get("/health")
 def health():
-    return {"status": "ok", "version": __version__, "production_writes": False, "release": "P0 Fixed R3"}
+    return {"status": "ok", "version": __version__, "production_writes": False, "release": "P0 Fixed R3 Hotfix5.5", "predictive_care_integration": True}
 
 
 @app.get("/ready")
@@ -145,3 +158,102 @@ def decide(run_id: str, decision: HumanDecision, actor: dict = Depends(principal
         raise HTTPException(404, "case not found") from exc
     except ValueError as exc:
         raise HTTPException(409, str(exc)) from exc
+
+@app.post("/api/runs/{run_id}/predictive/scans")
+def create_predictive_scan(
+    run_id: str,
+    request: PredictiveScanRequest,
+    _: dict = Depends(principal),
+):
+    run_path = _run_path(run_id)
+    if not (run_path / "catalog.json").exists():
+        raise HTTPException(404, "run not found")
+    try:
+        return run_predictive_scan(
+            run_path,
+            population=request.population,
+            days=request.days,
+            day_index=request.day_index,
+        )
+    except ValueError as exc:
+        raise HTTPException(422, str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(409, str(exc)) from exc
+
+
+@app.get("/api/runs/{run_id}/predictive/scans")
+def predictive_scans(run_id: str, _: dict = Depends(principal)):
+    run_path = _run_path(run_id)
+    if not (run_path / "catalog.json").exists():
+        raise HTTPException(404, "run not found")
+    return list_predictive_scans(run_path)
+
+
+@app.get("/api/runs/{run_id}/predictive/scans/{scan_id}")
+def predictive_scan_detail(
+    run_id: str,
+    scan_id: str,
+    limit: int = Query(default=100, ge=1, le=5000),
+    _: dict = Depends(principal),
+):
+    try:
+        return load_predictive_scan(_run_path(run_id), scan_id, limit=limit)
+    except ValueError as exc:
+        raise HTTPException(400, str(exc)) from exc
+    except KeyError as exc:
+        raise HTTPException(404, "predictive scan not found") from exc
+
+
+@app.get("/api/runs/{run_id}/care/tickets")
+def care_ticket_queue(
+    run_id: str,
+    status: str | None = Query(default=None),
+    priority: str | None = Query(default=None),
+    predictive_match: bool | None = Query(default=None),
+    limit: int = Query(default=200, ge=1, le=5000),
+    _: dict = Depends(principal),
+):
+    run_path = _run_path(run_id)
+    path = run_path / "care_tickets.jsonl.gz"
+    if not path.exists():
+        raise HTTPException(404, "care ticket dataset not found")
+    rows = []
+    for row in iter_jsonl_gz(path):
+        if status and row.get("status") != status:
+            continue
+        if priority and row.get("priority") != priority:
+            continue
+        if predictive_match is not None and row.get("predictive_match") is not predictive_match:
+            continue
+        rows.append(row)
+        if len(rows) >= limit:
+            break
+    return {"returned": len(rows), "rows": rows}
+
+
+@app.get("/api/runs/{run_id}/care/tickets/{care_ticket_id}")
+def care_ticket_detail(run_id: str, care_ticket_id: str, _: dict = Depends(principal)):
+    run_path = _run_path(run_id)
+    ticket = next(
+        (r for r in iter_jsonl_gz(run_path / "care_tickets.jsonl.gz") if r.get("care_ticket_id") == care_ticket_id),
+        None,
+    )
+    if ticket is None:
+        raise HTTPException(404, "care ticket not found")
+    review = next(
+        (r for r in iter_jsonl_gz(run_path / "care_ticket_reviews.jsonl.gz") if r.get("care_ticket_id") == care_ticket_id),
+        None,
+    )
+    predictive = None
+    predictive_id = ticket.get("predictive_ticket_id")
+    if predictive_id:
+        predictive = next(
+            (r for r in iter_jsonl_gz(run_path / "predictive_tickets.jsonl.gz") if r.get("ticket_id") == predictive_id),
+            None,
+        )
+    case = None
+    try:
+        case = CaseStore(run_path / "control.sqlite").get(ticket["case_id"])
+    except KeyError:
+        pass
+    return {"ticket": ticket, "review": review, "predictive": predictive, "case": case}

@@ -100,9 +100,9 @@ def test_11_low_confidence_read_only_fails_closed():
     assert reconcile(det, agent, {"e1"}).human_review_required is True
 
 
-def test_12_smoke_has_16_datasets(tmp_path):
+def test_12_smoke_has_20_datasets(tmp_path):
     cat = _run(tmp_path)
-    assert cat["dataset_count"] == 16 and {d["dataset"] for d in cat["datasets"]} == set(DATASETS)
+    assert cat["dataset_count"] == 20 and {d["dataset"] for d in cat["datasets"]} == set(DATASETS)
 
 
 def test_13_smoke_quality_passes(tmp_path):
@@ -568,7 +568,8 @@ def test_39_bundle_targets_python_3_14_2():
     pyproject = (root / "pyproject.toml").read_text()
     dockerfile = (root / "docker" / "Dockerfile.digital-twin").read_text()
     assert 'requires-python = ">=3.14.2,<3.14.3"' in pyproject
-    assert 'FROM python:3.14.2-slim-bookworm' in dockerfile
+    assert 'ARG BASE_IMAGE=python:3.14.2-slim-bookworm' in dockerfile
+    assert 'FROM ${BASE_IMAGE}' in dockerfile
 
 
 def test_40_atomic_replace_retries_transient_permission_error(tmp_path, monkeypatch):
@@ -615,3 +616,249 @@ def test_41_host_ruff_contract_is_packaged():
         first = (root / "src" / "lpr_cpe_demo" / "digital_twin" / name).read_text().splitlines()[0]
         assert first == "# ruff: noqa: E501"
     assert (root / "tests" / "test_digital_twin_p0.py").read_text().splitlines()[0] == "# ruff: noqa: E501, I001"
+
+
+def test_42_predictive_and_care_datasets_are_correlated(tmp_path):
+    cat = _run(tmp_path, scenarios=("slow_wifi", "fiber_cut", "power_outage"))
+    rows = _rows(tmp_path, cat)
+    assert cat["quality"]["checks"] == 20
+    assert rows["predictive_modem_pulls"]
+    assert rows["predictive_tickets"]
+    assert len(rows["care_tickets"]) == len(rows["contacts"])
+    assert len(rows["care_ticket_reviews"]) == len(rows["care_tickets"])
+    matched = [ticket for ticket in rows["care_tickets"] if ticket["predictive_match"]]
+    assert matched
+    predictive = {ticket["ticket_id"]: ticket for ticket in rows["predictive_tickets"]}
+    for care in matched:
+        pred = predictive[care["predictive_ticket_id"]]
+        assert pred["service_id"] == care["service_id"]
+        assert _dt(pred["opened_at"]) <= _dt(care["opened_at"])
+        assert care["correlation_disposition"] == "ATTACH_TO_PREDICTIVE_ROOT_INCIDENT"
+        assert care["duplicate_incident_suppressed"] is True
+
+
+def test_43_on_demand_predictive_scan_is_immutable_and_idempotent(tmp_path):
+    from lpr_cpe_demo.digital_twin.orchestrator import load_predictive_scan, run_predictive_scan
+
+    cat = _run(tmp_path, homes=500, scenarios=("fiber_cut", "slow_wifi"))
+    run_path = safe_run_path(tmp_path, cat["run_id"])
+    catalog_before = (run_path / "catalog.json").read_bytes()
+    first = run_predictive_scan(run_path, population=200, days=14, day_index=0)
+    second = run_predictive_scan(run_path, population=200, days=14, day_index=0)
+    assert first == second
+    assert first["scanned"] >= 200
+    assert first["tickets"] > 0
+    detail = load_predictive_scan(run_path, first["scan_id"], limit=500)
+    assert detail["tickets"]
+    assert detail["pulls"]
+    assert (run_path / "catalog.json").read_bytes() == catalog_before
+
+
+def test_44_predictive_and_care_api_surfaces(tmp_path, monkeypatch):
+    from fastapi.testclient import TestClient
+    import lpr_cpe_demo.digital_twin.api as api
+
+    monkeypatch.setattr(api, "DATA_ROOT", tmp_path)
+    cat = _run(tmp_path, homes=500, scenarios=("fiber_cut", "slow_wifi"))
+    client = TestClient(api.app)
+    auth = ("demo", "CHANGE_ME")
+    scan = client.post(
+        f"/api/runs/{cat['run_id']}/predictive/scans",
+        auth=auth,
+        json={"population": 200, "days": 14, "day_index": 0},
+    )
+    assert scan.status_code == 200
+    scan_id = scan.json()["scan_id"]
+    detail = client.get(
+        f"/api/runs/{cat['run_id']}/predictive/scans/{scan_id}?limit=50",
+        auth=auth,
+    )
+    assert detail.status_code == 200 and detail.json()["tickets"]
+    queue = client.get(
+        f"/api/runs/{cat['run_id']}/care/tickets?predictive_match=true",
+        auth=auth,
+    )
+    assert queue.status_code == 200 and queue.json()["rows"]
+    care_id = queue.json()["rows"][0]["care_ticket_id"]
+    care = client.get(f"/api/runs/{cat['run_id']}/care/tickets/{care_id}", auth=auth)
+    assert care.status_code == 200
+    body = care.json()
+    assert body["review"] is not None and body["predictive"] is not None
+
+
+def test_45_live_approval_updates_linked_care_ticket(tmp_path):
+    from lpr_cpe_demo.digital_twin.orchestrator import materialize_live_decision
+
+    cat = _run(tmp_path, scenarios=("slow_wifi",))
+    run_path = safe_run_path(tmp_path, cat["run_id"])
+    rows = _rows(tmp_path, cat)
+    pending = next(h["case_id"] for h in rows["human_decisions"] if h["status"] == "PENDING")
+    care_before = next(ticket for ticket in rows["care_tickets"] if ticket["case_id"] == pending)
+    assert care_before["status"] == "OPEN"
+    store = CaseStore(run_path / "control.sqlite")
+    decision = HumanDecision(
+        case_id=pending,
+        revision=1,
+        response="approve",
+        actor="demo",
+        rationale="approve linked care workflow",
+    )
+    store_result = store.decide(decision, at="2026-08-21T13:00:00+00:00")
+    materialize_live_decision(run_path, decision, store, store_result)
+    rows_after = _rows(tmp_path, cat)
+    care_after = next(ticket for ticket in rows_after["care_tickets"] if ticket["case_id"] == pending)
+    assert care_after["status"] == "CLOSED"
+    assert care_after["closed_at"] is not None
+    assert quality_check(rows_after)["passed"] is True
+
+
+def test_46_quality_gate_catches_predictive_care_corruption(tmp_path):
+    cat = _run(tmp_path, scenarios=("fiber_cut", "slow_wifi"))
+    rows = _rows(tmp_path, cat)
+
+    bad = copy.deepcopy(rows)
+    matched = next(ticket for ticket in bad["care_tickets"] if ticket["predictive_match"])
+    matched["service_id"] = "SVC-9999999"
+    assert quality_check(bad)["passed"] is False
+
+    bad = copy.deepcopy(rows)
+    review = bad["care_ticket_reviews"][0]
+    review["deterministic_action"] = "wrong_action"
+    assert quality_check(bad)["passed"] is False
+
+    bad = copy.deepcopy(rows)
+    pred = bad["predictive_tickets"][0]
+    pred["findings"] = []
+    assert quality_check(bad)["passed"] is False
+
+
+def test_47_digital_twin_docker_supports_verified_corporate_tls():
+    root = Path(__file__).resolve().parents[1]
+    dockerfile = (root / "docker" / "Dockerfile.digital-twin").read_text()
+    compose = (root / "docker-compose.yml").read_text()
+    env_example = (root / ".env.example").read_text()
+    assert "ARG BASE_IMAGE=python:3.14.2-slim-bookworm" in dockerfile
+    assert "COPY docker/certs/" in dockerfile
+    assert "update-ca-certificates" in dockerfile
+    assert "PIP_CERT=/etc/ssl/certs/ca-certificates.crt" in dockerfile
+    assert "ARG PIP_INDEX_URL=" in dockerfile
+    assert "PIP_INDEX_URL: ${PIP_INDEX_URL:-}" in compose
+    assert "BASE_IMAGE: ${DT_BASE_IMAGE:-python:3.14.2-slim-bookworm}" in compose
+    assert "DT_BASE_IMAGE=python:3.14.2-slim-bookworm" in env_example
+    assert "PIP_INDEX_URL=" in env_example
+
+def test_48_predictive_bridge_uses_py314_collections_abc_imports():
+    root = Path(__file__).resolve().parents[1]
+    source = (root / "src" / "lpr_cpe_demo" / "digital_twin" / "predictive_bridge.py").read_text()
+    assert "from collections.abc import Iterable, Sequence" in source
+    assert "from typing import Iterable, Sequence" not in source
+
+
+def test_49_streamlit_run_id_propagates_and_recovers_latest():
+    root = Path(__file__).resolve().parents[1]
+    source = (root / "src" / "lpr_cpe_demo" / "digital_twin" / "streamlit_app.py").read_text()
+    assert "RUN_STATE_KEYS = (" in source
+    for key in ("predictive_run", "care_run", "data_run", "sub_run", "decision_run"):
+        assert f'"{key}"' in source
+    assert "for key in RUN_STATE_KEYS:" in source
+    assert 'result = _request("/api/runs")' in source
+    assert 'if remembered and not str(st.session_state.get(key, "")).strip():' in source
+    assert 'remembered = _latest_run_id()' in source
+
+
+def test_50_streamlit_module_is_safe_to_embed_in_main_ui():
+    root = Path(__file__).resolve().parents[1]
+    source = (root / "src" / "lpr_cpe_demo" / "digital_twin" / "streamlit_app.py").read_text()
+    assert 'if __name__ == "__main__":' in source
+    assert source.rstrip().endswith('if __name__ == "__main__":\n    render()')
+    compile(source, "streamlit_app.py", "exec")
+
+
+def test_51_unified_compose_has_one_ui_and_both_apis():
+    import yaml
+
+    root = Path(__file__).resolve().parents[1]
+    compose = yaml.safe_load((root / "docker-compose.yml").read_text())
+    services = compose["services"]
+    assert {"postgres", "mcp-sim", "api", "digital-twin-api", "ui"}.issubset(services)
+    assert "digital-twin-ui" not in services
+    ui = services["ui"]
+    assert ui["environment"]["DT_API_URL"] == "http://digital-twin-api:8001"
+    assert "digital-twin-api" in ui["depends_on"]
+    assert any("8501" in str(port) for port in ui["ports"])
+    assert not any("8502" in str(port) for port in ui["ports"])
+    assert "lpr-dt-data" in compose["volumes"]
+
+
+def test_52_main_ui_integration_exposes_digital_twin_page():
+    root = Path(__file__).resolve().parents[1]
+    app = (root / "src" / "lpr_cpe_demo" / "ui" / "app.py").read_text()
+    page = (root / "src" / "lpr_cpe_demo" / "ui" / "pages" / "digital_twin.py").read_text()
+    assert "digital_twin," in app
+    assert 'title="Predictive & Customer Care"' in app
+    assert 'url_path="digital-twin"' in app
+    assert "from lpr_cpe_demo.digital_twin.streamlit_app import render as render_digital_twin" in page
+    assert "render_digital_twin()" in page
+
+
+def test_53_executive_theme_is_packaged_and_applied():
+    root = Path(__file__).resolve().parents[1]
+    app = (root / "src" / "lpr_cpe_demo" / "ui" / "app.py").read_text()
+    theme = (root / "integration" / "executive_theme.py").read_text()
+    style = (root / "src" / "lpr_cpe_demo" / "digital_twin" / "executive_style.py").read_text()
+    assert "executive_theme" in app
+    assert "executive_theme.css()" in app
+    assert "Service Assurance Command Center" in app
+    assert '"Executive": [' in app
+    assert 'title="Predictive & Customer Care"' in app
+    assert "from lpr_cpe_demo.digital_twin.executive_style import css" in theme
+    assert "--lpr-navy" in style
+    assert ".lpr-exec-hero" in style
+    assert "[data-testid=\"stSidebar\"]" in style
+    compile(theme, "executive_theme.py", "exec")
+    compile(style, "executive_style.py", "exec")
+
+
+def test_54_digital_twin_has_executive_first_information_architecture():
+    root = Path(__file__).resolve().parents[1]
+    source = (root / "src" / "lpr_cpe_demo" / "digital_twin" / "streamlit_app.py").read_text()
+    assert "Predict before the call. Resolve once." in source
+    assert '"Executive View"' in source
+    assert '"Create Demo"' in source
+    assert '"Predictive Health"' in source
+    assert '"Customer Experience"' in source
+    assert '"Subscriber Story"' in source
+    assert '"Decisions & Controls"' in source
+    assert '"Evidence & Audit"' in source
+    assert source.index('"Executive View"') < source.index('"Create Demo"')
+    assert "Executive demo talk track" in source
+
+
+def test_55_executive_view_uses_business_kpis_and_progressive_disclosure():
+    root = Path(__file__).resolve().parents[1]
+    source = (root / "src" / "lpr_cpe_demo" / "digital_twin" / "streamlit_app.py").read_text()
+    for label in (
+        "Homes modeled",
+        "Service risks found",
+        "Care contacts pre-correlated",
+        "Duplicate incidents avoided",
+        "Cases closed",
+        "Network saw it first",
+        "Governed decision",
+    ):
+        assert label in source
+    assert "Technical evidence & reconciliation" in source
+    assert "Advanced model & simulation settings" in source
+    assert "Evidence explorer" in source
+    assert "Technical generation record" in source
+
+
+def test_56_executive_ui_preserves_governance_and_simulation_disclosures():
+    root = Path(__file__).resolve().parents[1]
+    source = (root / "src" / "lpr_cpe_demo" / "digital_twin" / "streamlit_app.py").read_text()
+    app = (root / "src" / "lpr_cpe_demo" / "ui" / "app.py").read_text()
+    assert "Production writes off" in source
+    assert "deterministic controls" in source.lower()
+    assert "objective restoration evidence" in source
+    assert "simulation" in app.lower()
+    assert "production writes disabled" in app.lower()

@@ -1,7 +1,7 @@
 name: ${COMPOSE_PROJECT_NAME:-lpr-cpe-demo}
 
 x-build-args: &build-args
-  BASE_IMAGE: ${BASE_IMAGE:-python:3.12-slim}
+  BASE_IMAGE: ${BASE_IMAGE:-python:3.14.2-slim-bookworm}
   PIP_INDEX_URL: ${PIP_INDEX_URL:-}
   PIP_STRICT_TLS: ${PIP_STRICT_TLS:-0}
   HTTP_PROXY: ${HTTP_PROXY:-}
@@ -19,6 +19,16 @@ x-app-common: &app-common
   restart: unless-stopped
   networks:
     - lpr-demo
+
+x-digital-twin-build: &digital-twin-build
+  context: .
+  dockerfile: docker/Dockerfile.digital-twin
+  args:
+    BASE_IMAGE: ${DT_BASE_IMAGE:-python:3.14.2-slim-bookworm}
+    PIP_INDEX_URL: ${PIP_INDEX_URL:-}
+    HTTP_PROXY: ${HTTP_PROXY:-}
+    HTTPS_PROXY: ${HTTPS_PROXY:-}
+    NO_PROXY: ${NO_PROXY:-}
 
 services:
   postgres:
@@ -98,8 +108,55 @@ services:
       retries: 20
       start_period: 20s
 
+  digital-twin-api:
+    build: *digital-twin-build
+    env_file:
+      - .env
+    environment:
+      DT_USER: ${DT_USER:-demo}
+      DT_PASSWORD: ${DT_PASSWORD:-CHANGE_ME}
+      DT_USER_ROLE: ${DT_USER_ROLE:-operator}
+      DT_DATA_ROOT: /data
+      DT_LLM_PROVIDER: ${DT_LLM_PROVIDER:-fake}
+      DT_LLM_MODEL: ${DT_LLM_MODEL:-}
+      DT_PRODUCTION_WRITES: "false"
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+    restart: unless-stopped
+    command: >-
+      uvicorn lpr_cpe_demo.digital_twin.api:app
+      --host 0.0.0.0
+      --port 8001
+    ports:
+      - "127.0.0.1:${DT_API_PORT:-8001}:8001"
+    volumes:
+      - lpr-dt-data:/data
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8001/health', timeout=3).read()"
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+    networks:
+      - lpr-demo
+
   ui:
     <<: *app-common
+    environment:
+      DT_API_URL: http://digital-twin-api:8001
+      DT_USER: ${DT_USER:-demo}
+      DT_PASSWORD: ${DT_PASSWORD:-CHANGE_ME}
     command: >-
       streamlit run src/lpr_cpe_demo/ui/app.py
       --server.address=0.0.0.0
@@ -110,6 +167,8 @@ services:
       - "${UI_PORT:-8501}:8501"
     depends_on:
       api:
+        condition: service_healthy
+      digital-twin-api:
         condition: service_healthy
     healthcheck:
       test:
@@ -137,6 +196,9 @@ services:
       WORKFLOW_ENGINE: portable
       MCP_USE_NETWORK: "false"
       MODEL_PROVIDER: fake
+      DT_API_URL: http://digital-twin-api:8001
+      DT_USER: ${DT_USER:-demo}
+      DT_PASSWORD: ${DT_PASSWORD:-CHANGE_ME}
     profiles: ["test"]
     command: >-
       sh -c "python scripts/validate_compose.py &&
@@ -152,6 +214,7 @@ services:
 volumes:
   postgres-data:
   mcp-data:
+  lpr-dt-data:
 
 networks:
   lpr-demo:

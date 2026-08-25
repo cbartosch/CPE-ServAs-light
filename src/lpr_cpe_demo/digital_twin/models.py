@@ -33,11 +33,14 @@ class GenerationConfig(BaseModel):
     seed: int = 2400
     output_format: Literal["jsonl_gz", "parquet"] = "jsonl_gz"
     schema_version: str = "2.4.0"
-    generator_version: str = "2.4.0-r3-py314-hotfix4"
+    generator_version: str = "2.4.0-r3-py314-hotfix5"
     batch_size: int = Field(default=10_000, ge=1, le=100_000)
     enable_llm: bool = False
     llm_provider: Literal["fake", "openai", "anthropic", "disabled"] = "fake"
     llm_model: str = ""
+    enable_predictive: bool = True
+    predictive_population: int = Field(default=0, ge=0, le=500_000)
+    predictive_days: int = Field(default=14, ge=7, le=60)
 
     @field_validator("scenarios")
     @classmethod
