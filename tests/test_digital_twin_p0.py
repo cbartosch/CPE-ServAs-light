@@ -970,3 +970,37 @@ def test_67_active_run_storage_recovers_from_latest_catalog(tmp_path):
     os.utime(second_catalog, ns=(newer_ns, newer_ns))
     assert get_active_run(tmp_path) == second["run_id"]
     assert pointer.exists()
+
+
+def test_68_legacy_control_tower_cross_links_into_active_run_workflows():
+    root = Path(__file__).resolve().parents[1]
+    control = (root / "src" / "lpr_cpe_demo" / "ui" / "pages" / "control_tower.py").read_text()
+    theme = (root / "src" / "lpr_cpe_demo" / "ui" / "theme_dark.py").read_text()
+    assert "td.executive_crosslink()" in control
+    assert 'href="digital-twin?view=predictive"' in theme
+    assert 'href="digital-twin?view=customer-care"' in theme
+    assert "active-run predictive and Care workspace" in theme
+
+
+def test_69_predictive_and_care_workspace_links_back_to_legacy_control_tower():
+    root = Path(__file__).resolve().parents[1]
+    source = (root / "src" / "lpr_cpe_demo" / "digital_twin" / "streamlit_app.py").read_text()
+    assert 'href="control-tower"' in source
+    assert 'href="digital-twin?view=predictive"' in source
+    assert 'href="digital-twin?view=customer-care"' in source
+    assert "VIEW_ALIASES" in source
+    assert '"customer-care": "care"' in source
+    assert 'sections.sort(key=lambda section: section[0] != requested_view)' in source
+    assert "st.query_params.get" in source
+
+
+def test_70_legacy_control_tower_forces_a_dark_grey_background():
+    root = Path(__file__).resolve().parents[1]
+    source = (root / "src" / "lpr_cpe_demo" / "ui" / "theme_dark.py").read_text()
+    assert 'LEGACY_GREY_950 = "#171717"' in source
+    assert 'LEGACY_GREY_900 = "#232323"' in source
+    assert 'LEGACY_GREY_800 = "#303030"' in source
+    assert '[data-testid="stAppViewContainer"]' in source
+    assert '[data-testid="stMain"]' in source
+    assert "100%) !important" in source
+    compile(source, "theme_dark.py", "exec")

@@ -176,6 +176,58 @@ def css() -> str:
         background:#68e0c8; display:inline-block;
     }
 
+    .lpr-crosslink {
+        display:grid;
+        grid-template-columns:minmax(0,1fr) auto;
+        align-items:center;
+        gap:1rem;
+        background:rgba(255,255,255,.96);
+        border:1px solid var(--lpr-line);
+        border-radius:16px;
+        padding:.85rem 1rem;
+        margin:0 0 1rem;
+        box-shadow:0 8px 24px rgba(16,36,62,.05);
+    }
+    .lpr-crosslink-title {
+        color:var(--lpr-navy);
+        font-size:.92rem;
+        font-weight:760;
+    }
+    .lpr-crosslink-copy {
+        margin-top:.12rem;
+        color:var(--lpr-muted);
+        font-size:.78rem;
+        line-height:1.45;
+    }
+    .lpr-crosslink-actions { display:flex; flex-wrap:wrap; gap:.45rem; }
+    .lpr-crosslink-link {
+        display:inline-flex;
+        align-items:center;
+        justify-content:center;
+        min-height:2.3rem;
+        padding:.42rem .72rem;
+        border-radius:9px;
+        border:1px solid #d7dfe8;
+        background:#fff;
+        color:var(--lpr-navy) !important;
+        text-decoration:none !important;
+        font-size:.77rem;
+        font-weight:720;
+        white-space:nowrap;
+    }
+    .lpr-crosslink-link:hover {
+        border-color:var(--lpr-teal);
+        background:var(--lpr-teal-soft);
+    }
+    .lpr-crosslink-link.legacy {
+        border-color:#4b5563;
+        background:#2f3338;
+        color:#fff !important;
+    }
+    @media (max-width:800px) {
+        .lpr-crosslink { grid-template-columns:1fr; }
+    }
+
     .lpr-section-label {
         margin: 1.25rem 0 .25rem;
         color: var(--lpr-teal);

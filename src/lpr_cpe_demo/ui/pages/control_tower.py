@@ -40,6 +40,7 @@ def render() -> None:
     dash = build(count=int(count), seed=int(seed))
     st.markdown(td.hero(dash.title, dash.subtitle, dash.badges),
                 unsafe_allow_html=True)
+    st.markdown(td.executive_crosslink(), unsafe_allow_html=True)
 
     # State the agent layer's status before any number, because an inactive layer
     # changes what every number below means.

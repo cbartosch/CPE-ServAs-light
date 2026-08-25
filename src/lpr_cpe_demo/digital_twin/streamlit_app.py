@@ -87,6 +87,24 @@ RUN_STATE_KEYS = (
     "decision_run",
 )
 
+VIEW_ALIASES = {
+    "executive": "executive",
+    "executive-view": "executive",
+    "create": "create",
+    "create-demo": "create",
+    "predictive": "predictive",
+    "predictive-health": "predictive",
+    "care": "care",
+    "customer-care": "care",
+    "customer-experience": "care",
+    "subscriber": "subscriber",
+    "subscriber-story": "subscriber",
+    "decisions": "decisions",
+    "controls": "decisions",
+    "evidence": "evidence",
+    "audit": "evidence",
+}
+
 
 def _request(path: str, method: str = "GET", body: dict | None = None):
     data = None if body is None else json.dumps(body).encode("utf-8")
@@ -200,6 +218,47 @@ def _hero() -> None:
           </div>
         </div>
         """,
+        unsafe_allow_html=True,
+    )
+
+
+def _query_value(name: str) -> str:
+    """Read one query parameter without depending on browser URL construction."""
+    try:
+        value = st.query_params.get(name, "")
+    except Exception:
+        return ""
+    if isinstance(value, (list, tuple)):
+        value = value[0] if value else ""
+    return str(value).strip().lower()
+
+
+def _requested_view() -> str:
+    return VIEW_ALIASES.get(_query_value("view"), "")
+
+
+def _executive_crosslink(requested_view: str) -> None:
+    linked = {
+        "predictive": "Predictive Health",
+        "care": "Customer Experience",
+    }.get(requested_view)
+    context = (
+        f"Linked from the legacy Control Tower into {linked}."
+        if linked
+        else "Move between the legacy modeled scorecard and active-run operational evidence."
+    )
+    st.markdown(
+        f'''<div class="lpr-crosslink">
+          <div>
+            <div class="lpr-crosslink-title">One executive story, two evidence lenses</div>
+            <div class="lpr-crosslink-copy">{html.escape(context)} The active run remains unchanged while you move between views.</div>
+          </div>
+          <div class="lpr-crosslink-actions">
+            <a class="lpr-crosslink-link legacy" target="_self" href="control-tower">← Legacy Control Tower</a>
+            <a class="lpr-crosslink-link" target="_self" href="digital-twin?view=predictive">Predictive Health</a>
+            <a class="lpr-crosslink-link" target="_self" href="digital-twin?view=customer-care">Customer Care</a>
+          </div>
+        </div>''',
         unsafe_allow_html=True,
     )
 
@@ -833,34 +892,28 @@ def _evidence() -> None:
 def render() -> None:
     st.markdown(executive_style.css(), unsafe_allow_html=True)
     _hero()
+    requested_view = _requested_view()
+    _executive_crosslink(requested_view)
     run_id = _active_run_id()
     if run_id:
         _run_chip(run_id)
-    tabs = st.tabs(
-        [
-            "Executive View",
-            "Create Demo",
-            "Predictive Health",
-            "Customer Experience",
-            "Subscriber Story",
-            "Decisions & Controls",
-            "Evidence & Audit",
-        ]
-    )
-    with tabs[0]:
-        _executive_view(run_id)
-    with tabs[1]:
-        _create_demo()
-    with tabs[2]:
-        _predictive_health()
-    with tabs[3]:
-        _customer_experience()
-    with tabs[4]:
-        _subscriber_story()
-    with tabs[5]:
-        _decision_control()
-    with tabs[6]:
-        _evidence()
+
+    sections = [
+        ("executive", "Executive View", lambda: _executive_view(run_id)),
+        ("create", "Create Demo", _create_demo),
+        ("predictive", "Predictive Health", _predictive_health),
+        ("care", "Customer Experience", _customer_experience),
+        ("subscriber", "Subscriber Story", _subscriber_story),
+        ("decisions", "Decisions & Controls", _decision_control),
+        ("evidence", "Evidence & Audit", _evidence),
+    ]
+    if requested_view:
+        sections.sort(key=lambda section: section[0] != requested_view)
+
+    tabs = st.tabs([label for _, label, _ in sections])
+    for tab, (_, _, render_section) in zip(tabs, sections, strict=True):
+        with tab:
+            render_section()
 
 
 if __name__ == "__main__":

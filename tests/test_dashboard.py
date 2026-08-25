@@ -202,6 +202,28 @@ class TestDarkThemeReadability(unittest.TestCase):
         chips = set(td.PROVENANCE_ACCENT.values())
         self.assertEqual(len(chips), 3)
 
+    def test_legacy_page_background_is_neutral_dark_grey(self):
+        for tone in (td.LEGACY_GREY_950, td.LEGACY_GREY_900, td.LEGACY_GREY_800):
+            channels = [int(tone[index:index + 2], 16) for index in (1, 3, 5)]
+            self.assertEqual(len(set(channels)), 1, tone)
+            self.assertLess(channels[0], 64, tone)
+
+    def test_dark_grey_background_overrides_the_global_light_theme(self):
+        css = td.css()
+        self.assertIn('[data-testid="stAppViewContainer"]', css)
+        self.assertIn('[data-testid="stMain"]', css)
+        self.assertIn(td.LEGACY_GREY_950, css)
+        self.assertIn(td.LEGACY_GREY_900, css)
+        self.assertIn(td.LEGACY_GREY_800, css)
+        self.assertIn('100%) !important', css)
+        self.assertIn('background-attachment: fixed !important', css)
+
+    def test_legacy_control_tower_links_to_predictive_and_care(self):
+        html = td.executive_crosslink()
+        self.assertIn('href="digital-twin?view=predictive"', html)
+        self.assertIn('href="digital-twin?view=customer-care"', html)
+        self.assertEqual(html.count('target="_self"'), 2)
+
     def test_plotly_layout_is_transparent_so_the_gradient_shows(self):
         layout = td.plotly_layout()
         self.assertEqual(layout["paper_bgcolor"], "rgba(0,0,0,0)")

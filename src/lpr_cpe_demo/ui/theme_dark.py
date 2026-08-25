@@ -1,9 +1,9 @@
 """Dark control-tower theme, matching the supplied dashboard format.
 
-Palette and structure follow
-`e2e_fixed_access_assurance_orchestration_dashboard.json`: a slate-to-indigo
-gradient, glass cards at `bg-white/8` over `border-white/10`, and six neon
-accents.
+The legacy Control Tower keeps its glass-card and neon-accent vocabulary, but
+uses an explicitly neutral dark-grey page background so the global light
+executive theme cannot bleed through. Cards and plots retain their measured
+slate surfaces for contrast stability.
 
 Contrast was measured before adopting it, using the same arithmetic as the light
 theme. Every accent clears WCAG AA for body text against the glass card:
@@ -19,9 +19,16 @@ from __future__ import annotations
 
 from .theme import ContrastCheck, composite, contrast_ratio
 
+# Neutral page background for the legacy dashboard. These values are kept
+# separate from the slate chart/card palette so the proven contrast pairings do
+# not change when the page background is made dark grey.
+LEGACY_GREY_950 = "#171717"
+LEGACY_GREY_900 = "#232323"
+LEGACY_GREY_800 = "#303030"
+
 SLATE_950 = "#020617"
 SLATE_900 = "#0F172A"
-INDIGO_950 = "#1E1B4B"
+INDIGO_950 = "#1E1B4B"  # retained for compatibility with existing chart code
 
 INK = "#F1F5F9"          # slate-100
 MUTED = "#94A3B8"        # slate-400. Do NOT drop to slate-500 for body copy.
@@ -87,10 +94,13 @@ def plotly_layout(height: int = 260) -> dict:
 
 def css() -> str:
     return f"""<style>
-    .stApp {{
-        background: linear-gradient(160deg, {SLATE_950} 0%, {SLATE_900} 55%,
-                                    {INDIGO_950} 100%);
-        background-attachment: fixed;
+    .stApp,
+    [data-testid="stAppViewContainer"],
+    [data-testid="stMain"] {{
+        background: linear-gradient(160deg, {LEGACY_GREY_950} 0%,
+                                    {LEGACY_GREY_900} 58%,
+                                    {LEGACY_GREY_800} 100%) !important;
+        background-attachment: fixed !important;
     }}
     .block-container {{ padding-top: 1rem; max-width: 1500px; }}
     .stApp, .stApp p, .stApp li, .stApp span, .stApp label {{ color: {INK}; }}
@@ -112,6 +122,58 @@ def css() -> str:
         background: rgba(255,255,255,0.06);
     }}
     .ct-badge.caveat {{ border-color: {ACCENTS['amber']}; color: {ACCENTS['amber']}; }}
+
+    .ct-crosslink {{
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        gap: 1rem;
+        align-items: center;
+        border: 1px solid rgba(255,255,255,0.12);
+        background: rgba(255,255,255,0.065);
+        border-radius: 14px;
+        padding: 0.85rem 1rem;
+        margin: 0 0 0.9rem;
+        backdrop-filter: blur(6px);
+    }}
+    .ct-crosslink-title {{
+        color: {INK};
+        font-weight: 700;
+        font-size: 0.94rem;
+        margin-bottom: 0.15rem;
+    }}
+    .ct-crosslink-copy {{
+        color: {MUTED};
+        font-size: 0.79rem;
+        line-height: 1.45;
+    }}
+    .ct-crosslink-actions {{ display: flex; flex-wrap: wrap; gap: 0.45rem; }}
+    .ct-crosslink-link {{
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 2.35rem;
+        padding: 0.42rem 0.75rem;
+        border-radius: 9px;
+        border: 1px solid rgba(255,255,255,0.18);
+        background: rgba(255,255,255,0.075);
+        color: {INK} !important;
+        text-decoration: none !important;
+        font-size: 0.78rem;
+        font-weight: 700;
+        white-space: nowrap;
+    }}
+    .ct-crosslink-link:hover {{
+        border-color: {ACCENTS['cyan']};
+        background: rgba(34,211,238,0.12);
+    }}
+    .ct-crosslink-link.primary {{
+        border-color: {ACCENTS['cyan']};
+        background: {ACCENTS['cyan']};
+        color: {SLATE_950} !important;
+    }}
+    @media (max-width: 800px) {{
+        .ct-crosslink {{ grid-template-columns: 1fr; }}
+    }}
 
     .ct-card {{
         border: 1px solid rgba(255,255,255,0.10);
@@ -149,6 +211,23 @@ def css() -> str:
         border: 1px solid rgba(255,255,255,0.10);
     }}
     </style>"""
+
+
+def executive_crosslink() -> str:
+    """Return reciprocal links into the active-run predictive and Care workspace."""
+    return (
+        '<div class="ct-crosslink">'
+        '<div><div class="ct-crosslink-title">Continue into active-run evidence</div>'
+        '<div class="ct-crosslink-copy">The legacy scorecard remains a modeled '
+        'benchmark. Open the connected workflow to inspect predictive modem risk, '
+        'Customer Care correlation and governed resolution for the active run.</div></div>'
+        '<div class="ct-crosslink-actions">'
+        '<a class="ct-crosslink-link primary" target="_self" '
+        'href="digital-twin?view=predictive">Predictive health →</a>'
+        '<a class="ct-crosslink-link" target="_self" '
+        'href="digital-twin?view=customer-care">Customer Care →</a>'
+        '</div></div>'
+    )
 
 
 def card_open(title: str, provenance: str, note: str = "") -> str:
