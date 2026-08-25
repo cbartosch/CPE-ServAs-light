@@ -10,6 +10,7 @@ from fastapi.security import HTTPBasic, HTTPBasicCredentials
 from pydantic import BaseModel, Field
 
 from . import __version__
+from .executive_projection import build_executive_projection
 from .models import GenerationConfig, HumanDecision
 from .orchestrator import (
     DATASETS,
@@ -19,7 +20,13 @@ from .orchestrator import (
     materialize_live_decision,
     run_predictive_scan,
 )
-from .storage import iter_jsonl_gz, load_jsonl_gz, safe_run_path
+from .storage import (
+    get_active_run,
+    iter_jsonl_gz,
+    load_jsonl_gz,
+    safe_run_path,
+    set_active_run,
+)
 from .workflow import CaseStore
 
 security = HTTPBasic()
@@ -36,6 +43,10 @@ class RunRequest(BaseModel):
     config: GenerationConfig
 
 
+class ActiveRunRequest(BaseModel):
+    run_id: str
+
+
 class PredictiveScanRequest(BaseModel):
     population: int = Field(default=20_000, ge=1, le=500_000)
     days: int = Field(default=14, ge=7, le=60)
@@ -50,6 +61,42 @@ def _run_path(run_id: str) -> Path:
         return safe_run_path(DATA_ROOT, run_id)
     except ValueError as exc:
         raise HTTPException(400, str(exc)) from exc
+
+
+def _load_catalog(run_id: str) -> dict:
+    path = _run_path(run_id) / "catalog.json"
+    if not path.exists():
+        raise HTTPException(404, "run not found")
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise HTTPException(409, "run catalog is unreadable") from exc
+
+
+def _activate_run(run_id: str) -> dict:
+    try:
+        set_active_run(DATA_ROOT, run_id)
+    except ValueError as exc:
+        raise HTTPException(400, str(exc)) from exc
+    except FileNotFoundError as exc:
+        raise HTTPException(404, "run not found") from exc
+    return _load_catalog(run_id)
+
+
+def _active_run_id() -> str:
+    run_id = get_active_run(DATA_ROOT)
+    if run_id is None:
+        raise HTTPException(404, "no active run")
+    return run_id
+
+
+def _build_projection(run_id: str) -> dict:
+    try:
+        return build_executive_projection(DATA_ROOT, run_id)
+    except FileNotFoundError as exc:
+        raise HTTPException(404, "run not found") from exc
+    except (OSError, json.JSONDecodeError, ValueError) as exc:
+        raise HTTPException(409, f"executive projection unavailable: {exc}") from exc
 
 
 @app.get("/health")
@@ -84,19 +131,47 @@ def list_runs(_: dict = Depends(principal)):
 @app.post("/api/runs")
 def create_run(request: RunRequest, _: dict = Depends(principal)):
     try:
-        return generate(request.config, DATA_ROOT)
+        catalog = generate(request.config, DATA_ROOT)
+        set_active_run(DATA_ROOT, catalog["run_id"])
+        return catalog
     except ValueError as exc:
         raise HTTPException(422, str(exc)) from exc
     except RuntimeError as exc:
         raise HTTPException(409, str(exc)) from exc
 
 
+@app.get("/api/active-run")
+def active_run(_: dict = Depends(principal)):
+    return _load_catalog(_active_run_id())
+
+
+@app.post("/api/active-run")
+@app.put("/api/active-run")
+def select_active_run(request: ActiveRunRequest, _: dict = Depends(principal)):
+    return _activate_run(request.run_id)
+
+
+@app.post("/api/active-run/{run_id}")
+@app.put("/api/active-run/{run_id}")
+@app.post("/api/runs/{run_id}/activate")
+def select_active_run_by_path(run_id: str, _: dict = Depends(principal)):
+    return _activate_run(run_id)
+
+
+@app.get("/api/executive-projection")
+@app.get("/api/active-run/executive-projection")
+def active_executive_projection(_: dict = Depends(principal)):
+    return _build_projection(_active_run_id())
+
+
+@app.get("/api/runs/{run_id}/executive-projection")
+def run_executive_projection(run_id: str, _: dict = Depends(principal)):
+    return _build_projection(run_id)
+
+
 @app.get("/api/runs/{run_id}")
 def get_run(run_id: str, _: dict = Depends(principal)):
-    path = _run_path(run_id) / "catalog.json"
-    if not path.exists():
-        raise HTTPException(404, "run not found")
-    return json.loads(path.read_text(encoding="utf-8"))
+    return _load_catalog(run_id)
 
 
 @app.get("/api/runs/{run_id}/datasets/{dataset}")

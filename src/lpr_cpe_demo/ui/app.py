@@ -25,7 +25,12 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
-from lpr_cpe_demo.ui import artwork, executive_theme, sidebar as model_sidebar, theme  # noqa: E402
+from lpr_cpe_demo.ui import (  # noqa: E402
+    artwork,
+    executive_theme,
+    sidebar as model_sidebar,
+    theme,
+)
 
 st.markdown(
     theme.css(
