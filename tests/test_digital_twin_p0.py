@@ -862,3 +862,111 @@ def test_56_executive_ui_preserves_governance_and_simulation_disclosures():
     assert "objective restoration evidence" in source
     assert "simulation" in app.lower()
     assert "production writes disabled" in app.lower()
+
+
+def test_62_create_run_persists_active_run_across_api_reads(tmp_path, monkeypatch):
+    from fastapi.testclient import TestClient
+
+    from lpr_cpe_demo.digital_twin import api
+
+    monkeypatch.setattr(api, "DATA_ROOT", tmp_path)
+    client = TestClient(api.app)
+    auth = ("demo", "CHANGE_ME")
+    created = client.post(
+        "/api/runs",
+        auth=auth,
+        json={"config": {"homes": 90, "seed": 901, "scenarios": ["fiber_cut"]}},
+    )
+    assert created.status_code == 200
+    run_id = created.json()["run_id"]
+
+    active = client.get("/api/active-run", auth=auth)
+    assert active.status_code == 200
+    assert active.json()["run_id"] == run_id
+
+    # The pointer is durable state under DATA_ROOT, not process-local state.
+    second_client = TestClient(api.app)
+    active_again = second_client.get("/api/active-run", auth=auth)
+    assert active_again.status_code == 200
+    assert active_again.json()["run_id"] == run_id
+
+
+def test_63_active_run_can_switch_and_executive_projection_follows_it(tmp_path, monkeypatch):
+    from fastapi.testclient import TestClient
+
+    from lpr_cpe_demo.digital_twin import api
+
+    monkeypatch.setattr(api, "DATA_ROOT", tmp_path)
+    client = TestClient(api.app)
+    auth = ("demo", "CHANGE_ME")
+    first = client.post(
+        "/api/runs",
+        auth=auth,
+        json={"config": {"homes": 90, "seed": 901, "scenarios": ["fiber_cut"]}},
+    ).json()
+    second = client.post(
+        "/api/runs",
+        auth=auth,
+        json={"config": {"homes": 130, "seed": 1301, "scenarios": ["hfc_ingress"]}},
+    ).json()
+    assert client.get("/api/active-run", auth=auth).json()["run_id"] == second["run_id"]
+
+    switched = client.put(
+        "/api/active-run",
+        auth=auth,
+        json={"run_id": first["run_id"]},
+    )
+    assert switched.status_code == 200
+    assert switched.json()["run_id"] == first["run_id"]
+
+    projection = client.get("/api/executive-projection", auth=auth)
+    assert projection.status_code == 200
+    assert projection.json()["run_id"] == first["run_id"]
+
+
+def test_64_executive_projection_joins_predictive_care_incident_and_governance(tmp_path):
+    from lpr_cpe_demo.digital_twin.executive_projection import build_executive_projection
+
+    cat = _run(
+        tmp_path,
+        homes=500,
+        scenarios=("fiber_cut", "slow_wifi", "power_outage"),
+    )
+    projection = build_executive_projection(tmp_path, cat["run_id"])
+    assert projection["run_id"] == cat["run_id"]
+    assert projection["stories"]
+    assert projection["scorecard"]["care_contacts_total"] > 0
+
+    matched = next(story for story in projection["stories"] if story["predictive_match"])
+    assert matched["care_ticket"]["service_id"] == matched["service_id"]
+    assert matched["predictive_ticket"]["service_id"] == matched["service_id"]
+    assert matched["root_incident"]["incident_id"] == matched["incident_id"]
+    governance = matched["governance"]
+    assert governance["deterministic_decision"] is not None
+    assert governance["agent_decision"] is not None
+    assert governance["reconciliation"] is not None
+    assert governance["action"] is not None
+
+
+def test_67_active_run_storage_recovers_from_latest_catalog(tmp_path):
+    from lpr_cpe_demo.digital_twin.storage import get_active_run, set_active_run
+
+    first = _run(tmp_path, homes=90, seed=901, scenarios=("fiber_cut",))
+    second = _run(tmp_path, homes=130, seed=1301, scenarios=("hfc_ingress",))
+
+    assert set_active_run(tmp_path, first["run_id"]) == first["run_id"]
+    assert get_active_run(tmp_path) == first["run_id"]
+
+    pointer = tmp_path / "active_run.json"
+    pointer.write_text('{"run_id":"RUN-19990101-AAAAAAAAAAAAAAAAAAAA"}\n', encoding="utf-8")
+
+    first_catalog = safe_run_path(tmp_path, first["run_id"]) / "catalog.json"
+    second_catalog = safe_run_path(tmp_path, second["run_id"]) / "catalog.json"
+    first_stat = first_catalog.stat()
+    second_stat = second_catalog.stat()
+    newer_ns = max(first_stat.st_mtime_ns, second_stat.st_mtime_ns) + 1_000_000_000
+    import os
+
+    os.utime(second_catalog, ns=(newer_ns, newer_ns))
+    assert get_active_run(tmp_path) == second["run_id"]
+    assert pointer.exists()
