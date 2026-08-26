@@ -121,6 +121,6 @@ def test_cadi_contract_document_is_explicit_about_stage_boundaries() -> None:
     assert "second source of truth" in " ".join(document.split())
     assert "Genesys" in document
     assert "Chuck" not in document  # operational boundary, not personal dependency
-    assert "metric reconciliation between the panels (Stage 2)" in document
+    assert "Stage 2 applies the shared measurement contract" in document
     assert "24-Hour Install Assurance Watch (Stage 3)" in document
-    assert "live CADI or Genesys client" in document
+    assert "live CADI data adapter" in document

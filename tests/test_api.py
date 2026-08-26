@@ -76,3 +76,20 @@ def test_api_exposes_cadi_integration_contract(service: WorkflowService) -> None
         assert body["integration_status"] == "contract_only"
         assert body["live_connection"] is False
         assert body["owner_scope"] == "Call center / Genesys"
+
+
+def test_api_exposes_shared_measurement_contract_and_operations_projection(
+    service: WorkflowService,
+) -> None:
+    app = create_app(settings=service.settings, service=service)
+    with TestClient(app) as client:
+        contract = client.get("/api/measurement-contract")
+        assert contract.status_code == 200
+        assert contract.json()["primary_executive_grain"] == "incident_id"
+
+        projection = client.get("/api/operations-projection")
+        assert projection.status_code == 200
+        body = projection.json()
+        assert body["measurement_context"]["mode"] == "live_operations"
+        assert body["measurement_context"]["linked_to_active_run"] is False
+        assert body["reconciliation"]["passed"] is True

@@ -1,8 +1,43 @@
-LPR CPE SERVICE ASSURANCE DEMO — BUILD AND TEST REPORT
+LPR CPE SERVICE ASSURANCE DEMO - BUILD AND TEST REPORT
 ======================================================
 
-STAGE 1 CADI WINDOWS PORTABILITY CORRECTIONS — 2026-08-26
----------------------------------------------------
+STAGE 2 SEMANTIC RECONCILIATION CANDIDATE - 2026-08-26
+-------------------------------------------------------
+PASS  shared measurement contract defines entity grain, formula, denominator,
+      provenance, status partition and reconciliation invariants
+PASS  Digital Twin executive projection aggregates complete canonical datasets
+      and never derives headline values from paginated display rows
+PASS  Care queue returns total, filtered_total, returned and truncated metadata
+PASS  5,101-contact regression proves headline totals exceed the 5,000-row
+      display cap and the 200-row Care page cap
+PASS  live Operations projects its full repository into the same semantic schema
+      while explicitly remaining unlinked to the active Digital Twin population
+PASS  common-cause operational cases collapse to one durable root incident
+PASS  legacy Control Tower defaults to active-run evidence; seeded outputs remain
+      isolated in Planning model mode and shape-only curves default off
+PASS  predictive child scans are labelled exploratory and cannot mutate canonical
+      Executive or Care totals implicitly
+PASS  former duplicate-incidents-avoided claim replaced by auditable canonical
+      root attachments; actual interception remains unavailable without an event
+PASS  CADI remains the explicit Genesys-facing context layer from Stage 1
+PASS  201 focused Stage 2/API/dashboard/CADI/telemetry/integrity tests
+PASS  Python compileall for source, scripts and tests
+PASS  generated standalone Control Tower HTML regression
+PASS  git diff whitespace validation
+NOTE  Ruff 0.13.3 was not available in the packaging runtime. The target laptop
+      must run `python -m ruff check src scripts tests`; all new Stage 2 files are
+      deliberately outside the legacy per-file lint baseline.
+NOTE  An expanded repository audit reproduced eight failures that already exist
+      at the signed-off Stage 1 base: seven workflow tests reject approval tokens
+      whose fixtures omit the idempotency key, and one UI test expects Python
+      3.12 while the committed Dockerfiles use Python 3.14.2. Separate inherited
+      failures also remain for trusted-host policy, two MCP-control fixtures and
+      the Digital Twin reachability heuristic. Stage 2 does not modify those areas.
+NOTE  Stage 3 24-Hour Install Assurance Watch is not included. It remains gated
+      on explicit Stage 2 sign-off.
+
+HISTORICAL STAGE 1 CADI WINDOWS PORTABILITY CORRECTIONS - 2026-08-26
+--------------------------------------------------------------------
 PASS  113 focused CADI/API/dashboard/Digital Twin tests
 PASS  same focused suite with UTF-8 mode disabled and the C locale forced
 PASS  repository text-read guard: every Path.read_text call names an encoding

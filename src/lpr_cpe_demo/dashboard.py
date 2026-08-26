@@ -189,7 +189,7 @@ def _root_cause_mix() -> Block:
                    for name, value in weights.items()),
                   key=lambda d: -d["value"])
     return Block(
-        key="incident_root_cause_mix", title="Incident root-cause mix",
+        key="incident_root_cause_mix", title="Expected footprint-weighted root-cause mix",
         provenance="computed",
         note=("Household-weighted across the footprint from the archetype domain "
               "mix. Outside plant leads because tap, ODP and drop faults are "

@@ -8,11 +8,24 @@ A Docker Desktop demonstration of an HFC/PON customer-premises-equipment service
 - human approval for RCA disagreement, remote actions, dispatch, Clean/Dirty Boots handover, and plant actions;
 - a Streamlit operations cockpit, incident workbench, human decision center, decision/model monitor, and system monitor;
 - an explicit CADI/Genesys call-center correlation contract that preserves source-system authority without claiming a live adapter;
+- a shared measurement contract that reconciles population, grain, window, provenance and completeness across Executive, Predictive/Care and Operations views;
 - a strict, stateless MCP simulation endpoint for NXT, CPE, WFM, Clean Boots, jTrack MR, and plant actions;
 - PostgreSQL for the queryable incident and approval read model;
 - persistent idempotency and approval-consumption records for simulated MCP effects.
 
 > **Simulation only.** No production system is connected and production writes are disabled by default.
+
+## Stage 2 — reconciled dashboard semantics
+
+The legacy Control Tower, Digital Twin Predictive/Customer Care workspace and
+Operations Cockpit now use one metric vocabulary and expose their measurement
+context. The Digital Twin active run and live workflow repository remain separate
+populations; the UI explains that difference instead of forcing their values to
+match. Planning-model outputs are isolated from active-run evidence.
+
+See [`docs/SHARED_MEASUREMENT_CONTRACT.md`](docs/SHARED_MEASUREMENT_CONTRACT.md).
+The 24-Hour Install Assurance Watch is deliberately not included in this stage.
+
 
 This revision compares the original bundle with `lpr-cpe-demo-fixed.zip` and adopts the stronger ideas without replacing the more complete, tested runtime. See [`docs/COMPARISON_AND_IMPROVEMENTS.md`](docs/COMPARISON_AND_IMPROVEMENTS.md).
 

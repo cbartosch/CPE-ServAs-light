@@ -8,9 +8,11 @@ from fastapi import Depends, FastAPI, HTTPException, Query, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
+from lpr_cpe_demo import __version__
 from lpr_cpe_demo.cadi import cadi_contract
 from lpr_cpe_demo.config import Settings, get_settings
 from lpr_cpe_demo.domain import ApprovalDecisionInput, ApprovalStatus, FaultDomain
+from lpr_cpe_demo.measurement import measurement_contract
 from lpr_cpe_demo.workflow.service import (
     ApprovalConflict,
     ApprovalNotFound,
@@ -58,7 +60,7 @@ def create_app(
 
     app = FastAPI(
         title="LPR CPE Service Assurance Demo API",
-        version="1.2.0",
+        version=__version__,
         description=(
             "Simulation-only API for deterministic and LLM-assisted CPE incident resolution, "
             "human approvals, Clean/Dirty Boots handover, and jTrack MR workflow."
@@ -78,7 +80,12 @@ def create_app(
 
     @app.get("/health", tags=["system"])
     def health() -> dict[str, str]:
-        return {"status": "ok", "mode": configured_settings.application_mode}
+        return {
+            "status": "ok",
+            "mode": configured_settings.application_mode,
+            "version": __version__,
+            "measurement_schema": "1.0",
+        }
 
     @app.get("/ready", tags=["system"])
     def ready(workflow: WorkflowService = Depends(get_service)) -> dict[str, Any]:
@@ -171,6 +178,17 @@ def create_app(
         except ApprovalConflict as exc:
             raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
         return state.model_dump(mode="json")
+
+    @app.get("/api/measurement-contract", tags=["monitoring"])
+    def shared_measurement_contract() -> dict[str, Any]:
+        return measurement_contract()
+
+    @app.get("/api/operations-projection", tags=["monitoring"])
+    @app.get("/api/measurement-projection", tags=["monitoring"])
+    def operations_projection(
+        workflow: WorkflowService = Depends(get_service),
+    ) -> dict[str, Any]:
+        return workflow.measurement_projection()
 
     @app.get("/api/dashboard", tags=["monitoring"])
     def dashboard(workflow: WorkflowService = Depends(get_service)) -> dict[str, Any]:

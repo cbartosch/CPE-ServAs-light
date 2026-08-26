@@ -1030,10 +1030,21 @@ def load_predictive_scan(run_path: Path, scan_id: str, *, limit: int = 100) -> d
     if not path.is_dir():
         raise KeyError(scan_id)
     summary = json.loads((path / "summary.json").read_text(encoding="utf-8"))
+    tickets = load_jsonl_gz(path / "predictive_tickets.jsonl.gz", limit=limit)
+    pulls = load_jsonl_gz(path / "predictive_modem_pulls.jsonl.gz", limit=limit)
+    ticket_total = int(summary.get("tickets", len(tickets)) or 0)
+    pull_total = int(summary.get("scanned", len(pulls)) or 0)
     return {
         "summary": summary,
-        "tickets": load_jsonl_gz(path / "predictive_tickets.jsonl.gz", limit=limit),
-        "pulls": load_jsonl_gz(path / "predictive_modem_pulls.jsonl.gz", limit=limit),
+        "tickets": tickets,
+        "pulls": pulls,
+        "ticket_total": ticket_total,
+        "ticket_returned": len(tickets),
+        "ticket_truncated": len(tickets) < ticket_total,
+        "pull_total": pull_total,
+        "pull_returned": len(pulls),
+        "pull_truncated": len(pulls) < pull_total,
+        "canonical_parent_unchanged": True,
     }
 
 

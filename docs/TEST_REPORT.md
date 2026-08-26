@@ -1,5 +1,67 @@
 # Test Report
 
+## Stage 2 semantic reconciliation candidate
+
+- Base: signed-off Stage 1 commit `acf26bb6cfbf3eea41ecf89871bc7e9b3e73c5b7`
+- Scope: shared measurement semantics only
+- Install assurance: deliberately excluded until Stage 2 sign-off
+
+### Stage 2 acceptance results
+
+| Gate | Result |
+|---|---:|
+| Shared entity-grain and metric contract | PASS |
+| Complete Digital Twin projection and reconciliation invariants | PASS |
+| Live Operations projection using the same schema | PASS |
+| Active-run versus Planning-model separation | PASS |
+| Full-population totals beyond pagination limits | PASS |
+| Predictive child-scan isolation | PASS |
+| CADI Stage 1 boundary retained | PASS |
+| Focused API, dashboard, CADI, HTML, telemetry and semantic tests | **201 PASS** |
+| Python source, scripts and tests compile | PASS |
+| `git diff --check` | PASS |
+
+The candidate adds a 5,101-contact regression. It proves that Executive and Care
+headline totals are calculated from complete aggregates rather than the 5,000-row
+dataset display cap or the 200-row Care display page.
+
+### Inherited repository gates
+
+An expanded audit was also run against the Stage 2 tree and repeated against the
+signed-off Stage 1 base. The same inherited failures occur in both:
+
+- workflow fixtures create approval tokens without the idempotency key now required
+  by the execution guard;
+- one UI test expects a Python 3.12 base although the committed Dockerfiles use
+  Python 3.14.2;
+- the asset policy test rejects the existing trusted-host fallback;
+- two MCP-control fixtures omit the idempotency-key claim;
+- the Digital Twin reachability heuristic treats FastAPI route functions as
+  unreachable application symbols.
+
+These are not introduced or hidden by Stage 2. They remain separate remediation
+work and are not included in this stage-gated semantic change.
+
+### Target-laptop gate
+
+The packaging runtime could not obtain the pinned Ruff executable. Run on Windows:
+
+```powershell
+python -m ruff check src scripts tests
+python -m pytest -q `
+  tests/test_measurement_semantics.py `
+  tests/test_api.py `
+  tests/test_digital_twin_p0.py `
+  tests/test_dashboard.py `
+  tests/test_cadi.py `
+  tests/test_html_report.py `
+  tests/test_lint_baseline.py `
+  tests/test_telemetry.py `
+  tests/test_bundle_integrity.py
+```
+
+---
+
 ## Revision under test
 
 - Bundle: **LPR CPE Service Assurance Demo v1.2 improved**

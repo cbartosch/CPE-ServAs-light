@@ -71,6 +71,27 @@ MCP_STRICT_VERSION=true
 
 The API checks the MCP `/health` response before workflow startup and fails on profile, protocol-version or statelessness mismatch. The custom implementation exposes only the tool-list and tool-call subset required by the demonstration.
 
+## Shared measurement and projection layer
+
+Stage 2 adds one semantic contract above the existing repositories:
+
+```mermaid
+flowchart LR
+    DT[Digital Twin immutable run] --> DTP[Canonical run projection]
+    OPS[Live workflow repository] --> OPP[Operations projection]
+    PLAN[Seeded planning model] --> PM[Planning mode only]
+    DTP --> CONTRACT[Shared grains, formulas, status partition and provenance]
+    OPP --> CONTRACT
+    CONTRACT --> EXEC[Executive / Predictive / Care / Operations views]
+    PM --> LEGACY[Legacy Control Tower planning panels]
+```
+
+The projections share definitions without pretending the repositories are the
+same population. The Digital Twin projection reads complete run datasets; the
+Operations projection reads the complete workflow repository and resolves
+`parent_incident_id` to a durable root. Paginated tables never drive headline
+counts. See `docs/SHARED_MEASUREMENT_CONTRACT.md`.
+
 ## CADI / Genesys call-center boundary
 
 CADI is the existing LPR call-center correlation and presentation layer integrated

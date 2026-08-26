@@ -152,6 +152,13 @@ It does **not** provide:
 
 - a live CADI or Genesys client;
 - source-system credentials or data;
-- metric reconciliation between the panels (Stage 2);
+- a live CADI data adapter or source-system connection;
 - the 24-Hour Install Assurance Watch (Stage 3);
 - a decision to replace CADI.
+
+## Stage 2 relationship
+
+Stage 2 applies the shared measurement contract to Digital Twin and Operations
+evidence while preserving this CADI boundary. CADI is still contract-only, and
+no CADI-derived value is treated as authoritative or silently substituted into
+the canonical projections.

@@ -1,4 +1,4 @@
-# Data dictionary — v2.4.0 P0 Fixed R3 Hotfix5
+# Data dictionary — v2.4.0 Stage 2 semantic reconciliation
 
 The canonical release writes 20 gzip-compressed JSON Lines datasets:
 
@@ -42,7 +42,9 @@ The canonical release writes 20 gzip-compressed JSON Lines datasets:
 - `priority`, `sla_due_at`, `status`, `closed_at`: care queue state.
 - `predictive_match`, `predictive_ticket_id`: predictive correlation.
 - `correlation_disposition`: attach to predictive or reactive canonical root incident.
-- `duplicate_incident_suppressed`: must be `true`.
+- `duplicate_incident_suppressed`: legacy generator assertion retained for compatibility; it is not used as an observed executive KPI.
+- `canonical_root_attachment`: semantic projection derived from a durable `incident_id` reference.
+- `duplicate_creation_attempt_intercepted`: reserved for a future audited policy-rejection event; not emitted by the current generator.
 - `production_write`: must be `false`.
 - `care_ticket_reviews`: deterministic domain/action, agent output, reconciliation requirement, predictive context and evidence references.
 
@@ -61,3 +63,10 @@ The canonical release writes 20 gzip-compressed JSON Lines datasets:
 - `action_events.production_write`: always `false`.
 
 Operator-requested predictive pulls are stored as child artifacts beneath `predictive_scans/SCAN-*` with `summary.json`, `predictive_modem_pulls.jsonl.gz` and `predictive_tickets.jsonl.gz`. They are deliberately outside the canonical catalog so the parent run remains immutable.
+
+## Shared measurement projection
+
+The projection does not add a twenty-first canonical dataset. It is a complete
+read model over the existing files and publishes entity grains, formulas,
+denominators, provenance, status partition, funnels, completeness and
+reconciliation checks. See `../SHARED_MEASUREMENT_CONTRACT.md`.

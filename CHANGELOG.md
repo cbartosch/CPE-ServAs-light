@@ -1,5 +1,26 @@
 # Changelog
 
+## 1.24.0 — shared measurement model and dashboard reconciliation
+
+Stage 2 introduces a canonical measurement contract across the active-run
+Executive Control Tower, Predictive Health, Customer Care and live Operations
+Cockpit. Metrics now carry an entity grain, formula, provenance, denominator and
+measurement context. Digital Twin headline values are produced from complete
+immutable run datasets rather than paginated display rows; Operations projects
+its own complete repository into the same schema and explicitly states that it is
+not implicitly linked to the active run.
+
+The legacy Control Tower now defaults to active-run evidence. Its seeded fault
+generator remains available only as a separately labelled Planning model. Root
+incident statuses form one mutually exclusive partition, while case attempts,
+contacts and approvals remain separate workload grains. Predictive child scans
+are explicitly exploratory. Care correlation now reports canonical root
+attachments instead of the unsupported `duplicate incidents avoided` claim.
+
+CADI remains the explicit Genesys-facing context layer from Stage 1; no live CADI
+adapter is claimed. The 24-Hour Install Assurance Watch remains excluded pending
+Stage 2 sign-off. See `docs/SHARED_MEASUREMENT_CONTRACT.md`.
+
 ## 1.23.1 - audit: a retraction, and the third unreachable capability
 
 ### Stage-gated LPR extension: CADI made explicit

@@ -762,8 +762,9 @@ def test_49_streamlit_run_id_propagates_and_recovers_latest():
         assert f'"{key}"' in source
     assert "for key in RUN_STATE_KEYS:" in source
     assert 'result = _request("/api/runs")' in source
-    assert 'if remembered and not str(st.session_state.get(key, "")).strip():' in source
-    assert 'remembered = _latest_run_id()' in source
+    assert '_request("/api/active-run")' in source
+    assert '_request("/api/active-run", "PUT", {"run_id": run_id})' in source
+    assert 'st.session_state[key] = selected' in source
 
 
 def test_50_streamlit_module_is_safe_to_embed_in_main_ui():
@@ -838,13 +839,14 @@ def test_55_executive_view_uses_business_kpis_and_progressive_disclosure():
     root = Path(__file__).resolve().parents[1]
     source = (root / "src" / "lpr_cpe_demo" / "digital_twin" / "streamlit_app.py").read_text(encoding="utf-8")
     for label in (
-        "Homes modeled",
-        "Service risks found",
-        "Care contacts pre-correlated",
-        "Duplicate incidents avoided",
-        "Cases closed",
+        "Services in footprint",
+        "Devices scanned",
+        "At-risk services",
+        "Predictive match rate",
+        "Canonical root attachments",
+        "Closed root incidents",
         "Network saw it first",
-        "Governed decision",
+        "Root incident & governed decision",
     ):
         assert label in source
     assert "Technical evidence & reconciliation" in source

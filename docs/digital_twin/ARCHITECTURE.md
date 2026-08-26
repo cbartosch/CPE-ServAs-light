@@ -1,6 +1,6 @@
-# Architecture — v2.4.0 P0 Fixed R3 Hotfix5
+# Architecture — v2.4.0 Stage 2 semantic reconciliation
 
-Hotfix5 keeps the R3 operating-control architecture and adds a first-class predictive-modem and Customer Care correlation plane. Production writes remain disabled.
+Stage 2 keeps the R3 operating controls and predictive/Customer Care plane while adding a canonical measurement projection. Production writes remain disabled.
 
 ```mermaid
 flowchart LR
@@ -58,6 +58,22 @@ repair systems remain authoritative for the facts they originate. CADI is the
 intended place to present a correlated customer-safe view. Operations, Clean
 Boots, jTrack and validation remain responsible for incident, work and closure
 state. See `../CADI_INTEGRATION_CONTRACT.md`.
+
+## Shared measurement projection
+
+`executive_projection.py` is now the authoritative active-run aggregate. It
+calculates unique services, devices, contacts, case attempts and root incidents
+from complete canonical datasets and emits a mutually exclusive root-status
+partition. Dataset and queue pages expose pagination metadata but do not drive
+headline metrics.
+
+The main workflow API projects its repository through the same schema. It resolves
+common-cause children through `parent_incident_id` and explicitly reports that the
+live repository is not implicitly linked to the active Digital Twin run. The
+legacy Control Tower consumes the active projection by default and keeps its seeded
+fault generator in a separate Planning model mode.
+
+See `../SHARED_MEASUREMENT_CONTRACT.md`.
 
 ## Canonical graph and hard controls
 

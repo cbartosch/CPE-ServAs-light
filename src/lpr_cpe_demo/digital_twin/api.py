@@ -10,6 +10,7 @@ from fastapi.security import HTTPBasic, HTTPBasicCredentials
 from pydantic import BaseModel, Field
 
 from ..cadi import cadi_contract
+from ..measurement import measurement_contract
 from . import __version__
 from .executive_projection import build_executive_projection
 from .models import GenerationConfig, HumanDecision
@@ -102,7 +103,7 @@ def _build_projection(run_id: str) -> dict:
 
 @app.get("/health")
 def health():
-    return {"status": "ok", "version": __version__, "production_writes": False, "release": "P0 Fixed R3 Hotfix5.5", "predictive_care_integration": True}
+    return {"status": "ok", "version": __version__, "production_writes": False, "release": "Stage 2 semantic reconciliation", "predictive_care_integration": True, "measurement_schema": "1.0"}
 
 
 @app.get("/ready")
@@ -120,6 +121,11 @@ def ready(_: dict = Depends(principal)):
 @app.get("/api/integrations/cadi")
 def _cadi_integration_contract(_: dict = Depends(principal)):
     return cadi_contract()
+
+
+@app.get("/api/measurement-contract")
+def _measurement_contract(_: dict = Depends(principal)):
+    return measurement_contract()
 
 
 @app.get("/api/runs")
@@ -195,7 +201,15 @@ def dataset_rows(run_id: str, dataset: str, limit: int = Query(default=100, ge=1
         catalog = json.loads(catalog_path.read_text(encoding="utf-8"))
         entry = next((d for d in catalog.get("datasets", []) if d.get("dataset") == dataset), None)
         total = entry.get("row_count") if entry else None
-    return {"dataset": dataset, "returned": len(rows), "total": total, "rows": rows}
+    returned = len(rows)
+    return {
+        "dataset": dataset,
+        "returned": returned,
+        "total": total,
+        "truncated": total is not None and returned < int(total),
+        "headline_safe": False,
+        "rows": rows,
+    }
 
 
 @app.get("/api/runs/{run_id}/subscriber/{service_id}")
@@ -299,17 +313,50 @@ def care_ticket_queue(
     if not path.exists():
         raise HTTPException(404, "care ticket dataset not found")
     rows = []
+    total = 0
+    filtered_total = 0
+    summary = {
+        "open": 0,
+        "closed": 0,
+        "p1": 0,
+        "p2": 0,
+        "p3": 0,
+        "predictively_matched": 0,
+        "reactive_only": 0,
+        "repeat_contacts": 0,
+    }
     for row in iter_jsonl_gz(path):
+        total += 1
         if status and row.get("status") != status:
             continue
         if priority and row.get("priority") != priority:
             continue
         if predictive_match is not None and row.get("predictive_match") is not predictive_match:
             continue
-        rows.append(row)
-        if len(rows) >= limit:
-            break
-    return {"returned": len(rows), "rows": rows}
+        filtered_total += 1
+        ticket_status = str(row.get("status", "")).lower()
+        if ticket_status in {"open", "closed"}:
+            summary[ticket_status] += 1
+        ticket_priority = str(row.get("priority", "")).lower()
+        if ticket_priority in {"p1", "p2", "p3"}:
+            summary[ticket_priority] += 1
+        if row.get("predictive_match"):
+            summary["predictively_matched"] += 1
+        else:
+            summary["reactive_only"] += 1
+        if row.get("repeat_contact"):
+            summary["repeat_contacts"] += 1
+        if len(rows) < limit:
+            rows.append(row)
+    return {
+        "total": total,
+        "filtered_total": filtered_total,
+        "returned": len(rows),
+        "truncated": len(rows) < filtered_total,
+        "headline_safe": True,
+        "summary": summary,
+        "rows": rows,
+    }
 
 
 @app.get("/api/runs/{run_id}/care/tickets/{care_ticket_id}")

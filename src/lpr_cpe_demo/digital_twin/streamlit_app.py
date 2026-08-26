@@ -13,6 +13,12 @@ from datetime import datetime
 import streamlit as st
 
 from ..cadi import cadi_contract, cadi_contract_rows
+from ..ui.measurement import (
+    format_metric,
+    metric_value,
+    render_measurement_context,
+    render_status_partition,
+)
 from . import executive_style
 
 API = os.getenv("DT_API_URL", "http://api:8001")
@@ -151,32 +157,74 @@ def _latest_run_id() -> str:
 
 
 def _active_run_id() -> str:
-    remembered = str(st.session_state.get("run_id", "")).strip()
-    if not remembered:
-        remembered = _latest_run_id()
-        if remembered:
-            _remember_run(remembered)
-    return remembered
+    try:
+        active = _request("/api/active-run")
+    except Exception:
+        active = {}
+    run_id = str(active.get("run_id", "")).strip() if isinstance(active, dict) else ""
+    if not run_id:
+        run_id = _latest_run_id()
+        if run_id:
+            try:
+                _request("/api/active-run", "PUT", {"run_id": run_id})
+            except Exception:
+                pass
+    if run_id:
+        _remember_run(run_id)
+    return run_id
+
+
+def _activate_run(run_id: str) -> None:
+    _request("/api/active-run", "PUT", {"run_id": run_id})
+    _remember_run(run_id)
 
 
 def _run_id(key: str) -> str:
-    remembered = _active_run_id()
-    if remembered and not str(st.session_state.get(key, "")).strip():
-        st.session_state[key] = remembered
-    with st.expander("Demo run selection", expanded=False):
-        st.caption("The latest saved demo run is selected automatically. Change this only for technical replay.")
-        return st.text_input("Run ID", key=key)
+    active = _active_run_id()
+    runs = [str(item.get("run_id", "")) for item in _runs() if item.get("run_id")]
+    if active and active not in runs:
+        runs.insert(0, active)
+    if not runs:
+        return ""
+    with st.expander("Canonical run selection", expanded=False):
+        st.caption(
+            "One persisted active run is shared across Executive, Predictive, Care and "
+            "the active-run Control Tower. Selecting another run updates the API pointer."
+        )
+        selected = st.selectbox(
+            "Active run",
+            runs,
+            index=runs.index(active) if active in runs else 0,
+            key=f"{key}_selector",
+        )
+        if selected != active:
+            try:
+                _activate_run(selected)
+                st.success(f"Active run changed to {_short_run(selected)}")
+            except Exception as exc:
+                st.error(f"Could not activate run: {exc}")
+                return active
+        st.session_state[key] = selected
+        return selected
 
 
-def _load_dataset(run_id: str, dataset: str, *, limit: int = 5000) -> list[dict]:
+def _load_dataset_page(run_id: str, dataset: str, *, limit: int = 5000) -> dict:
     result = _request(
         f"/api/runs/{urllib.parse.quote(run_id)}/datasets/{dataset}?limit={limit}"
     )
-    return list(result.get("rows", []))
+    return dict(result)
+
+
+def _load_dataset(run_id: str, dataset: str, *, limit: int = 5000) -> list[dict]:
+    return list(_load_dataset_page(run_id, dataset, limit=limit).get("rows", []))
 
 
 def _catalog(run_id: str) -> dict:
     return _request(f"/api/runs/{urllib.parse.quote(run_id)}")
+
+
+def _projection(run_id: str) -> dict:
+    return _request(f"/api/runs/{urllib.parse.quote(run_id)}/executive-projection")
 
 
 def _friendly(value: object) -> str:
@@ -335,59 +383,82 @@ def _show_predictive_summary(summary: dict) -> None:
     cols = st.columns(5)
     cols[0].metric("Modems scanned", f"{summary.get('scanned', 0):,}")
     cols[1].metric("Healthy", f"{summary.get('healthy', 0):,}")
-    cols[2].metric("At risk", f"{summary.get('tickets', 0):,}")
+    cols[2].metric("Risk ticket rows", f"{summary.get('tickets', 0):,}")
     cols[3].metric("Risk rate", f"{100 * float(summary.get('flag_rate', 0)):.2f}%")
-    cols[4].metric("Care linked", f"{summary.get('care_tickets_correlated', 0):,}")
+    cols[4].metric("Canonical Care links", f"{summary.get('care_tickets_correlated', 0):,}")
 
 
 def _executive_view(run_id: str) -> None:
     if not run_id:
         _empty(
             "Your executive story starts with one demo run",
-            "Open Create Demo, choose the scale and scenarios, and generate. The latest run will then follow you automatically across every view.",
+            "Open Create Demo, choose the scale and scenarios, and generate. The "
+            "persisted active run will then follow you across every active-run view.",
         )
         return
 
-    _run_chip(run_id)
     try:
-        catalog = _catalog(run_id)
-        predictive = _load_dataset(run_id, "predictive_tickets")
-        care = _load_dataset(run_id, "care_tickets")
-        reviews = _load_dataset(run_id, "care_ticket_reviews")
-        incidents = _load_dataset(run_id, "incidents")
+        projection = _projection(run_id)
+        predictive_page = _load_dataset_page(run_id, "predictive_tickets", limit=100)
     except Exception as exc:
         st.error(f"Could not load executive view: {exc}")
         return
 
-    homes = int(catalog.get("config", {}).get("homes", 0))
-    matched = sum(bool(row.get("predictive_match")) for row in care)
-    avoided = sum(bool(row.get("duplicate_incident_suppressed")) for row in care)
-    human = sum(bool(row.get("reconciled_human_review_required")) for row in reviews)
-    closed = sum(str(row.get("status")) == "CLOSED" for row in incidents)
-    forecast = sum(str(row.get("ticket_class")) == "forecast" for row in predictive)
-    proactive = sum(str(row.get("ticket_class")) == "proactive" for row in predictive)
+    render_measurement_context(projection, title="Canonical active-run context")
+    _section("Executive scorecard", "One metric contract across every active-run view")
+    metrics = st.columns(6)
+    metrics[0].metric(
+        "Services in footprint",
+        format_metric(metric_value(projection, "footprint_services")),
+    )
+    metrics[1].metric(
+        "Devices scanned",
+        format_metric(metric_value(projection, "scanned_devices")),
+    )
+    metrics[2].metric(
+        "At-risk services",
+        format_metric(metric_value(projection, "at_risk_services")),
+    )
+    metrics[3].metric(
+        "Predictive match rate",
+        format_metric(
+            metric_value(projection, "predictive_match_rate_pct"),
+            percent=True,
+        ),
+    )
+    metrics[4].metric(
+        "Canonical root attachments",
+        format_metric(metric_value(projection, "canonical_root_attachments")),
+    )
+    closed = metric_value(projection, "closed_root_incidents", 0) or 0
+    roots = metric_value(projection, "root_incidents", 0) or 0
+    metrics[5].metric("Closed root incidents", f"{int(closed):,} / {int(roots):,}")
 
-    _section("Executive scorecard", "What the closed-loop model demonstrates")
-    top = st.columns(5)
-    top[0].metric("Homes modeled", f"{homes:,}")
-    top[1].metric("Service risks found", f"{len(predictive):,}")
-    top[2].metric("Care contacts pre-correlated", f"{matched:,} / {len(care):,}")
-    top[3].metric("Duplicate incidents avoided", f"{avoided:,}")
-    top[4].metric("Cases closed", f"{closed:,} / {len(incidents):,}")
+    st.subheader("Root-incident status")
+    render_status_partition(projection)
 
-    if care:
-        share = 100 * matched / len(care)
-        st.markdown(
-            f'<div class="lpr-insight"><strong>Executive takeaway.</strong> In this synthetic run, <strong>{matched:,} of {len(care):,} Customer Care contacts ({share:.0f}%)</strong> arrived with predictive modem evidence already available. The workflow attaches the call to the governed root incident rather than creating duplicate work.</div>',
-            unsafe_allow_html=True,
-        )
+    care = projection.get("care_funnel", {})
+    predictive = projection.get("predictive_funnel", {})
+    workload = projection.get("workload", {})
+    contacts = int(care.get("contacts", 0) or 0)
+    matched = int(care.get("predictively_matched", 0) or 0)
+    share = 100 * matched / contacts if contacts else 0.0
+    st.markdown(
+        f'<div class="lpr-insight"><strong>Executive takeaway.</strong> '
+        f'<strong>{matched:,} of {contacts:,} Care contacts ({share:.1f}%)</strong> '
+        f'arrived with canonical predictive evidence. All {care.get("canonical_root_attachments", 0):,} '
+        f'contacts are linked to a durable root incident. This is a measured attachment '
+        f'count, not an unsupported claim that the same number of duplicate incidents '
+        f'was attempted or avoided.</div>',
+        unsafe_allow_html=True,
+    )
 
     st.markdown(
         f"""
         <div class="lpr-story-grid">
-          <div class="lpr-story-card"><div class="lpr-story-no">01</div><strong>Prevent</strong><span>{forecast:,} forecast risks surface before a hard threshold breach; {proactive:,} are already degraded and prioritized for action.</span></div>
-          <div class="lpr-story-card"><div class="lpr-story-no">02</div><strong>Connect</strong><span>{matched:,} customer contacts are correlated to predictive evidence and the same root incident, preserving SLA clock and context.</span></div>
-          <div class="lpr-story-card"><div class="lpr-story-no">03</div><strong>Control</strong><span>{human:,} care reviews require human oversight after deterministic and agent recommendations are reconciled to operating controls.</span></div>
+          <div class="lpr-story-card"><div class="lpr-story-no">01</div><strong>Prevent</strong><span>{predictive.get('forecast_risk_services', 0):,} services are forecast-risk and {predictive.get('degraded_services', 0):,} are currently degraded. Together they reconcile to {predictive.get('at_risk_services', 0):,} unique at-risk services.</span></div>
+          <div class="lpr-story-card"><div class="lpr-story-no">02</div><strong>Connect</strong><span>{matched:,} contacts have predictive context; {care.get('reactive_only', 0):,} are reactive only. Contact grain remains separate from root-incident grain.</span></div>
+          <div class="lpr-story-card"><div class="lpr-story-no">03</div><strong>Control</strong><span>{workload.get('pending_approvals', 0):,} approval object(s) remain pending. Approvals are workload, not an additive incident status.</span></div>
         </div>
         """,
         unsafe_allow_html=True,
@@ -395,39 +466,78 @@ def _executive_view(run_id: str) -> None:
 
     left, right = st.columns([1.35, 1])
     with left:
-        _section("Leading indicators", "Highest-priority predicted service risks")
+        _section("Leading indicators", "Highest-priority risk-ticket records")
+        risk_rows = list(predictive_page.get("rows", []))
         ranked = sorted(
-            predictive,
+            risk_rows,
             key=lambda row: (
-                {"critical": 0, "high": 1, "medium": 2, "low": 3}.get(str(row.get("severity")), 9),
+                {"critical": 0, "high": 1, "medium": 2, "low": 3}.get(
+                    str(row.get("severity")),
+                    9,
+                ),
                 0 if row.get("ticket_class") == "proactive" else 1,
             ),
         )[:8]
         if ranked:
-            st.dataframe(_predictive_table(ranked), hide_index=True, use_container_width=True)
+            st.dataframe(
+                _predictive_table(ranked),
+                hide_index=True,
+                use_container_width=True,
+            )
+            total = predictive_page.get("total")
+            st.caption(
+                f"Showing {len(ranked):,} prioritized ticket rows from {total:,} total "
+                "ticket records. Executive totals above use unique services from the "
+                "complete projection, not this display page."
+                if total is not None
+                else "Displayed rows do not drive executive totals."
+            )
         else:
             st.info("No predictive service risks in this run.")
     with right:
-        _section("Customer impact", "Care priority and predictive context")
-        p1 = sum(row.get("priority") == "P1" for row in care)
-        p2 = sum(row.get("priority") == "P2" for row in care)
-        p3 = sum(row.get("priority") == "P3" for row in care)
+        _section("Customer impact", "Care priority is not network-risk severity")
+        stories = projection.get("stories", [])
+        p1 = sum((row.get("care_ticket") or {}).get("priority") == "P1" for row in stories)
+        p2 = sum((row.get("care_ticket") or {}).get("priority") == "P2" for row in stories)
+        p3 = sum((row.get("care_ticket") or {}).get("priority") == "P3" for row in stories)
         cols = st.columns(3)
-        cols[0].metric("P1", p1)
-        cols[1].metric("P2", p2)
-        cols[2].metric("P3", p3)
-        st.caption("Priority is synthetic and scenario-driven. It is shown as a workload lens, not a production KPI.")
-        if catalog.get("quality", {}).get("passed"):
-            st.success(f"Governance gate passed · {catalog['quality'].get('checks', 0)} quality checks")
+        cols[0].metric("P1 Care contacts", p1)
+        cols[1].metric("P2 Care contacts", p2)
+        cols[2].metric("P3 Care contacts", p3)
+        st.caption(
+            "Care priority is scenario-driven customer impact. Predictive severity is "
+            "threshold and time-to-breach risk; the two are intentionally not forced to match."
+        )
+        governance = projection.get("governance", {})
+        if governance.get("data_integrity_gate_passed"):
+            st.success(
+                f"Data-integrity gate passed · "
+                f"{governance.get('data_integrity_controls', 0)} controls"
+            )
         else:
-            st.error("Governance gate did not pass for this run.")
+            st.error("Data-integrity gate did not pass for this run.")
+
+    reconciliation = projection.get("reconciliation", {})
+    if reconciliation.get("passed"):
+        st.success("All shared measurement invariants reconcile for this active run.")
+    else:
+        st.error("One or more shared measurement invariants failed.")
+    with st.expander("Metric definitions and reconciliation checks", expanded=False):
+        st.json(
+            {
+                "measurement_context": projection.get("measurement_context"),
+                "reconciliation": reconciliation,
+                "data_completeness": projection.get("data_completeness"),
+            }
+        )
 
     with st.expander("Executive demo talk track", expanded=False):
         st.markdown(
             """
-            **1. Start with prediction.** The platform scans HFC and PON modem trajectories and distinguishes *forecast risk* from *already degraded* service.  
-            **2. Show the customer call.** When Care contacts arrive, the system correlates them to predictive evidence and the durable root incident instead of restarting diagnosis.  
-            **3. End with governance.** Deterministic controls remain authoritative; the AI recommendation is reconciled, side effects are gated, and closure requires objective restoration evidence.
+            **1. Establish context.** Name the active run, as-of time, population, scan coverage and root-incident grain before quoting a number.
+            **2. Reconcile the waterfall.** Forecast risk plus current degradation equals unique at-risk services; matched plus reactive contacts equals all Care contacts; the five incident states equal root incidents.
+            **3. Separate workload from status.** Case attempts, contacts and approvals are related objects, not additional incident totals.
+            **4. End with governance.** Deterministic controls remain authoritative, actions are gated, and closure requires objective restoration evidence.
             """
         )
 
@@ -435,40 +545,67 @@ def _executive_view(run_id: str) -> None:
 def _create_demo() -> None:
     _section(
         "Create a boardroom scenario",
-        "Choose the scale, choose the story, then generate one governed run",
-        "The controls below are intentionally business-facing. Technical AI settings are optional and collapsed.",
+        "Choose the population and evidence density, then generate one governed run",
+        (
+            "Footprint size, predictive coverage, case attempts and root incidents are "
+            "different populations. The selected profile makes that relationship explicit."
+        ),
     )
 
     preset_cols = st.columns(3)
-    if preset_cols[0].button("Boardroom · 500 homes", use_container_width=True):
+    if preset_cols[0].button("Boardroom · 500 services", use_container_width=True):
         st.session_state["demo_homes"] = 500
-    if preset_cols[1].button("Operations · 5,000 homes", use_container_width=True):
+        st.session_state["demo_profile"] = "smoke"
+    if preset_cols[1].button("Operations · 5,000 services", use_container_width=True):
         st.session_state["demo_homes"] = 5000
-    if preset_cols[2].button("Footprint · 500,000 homes", use_container_width=True):
+        st.session_state["demo_profile"] = "board"
+    if preset_cols[2].button("Footprint · 500,000 services", use_container_width=True):
         st.session_state["demo_homes"] = 500000
-    if "demo_homes" not in st.session_state:
-        st.session_state["demo_homes"] = 500
+        st.session_state["demo_profile"] = "full"
+    st.session_state.setdefault("demo_homes", 500)
+    st.session_state.setdefault("demo_profile", "smoke")
 
-    controls = st.columns([1, 2])
+    controls = st.columns([1, 1, 2])
     homes = controls[0].number_input(
-        "Homes in the digital footprint",
+        "Services in the digital footprint",
         min_value=1,
         max_value=500000,
         key="demo_homes",
     )
-    scenarios = controls[1].multiselect(
+    profile = controls[1].selectbox(
+        "Evidence-density profile",
+        ["smoke", "preview", "board", "full"],
+        key="demo_profile",
+        help=(
+            "Smoke keeps the minimum scenario cases. Preview/board/full scale case "
+            "attempts with the footprint. Predictive coverage remains separately configurable."
+        ),
+    )
+    scenarios = controls[2].multiselect(
         "Customer and network stories",
         list(SCENARIO_LABELS),
         default=["slow_wifi", "fiber_cut", "power_outage"],
         format_func=lambda value: SCENARIO_LABELS[value],
     )
 
+    minimum_cases = len(scenarios) * 2
+    expected_cases = (
+        minimum_cases
+        if profile == "smoke"
+        else max(minimum_cases, round(int(homes) * 0.005))
+    )
+    st.info(
+        f"Selected context: {int(homes):,} eligible services · approximately "
+        f"{expected_cases:,} case attempts before repeat consolidation · predictive "
+        "population configured independently below."
+    )
+
     st.markdown(
         """
         <div class="lpr-story-grid">
-          <div class="lpr-story-card"><div class="lpr-story-no">A</div><strong>Predictive assurance</strong><span>Generate HFC/PON modem trajectories and surface forecast or proactive service risk.</span></div>
-          <div class="lpr-story-card"><div class="lpr-story-no">B</div><strong>Customer correlation</strong><span>Connect later Care contacts to the same predictive evidence and root incident.</span></div>
-          <div class="lpr-story-card"><div class="lpr-story-no">C</div><strong>Governed resolution</strong><span>Reconcile AI with deterministic controls and require evidence before closure.</span></div>
+          <div class="lpr-story-card"><div class="lpr-story-no">A</div><strong>Predictive assurance</strong><span>Separate eligible footprint, scanned devices, unique at-risk services and risk-ticket rows.</span></div>
+          <div class="lpr-story-card"><div class="lpr-story-no">B</div><strong>Customer correlation</strong><span>Count contacts at contact grain and link each to one durable root incident.</span></div>
+          <div class="lpr-story-card"><div class="lpr-story-no">C</div><strong>Governed resolution</strong><span>Keep case attempts and approvals outside the mutually exclusive incident-status partition.</span></div>
         </div>
         """,
         unsafe_allow_html=True,
@@ -499,7 +636,7 @@ def _create_demo() -> None:
     if st.button("Generate executive demo", type="primary", use_container_width=True):
         payload = {
             "config": {
-                "profile": "smoke",
+                "profile": profile,
                 "homes": int(homes),
                 "scenarios": scenarios,
                 "enable_llm": enable_llm,
@@ -511,15 +648,29 @@ def _create_demo() -> None:
             }
         }
         try:
-            with st.spinner("Building the digital twin, predictive risks and Customer Care correlation…"):
+            with st.spinner(
+                "Building the canonical run, predictive risks and Care correlation…"
+            ):
                 result = _request("/api/runs", "POST", payload)
             _remember_run(result["run_id"])
-            st.success("Executive demo ready — all governed quality checks passed." if result["quality"]["passed"] else "Demo generated, but the quality gate needs attention.")
-            metrics = st.columns(4)
-            metrics[0].metric("Homes", f"{result['operational_scale'].get('homes', 0):,}")
-            metrics[1].metric("Predictive risks", f"{result['operational_scale'].get('predictive_tickets', 0):,}")
-            metrics[2].metric("Customer Care tickets", f"{result['operational_scale'].get('care_tickets', 0):,}")
-            metrics[3].metric("Quality checks", f"{result['quality'].get('checks', 0)} passed")
+            st.success(
+                "Executive demo ready — all data-integrity controls passed."
+                if result["quality"]["passed"]
+                else "Demo generated, but the data-integrity gate needs attention."
+            )
+            scale = result.get("operational_scale", {})
+            metrics = st.columns(5)
+            metrics[0].metric("Services", f"{scale.get('homes', 0):,}")
+            metrics[1].metric(
+                "Devices scanned",
+                f"{scale.get('predictive_modems_scanned', 0):,}",
+            )
+            metrics[2].metric("Case attempts", f"{scale.get('case_attempts', 0):,}")
+            metrics[3].metric("Root incidents", f"{scale.get('root_incidents', 0):,}")
+            metrics[4].metric(
+                "Data-integrity controls",
+                f"{result['quality'].get('checks', 0)} passed",
+            )
             _run_chip(result["run_id"])
             with st.expander("Technical generation record", expanded=False):
                 st.json(result)
@@ -531,61 +682,104 @@ def _predictive_health() -> None:
     _section(
         "Prevent",
         "Predictive network health",
-        "See which modems are healthy, which are trending toward failure, and which are already degraded — without starting from raw telemetry.",
+        (
+            "Canonical headline values use unique services and complete run aggregates. "
+            "Risk-ticket tables are display pages and never drive the KPI totals."
+        ),
     )
     run_id = _run_id("predictive_run")
     if not run_id:
-        _empty("No demo run selected", "Create a demo first. Predictive health will populate automatically from the latest run.")
+        _empty(
+            "No demo run selected",
+            "Create a demo first. Predictive health will use the persisted active run.",
+        )
         return
-    _run_chip(run_id)
 
     try:
-        tickets = _load_dataset(run_id, "predictive_tickets")
-        pulls = _load_dataset(run_id, "predictive_modem_pulls")
-        care = _load_dataset(run_id, "care_tickets")
+        projection = _projection(run_id)
+        ticket_page = _load_dataset_page(run_id, "predictive_tickets", limit=500)
     except Exception as exc:
         st.error(str(exc))
         return
 
-    matched = sum(bool(row.get("predictive_match")) for row in care)
-    forecast = sum(row.get("ticket_class") == "forecast" for row in tickets)
-    proactive = sum(row.get("ticket_class") == "proactive" for row in tickets)
-    risk_rate = len(tickets) / len(pulls) if pulls else 0.0
-    cols = st.columns(5)
-    cols[0].metric("Modems observed", f"{len(pulls):,}")
-    cols[1].metric("Healthy", f"{max(0, len(pulls) - len(tickets)):,}")
-    cols[2].metric("Forecast risk", f"{forecast:,}")
-    cols[3].metric("Already degraded", f"{proactive:,}")
-    cols[4].metric("Risk rate", f"{risk_rate:.1%}")
+    render_measurement_context(projection, title="Canonical predictive context")
+    funnel = projection.get("predictive_funnel", {})
+    cols = st.columns(6)
+    cols[0].metric("Services in footprint", f"{funnel.get('eligible_services', 0):,}")
+    cols[1].metric("Devices scanned", f"{funnel.get('scanned_devices', 0):,}")
+    cols[2].metric(
+        "Scan coverage",
+        format_metric(metric_value(projection, "scan_coverage_pct"), percent=True),
+    )
+    cols[3].metric(
+        "Forecast-risk services",
+        f"{funnel.get('forecast_risk_services', 0):,}",
+    )
+    cols[4].metric(
+        "Currently degraded",
+        f"{funnel.get('degraded_services', 0):,}",
+    )
+    cols[5].metric("Unique at-risk services", f"{funnel.get('at_risk_services', 0):,}")
 
+    matched = int(projection.get("care_funnel", {}).get("predictively_matched", 0) or 0)
     if matched:
         st.markdown(
-            f'<div class="lpr-insight"><strong>Customer impact connection.</strong> {matched:,} Care contact(s) in this run are already linked to predictive modem evidence. Open Customer Experience to show the end-to-end story.</div>',
+            f'<div class="lpr-insight"><strong>Customer impact connection.</strong> '
+            f'{matched:,} Care contact(s) in the canonical run are already linked to '
+            f'predictive modem evidence. Open Customer Experience to follow the same '
+            f'contact and root-incident identifiers.</div>',
             unsafe_allow_html=True,
         )
 
-    _section("Prioritized view", "Service risks worth discussing")
+    _section("Prioritized view", "Risk-ticket records worth discussing")
+    tickets = list(ticket_page.get("rows", []))
     if tickets:
         ranked = sorted(
             tickets,
-            key=lambda row: ({"critical": 0, "high": 1, "medium": 2, "low": 3}.get(str(row.get("severity")), 9), 0 if row.get("ticket_class") == "proactive" else 1),
+            key=lambda row: (
+                {"critical": 0, "high": 1, "medium": 2, "low": 3}.get(
+                    str(row.get("severity")),
+                    9,
+                ),
+                0 if row.get("ticket_class") == "proactive" else 1,
+            ),
         )
-        st.dataframe(_predictive_table(ranked[:100]), hide_index=True, use_container_width=True)
+        st.dataframe(
+            _predictive_table(ranked[:100]),
+            hide_index=True,
+            use_container_width=True,
+        )
+        st.caption(
+            f"Showing {min(100, len(ranked)):,} of {ticket_page.get('total', len(ranked)):,} "
+            "risk-ticket rows. The KPI above counts unique services, so ticket and "
+            "service counts are not silently treated as the same grain."
+        )
     else:
         st.success("No predictive service risks in the current run.")
 
-    with st.expander("Run a fresh predictive scan", expanded=False):
-        st.caption("Use this for a live demo of the scanner. It creates an immutable child scan and does not alter the parent run.")
+    with st.expander("Run an exploratory child scan", expanded=False):
+        st.warning(
+            "A child scan has its own population, trend window and simulation day. "
+            "It does not change the canonical parent run, executive KPIs or Care queue."
+        )
         pcols = st.columns(3)
-        population = pcols[0].number_input("Modems to scan", min_value=1, max_value=500000, value=500, step=100)
+        population = pcols[0].number_input(
+            "Devices to scan", min_value=1, max_value=500000, value=500, step=100
+        )
         days = pcols[1].slider("Trend days", 7, 60, 14)
-        day_index = pcols[2].number_input("Simulation day", min_value=0, max_value=365, value=0)
-        if st.button("Refresh predictive intelligence", type="primary"):
+        day_index = pcols[2].number_input(
+            "Simulation day", min_value=0, max_value=365, value=0
+        )
+        if st.button("Create exploratory scan", type="primary"):
             try:
                 summary = _request(
                     f"/api/runs/{urllib.parse.quote(run_id)}/predictive/scans",
                     "POST",
-                    {"population": int(population), "days": int(days), "day_index": int(day_index)},
+                    {
+                        "population": int(population),
+                        "days": int(days),
+                        "day_index": int(day_index),
+                    },
                 )
                 st.session_state["predictive_scan_id"] = summary["scan_id"]
                 st.session_state["predictive_summary"] = summary
@@ -594,14 +788,24 @@ def _predictive_health() -> None:
 
         summary = st.session_state.get("predictive_summary")
         if summary and summary.get("canonical_run_id") == run_id:
+            st.markdown(
+                f"**Exploratory scan:** `{summary.get('scan_id')}` · "
+                f"parent `{run_id}` · {summary.get('effective_population', 0):,} devices · "
+                f"day {summary.get('day_index', 0)} · not promoted to canonical run"
+            )
             _show_predictive_summary(summary)
             scan_id = summary["scan_id"]
             try:
                 detail = _request(
-                    f"/api/runs/{urllib.parse.quote(run_id)}/predictive/scans/{urllib.parse.quote(scan_id)}?limit=500"
+                    f"/api/runs/{urllib.parse.quote(run_id)}/predictive/scans/"
+                    f"{urllib.parse.quote(scan_id)}?limit=500"
                 )
-                st.dataframe(_predictive_table(detail["tickets"]), hide_index=True, use_container_width=True)
-                with st.expander("Raw modem pull evidence"):
+                st.dataframe(
+                    _predictive_table(detail["tickets"]),
+                    hide_index=True,
+                    use_container_width=True,
+                )
+                with st.expander("Raw child-scan modem evidence"):
                     st.dataframe(detail["pulls"], use_container_width=True)
             except Exception as exc:
                 st.error(str(exc))
@@ -611,52 +815,96 @@ def _customer_experience() -> None:
     _section(
         "Connect",
         "Customer experience & Care correlation",
-        "Show what the customer reported, whether the network saw it first, and how the contact attaches to one governed root incident.",
+        (
+            "Care is measured at contact grain. Each contact is linked to one canonical "
+            "root incident without implying that every attachment represents an audited "
+            "duplicate-creation attempt."
+        ),
     )
     st.caption(
-        "Target call-center presentation layer: CADI inside Genesys. This demo does "
-        "not connect to a live CADI endpoint; the CADI & Genesys tab documents the "
-        "declared source and authority boundaries."
+        "Target presentation layer: CADI inside Genesys. The demo uses canonical run "
+        "evidence and does not claim a live CADI connection."
     )
     run_id = _run_id("care_run")
     if not run_id:
-        _empty("No Care story yet", "Create a demo first. The Customer Care queue is generated and correlated automatically.")
+        _empty(
+            "No Care story yet",
+            "Create a demo first. The Care queue will use the persisted active run.",
+        )
         return
-    _run_chip(run_id)
+
+    try:
+        projection = _projection(run_id)
+    except Exception as exc:
+        st.error(str(exc))
+        return
+    render_measurement_context(projection, title="Canonical Care context")
 
     filters = st.columns(3)
-    status = filters[0].selectbox("Ticket status", ["ALL", "OPEN", "CLOSED"], format_func=lambda value: "All statuses" if value == "ALL" else _friendly(value))
-    priority = filters[1].selectbox("Customer priority", ["ALL", "P1", "P2", "P3"], format_func=lambda value: "All priorities" if value == "ALL" else value)
-    pred_filter = filters[2].selectbox("Network saw it first", ["ALL", "MATCHED", "UNMATCHED"], format_func=lambda value: {"ALL": "All tickets", "MATCHED": "Yes — predictive evidence", "UNMATCHED": "No — reactive only"}[value])
+    status = filters[0].selectbox(
+        "Ticket status",
+        ["ALL", "OPEN", "CLOSED"],
+        format_func=lambda value: "All statuses" if value == "ALL" else _friendly(value),
+    )
+    priority = filters[1].selectbox(
+        "Customer priority",
+        ["ALL", "P1", "P2", "P3"],
+        format_func=lambda value: "All priorities" if value == "ALL" else value,
+    )
+    pred_filter = filters[2].selectbox(
+        "Network saw it first",
+        ["ALL", "MATCHED", "UNMATCHED"],
+        format_func=lambda value: {
+            "ALL": "All contacts",
+            "MATCHED": "Yes — predictive evidence",
+            "UNMATCHED": "No — reactive only",
+        }[value],
+    )
 
-    params = {}
+    params = {"limit": 200}
     if status != "ALL":
         params["status"] = status
     if priority != "ALL":
         params["priority"] = priority
     if pred_filter != "ALL":
         params["predictive_match"] = "true" if pred_filter == "MATCHED" else "false"
-    suffix = f"?{urllib.parse.urlencode(params)}" if params else ""
+    suffix = f"?{urllib.parse.urlencode(params)}"
     try:
-        queue = _request(f"/api/runs/{urllib.parse.quote(run_id)}/care/tickets{suffix}")["rows"]
+        response = _request(
+            f"/api/runs/{urllib.parse.quote(run_id)}/care/tickets{suffix}"
+        )
     except Exception as exc:
         st.error(str(exc))
         return
 
-    matched = sum(bool(row.get("predictive_match")) for row in queue)
-    open_count = sum(row.get("status") == "OPEN" for row in queue)
-    p1 = sum(row.get("priority") == "P1" for row in queue)
-    repeats = sum(bool(row.get("repeat_contact")) for row in queue)
-    cols = st.columns(4)
-    cols[0].metric("Care tickets", f"{len(queue):,}")
-    cols[1].metric("Network saw it first", f"{matched:,}")
-    cols[2].metric("P1 customer impact", f"{p1:,}")
-    cols[3].metric("Repeat contacts", f"{repeats:,}")
-    if open_count:
-        st.caption(f"{open_count:,} ticket(s) remain open in this filtered view.")
+    queue = list(response.get("rows", []))
+    summary = response.get("summary", {})
+    filtered_total = int(response.get("filtered_total", len(queue)) or 0)
+    cols = st.columns(5)
+    cols[0].metric("Filtered Care contacts", f"{filtered_total:,}")
+    cols[1].metric(
+        "Predictively matched",
+        f"{int(summary.get('predictively_matched', 0)):,}",
+    )
+    cols[2].metric("Reactive only", f"{int(summary.get('reactive_only', 0)):,}")
+    cols[3].metric("P1 contacts", f"{int(summary.get('p1', 0)):,}")
+    cols[4].metric("Repeat contacts", f"{int(summary.get('repeat_contacts', 0)):,}")
+    st.caption(
+        f"Showing {response.get('returned', len(queue)):,} of {filtered_total:,} filtered "
+        f"contacts; canonical run total is {response.get('total', filtered_total):,}. "
+        "The summary is calculated across the full filtered population, not the page rows."
+    )
+
+    care_funnel = projection.get("care_funnel", {})
+    st.info(
+        f"Canonical run reconciliation: {care_funnel.get('predictively_matched', 0):,} "
+        f"matched + {care_funnel.get('reactive_only', 0):,} reactive-only = "
+        f"{care_funnel.get('contacts', 0):,} Care contacts; "
+        f"{care_funnel.get('canonical_root_attachments', 0):,} carry a root incident ID."
+    )
 
     if not queue:
-        st.info("No Customer Care tickets match the current filters.")
+        st.info("No Care contacts match the current filters.")
         return
 
     st.dataframe(_care_table(queue), hide_index=True, use_container_width=True)
@@ -664,14 +912,16 @@ def _customer_experience() -> None:
         "Choose a customer story",
         [row["care_ticket_id"] for row in queue],
         format_func=lambda value: next(
-            f"{row['priority']} · {_friendly(row['category'])} · {'predictive match' if row['predictive_match'] else 'reactive only'}"
+            f"{row['priority']} · {_friendly(row['category'])} · "
+            f"{'predictive match' if row['predictive_match'] else 'reactive only'}"
             for row in queue
             if row["care_ticket_id"] == value
         ),
     )
     try:
         detail = _request(
-            f"/api/runs/{urllib.parse.quote(run_id)}/care/tickets/{urllib.parse.quote(care_id)}"
+            f"/api/runs/{urllib.parse.quote(run_id)}/care/tickets/"
+            f"{urllib.parse.quote(care_id)}"
         )
     except Exception as exc:
         st.error(str(exc))
@@ -683,39 +933,55 @@ def _customer_experience() -> None:
     case = detail.get("case") or {}
 
     st.markdown(
-        f'<div class="lpr-insight"><strong>{html.escape(str(ticket.get("priority")))}</strong> · {html.escape(_friendly(ticket.get("category")))} — {html.escape(str(ticket.get("issue_summary", "Customer reported a service issue.")))}</div>',
+        f'<div class="lpr-insight"><strong>{html.escape(str(ticket.get("priority")))}</strong> · '
+        f'{html.escape(_friendly(ticket.get("category")))} — '
+        f'{html.escape(str(ticket.get("issue_summary", "Customer reported a service issue.")))}</div>',
         unsafe_allow_html=True,
     )
     left, middle, right = st.columns(3)
     with left:
-        st.markdown("### Customer")
+        st.markdown("### Customer contact")
         st.metric("Status", _friendly(ticket.get("status")))
+        st.write(f"**Contact ID:** {ticket.get('contact_id')}")
         st.write(f"**Channel:** {_friendly(ticket.get('channel'))}")
         st.write(f"**Opened:** {_timestamp(ticket.get('opened_at'))}")
         st.write(f"**Repeat contact:** {'Yes' if ticket.get('repeat_contact') else 'No'}")
     with middle:
-        st.markdown("### Network intelligence")
+        st.markdown("### Network-risk evidence")
         if predictive:
             signal, eta = _predictive_headline(predictive)
-            st.metric("Seen before call", "Yes")
-            st.write(f"**Risk:** {_friendly(predictive.get('ticket_class'))} · {_friendly(predictive.get('severity'))}")
+            st.metric("Seen before contact", "Yes")
+            st.write(
+                f"**Risk:** {_friendly(predictive.get('ticket_class'))} · "
+                f"{_friendly(predictive.get('severity'))}"
+            )
             st.write(f"**Leading signal:** {signal}")
             st.write(f"**Threshold timing:** {eta}")
         else:
-            st.metric("Seen before call", "No")
-            st.caption("This is a reactive-only Care case in the synthetic run.")
+            st.metric("Seen before contact", "No")
+            st.caption("This is a reactive-only Care contact in the synthetic run.")
     with right:
-        st.markdown("### Governed decision")
-        st.metric("Human review", "Required" if review.get("reconciled_human_review_required") else "Not required")
+        st.markdown("### Root incident & governed decision")
+        st.metric("Root incident", ticket.get("incident_id") or "—")
+        st.write(
+            f"**Human review:** "
+            f"{'Required' if review.get('reconciled_human_review_required') else 'Not required'}"
+        )
         st.write(f"**Domain:** {_friendly(review.get('deterministic_domain'))}")
         st.write(f"**Recommended action:** {_friendly(review.get('deterministic_action'))}")
         st.write(f"**Case state:** {_friendly(case.get('state'))}")
 
-    if ticket.get("predictive_match"):
-        st.success("Duplicate incident suppressed: Customer Care is attached to the existing predictive root incident and inherits its context.")
+    if ticket.get("incident_id"):
+        st.success(
+            "Canonical attachment confirmed: the Care contact references the durable "
+            "root incident and inherits its context. The demo does not emit a separate "
+            "audited duplicate-attempt event, so this is not labelled as duplicates avoided."
+        )
 
     with st.expander("Technical evidence & reconciliation", expanded=False):
-        detail_tabs = st.tabs(["Care ticket", "Predictive evidence", "Decision review", "Control-plane case"])
+        detail_tabs = st.tabs(
+            ["Care contact", "Predictive evidence", "Decision review", "Control-plane case"]
+        )
         with detail_tabs[0]:
             st.json(ticket)
         with detail_tabs[1]:
@@ -784,9 +1050,10 @@ def _cadi_layer() -> None:
             **Replacement policy:** `{contract['replacement_policy']}`
 
 
-            Stage 1 documents the contract only. A live adapter or replacement decision is
-            out of scope until the CADI owner, Genesys owner, source-system teams and the
-            current contractor confirm the architecture and operating responsibilities.
+            Stage 2 keeps the Stage 1 CADI contract intact while applying the shared
+            measurement model to active-run and Operations evidence. A live CADI adapter or
+            replacement decision remains out of scope until the CADI owner, Genesys owner,
+            source-system teams and contractor confirm the architecture and responsibilities.
             """
         )
 

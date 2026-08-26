@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import streamlit as st
 
-from lpr_cpe_demo.ui.client import DemoAPI
+from lpr_cpe_demo.ui.client import DemoAPI, DigitalTwinAPI
 
 
 ROLES = [
@@ -19,6 +19,12 @@ def api() -> DemoAPI:
     if "api_client" not in st.session_state:
         st.session_state.api_client = DemoAPI()
     return st.session_state.api_client
+
+
+def digital_twin_api() -> DigitalTwinAPI:
+    if "digital_twin_api_client" not in st.session_state:
+        st.session_state.digital_twin_api_client = DigitalTwinAPI()
+    return st.session_state.digital_twin_api_client
 
 
 def identity() -> tuple[str, str]:

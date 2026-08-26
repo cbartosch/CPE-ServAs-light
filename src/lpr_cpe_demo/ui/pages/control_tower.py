@@ -18,6 +18,13 @@ import streamlit as st
 from lpr_cpe_demo.benchmarks import citation
 from lpr_cpe_demo.dashboard import build
 from lpr_cpe_demo.ui import theme_dark as td
+from lpr_cpe_demo.ui.client import APIError
+from lpr_cpe_demo.ui.common import digital_twin_api
+from lpr_cpe_demo.ui.measurement import (
+    render_common_kpis,
+    render_measurement_context,
+    render_status_partition,
+)
 
 
 def _chart(block, plot) -> None:
@@ -26,20 +33,40 @@ def _chart(block, plot) -> None:
     plot()
 
 
-def render() -> None:
-    st.markdown(td.css(), unsafe_allow_html=True)
-
+def _render_planning_model() -> None:
     with st.sidebar:
         st.caption("Control tower")
         count = st.slider("Incidents", 20, 300, 60, step=10)
         seed = st.number_input("Seed", min_value=0, max_value=2_147_483_647,
                               value=20_260_817, step=1)
-        show_synthetic = st.checkbox("Show shape-only panels", value=True,
+        show_synthetic = st.checkbox("Show shape-only panels", value=False,
                                      help="Panels with no data source behind them.")
 
     dash = build(count=int(count), seed=int(seed))
     st.markdown(td.hero(dash.title, dash.subtitle, dash.badges),
                 unsafe_allow_html=True)
+    render_measurement_context(
+        {
+            "measurement_context": {
+                "mode": "planning_model",
+                "source": "seeded_fault_generator",
+                "run_id": f"seed-{int(seed)}",
+                "linked_to_active_run": False,
+                "as_of": "Reproducible planning sample",
+                "window": f"{int(count)} generated fault records",
+                "primary_grain": "synthetic fault record",
+                "completeness": "Complete generated sample; independent of active run",
+                "planning_model": True,
+                "scan_coverage_pct": None,
+            },
+            "data_completeness": {"truncated": False},
+        },
+        title="Planning-model measurement context",
+    )
+    st.warning(
+        "Planning-model values are independent what-if outputs. They are not the "
+        "active Digital Twin run and are never blended into active-run KPI totals."
+    )
     st.markdown(td.executive_crosslink(), unsafe_allow_html=True)
 
     # State the agent layer's status before any number, because an inactive layer
@@ -238,3 +265,159 @@ def render() -> None:
     with st.expander("Provenance, and what would make each panel real"):
         for block in dash.blocks:
             st.markdown(f"**{block.title}** — `{block.provenance}`  \n{block.note}")
+
+
+def _render_active_run() -> None:
+    try:
+        projection = digital_twin_api().active_projection()
+    except APIError as exc:
+        st.error(f"Active Digital Twin run unavailable: {exc}")
+        st.info("Create a Digital Twin run or choose Planning model in the sidebar.")
+        return
+
+    context = projection.get("measurement_context", {})
+    run_id = str(projection.get("run_id") or context.get("run_id") or "unknown")
+    badges = [
+        {"label": "active-run evidence", "type": "observability"},
+        {"label": f"run {run_id}", "type": "scope"},
+        {"label": "root-incident grain", "type": "scope"},
+        {"label": "complete canonical datasets", "type": "observability"},
+    ]
+    st.markdown(
+        td.hero(
+            "Executive Control Tower — active-run evidence",
+            (
+                "The same canonical measurement projection used by Predictive Health "
+                "and Customer Experience. Planning assumptions are kept in a separate mode."
+            ),
+            badges,
+        ),
+        unsafe_allow_html=True,
+    )
+    st.markdown(td.executive_crosslink(), unsafe_allow_html=True)
+    render_measurement_context(projection, title="Active-run measurement context")
+    render_common_kpis(projection)
+
+    st.subheader("Root-incident status")
+    render_status_partition(projection)
+
+    predictive = projection.get("predictive_funnel", {})
+    care = projection.get("care_funnel", {})
+    operational = projection.get("operational_funnel", {})
+    left, middle, right = st.columns(3)
+    with left:
+        st.markdown(td.card_open(
+            "Predictive funnel",
+            "computed",
+            "Unique service/device grain from the complete canonical run.",
+        ), unsafe_allow_html=True)
+        st.dataframe(
+            [
+                {"Stage": "Services in footprint", "Count": predictive.get("eligible_services", 0)},
+                {"Stage": "Devices scanned", "Count": predictive.get("scanned_devices", 0)},
+                {
+                    "Stage": "Healthy scanned services",
+                    "Count": predictive.get("healthy_scanned_services", 0),
+                },
+                {
+                    "Stage": "Forecast-risk services",
+                    "Count": predictive.get("forecast_risk_services", 0),
+                },
+                {
+                    "Stage": "Currently degraded services",
+                    "Count": predictive.get("degraded_services", 0),
+                },
+            ],
+            hide_index=True,
+            use_container_width=True,
+        )
+    with middle:
+        st.markdown(td.card_open(
+            "Care correlation",
+            "computed",
+            "Contact grain. It is intentionally separate from root incidents.",
+        ), unsafe_allow_html=True)
+        st.dataframe(
+            [
+                {"Stage": "Care contacts", "Count": care.get("contacts", 0)},
+                {"Stage": "Predictively matched", "Count": care.get("predictively_matched", 0)},
+                {"Stage": "Reactive only", "Count": care.get("reactive_only", 0)},
+                {
+                    "Stage": "Attached to canonical root",
+                    "Count": care.get("canonical_root_attachments", 0),
+                },
+            ],
+            hide_index=True,
+            use_container_width=True,
+        )
+    with right:
+        st.markdown(td.card_open(
+            "Operational funnel",
+            "computed",
+            "Case attempts are distinguished from durable root incidents.",
+        ), unsafe_allow_html=True)
+        st.dataframe(
+            [
+                {"Stage": "Case attempts", "Count": operational.get("case_attempts", 0)},
+                {"Stage": "Root incidents", "Count": operational.get("root_incidents", 0)},
+                {
+                    "Stage": "Field-dispatched roots",
+                    "Count": operational.get("field_dispatched_root_incidents", 0),
+                },
+                {"Stage": "Validated events", "Count": operational.get("validated_events", 0)},
+                {
+                    "Stage": "Closed root incidents",
+                    "Count": operational.get("closed_root_incidents", 0),
+                },
+            ],
+            hide_index=True,
+            use_container_width=True,
+        )
+
+    reconciliation = projection.get("reconciliation", {})
+    if reconciliation.get("passed"):
+        st.success("Shared measurement invariants reconcile for the active run.")
+    else:
+        st.error("One or more shared measurement invariants failed for the active run.")
+    with st.expander("Reconciliation checks", expanded=False):
+        st.json(reconciliation)
+
+    stories = projection.get("stories", [])
+    if stories:
+        st.subheader("Canonical customer-to-incident links")
+        rows = [
+            {
+                "Care contact": item.get("contact_id"),
+                "Service": item.get("service_id"),
+                "Predictive match": bool(item.get("predictive_match")),
+                "Root incident": item.get("incident_id"),
+                "Case attempt": item.get("case_id"),
+                "Incident status": (item.get("root_incident") or {}).get("status"),
+            }
+            for item in stories[:20]
+        ]
+        st.dataframe(rows, hide_index=True, use_container_width=True)
+
+    st.caption(
+        "This mode contains no seeded planning-model KPIs. Choose Planning model in "
+        "the sidebar for cost, benchmark and what-if panels."
+    )
+
+
+def render() -> None:
+    st.markdown(td.css(), unsafe_allow_html=True)
+    with st.sidebar:
+        st.caption("Control Tower evidence mode")
+        mode = st.radio(
+            "Measurement source",
+            ("Active run evidence", "Planning model"),
+            index=0,
+            help=(
+                "Active run uses the shared Digital Twin projection. Planning model "
+                "uses an independent seeded fault sample and is never blended into run KPIs."
+            ),
+        )
+    if mode == "Active run evidence":
+        _render_active_run()
+    else:
+        _render_planning_model()

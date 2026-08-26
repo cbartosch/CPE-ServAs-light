@@ -43,6 +43,7 @@ docs/RED_TEAM_v1.20.0.md
 docs/RUNBOOK.md
 docs/SECURITY.md
 docs/SECURITY_CONTROLS.md
+docs/SHARED_MEASUREMENT_CONTRACT.md
 docs/TEST_REPORT.md
 docs/WORKFLOW.md
 docs/control_tower.html
@@ -181,6 +182,7 @@ src/lpr_cpe_demo/mcp_server/app.py
 src/lpr_cpe_demo/mcp_server/security.py
 src/lpr_cpe_demo/mcp_server/store.py
 src/lpr_cpe_demo/mcp_server/tools.py
+src/lpr_cpe_demo/measurement.py
 src/lpr_cpe_demo/northbound/__init__.py
 src/lpr_cpe_demo/northbound/adapters.py
 src/lpr_cpe_demo/northbound/contracts.py
@@ -212,6 +214,7 @@ src/lpr_cpe_demo/ui/common.py
 src/lpr_cpe_demo/ui/deck.py
 src/lpr_cpe_demo/ui/executive_theme.py
 src/lpr_cpe_demo/ui/fmt.py
+src/lpr_cpe_demo/ui/measurement.py
 src/lpr_cpe_demo/ui/pages/__init__.py
 src/lpr_cpe_demo/ui/pages/cockpit.py
 src/lpr_cpe_demo/ui/pages/control_tower.py
@@ -251,6 +254,7 @@ tests/test_lint_baseline.py
 tests/test_llm_boundary.py
 tests/test_mcp_controls.py
 tests/test_mcp_http.py
+tests/test_measurement_semantics.py
 tests/test_northbound.py
 tests/test_plant_effort.py
 tests/test_predictive.py

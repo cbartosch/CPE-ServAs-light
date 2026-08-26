@@ -82,3 +82,60 @@ class DemoAPI:
                 role=role,
             )
         )
+
+
+class DigitalTwinAPI:
+    """Read the Digital Twin API with the demo's explicit Basic Auth boundary."""
+
+    def __init__(
+        self,
+        base_url: str | None = None,
+        *,
+        username: str | None = None,
+        password: str | None = None,
+    ) -> None:
+        self.base_url = (
+            base_url or os.getenv("DT_API_URL", "http://localhost:8001")
+        ).rstrip("/")
+        self.username = username or os.getenv("DT_USER", "demo")
+        self.password = password or os.getenv("DT_PASSWORD", "CHANGE_ME")
+
+    def _request(self, method: str, path: str, **kwargs: Any) -> Any:
+        try:
+            response = httpx.request(
+                method,
+                f"{self.base_url}{path}",
+                auth=(self.username, self.password),
+                timeout=120.0,
+                **kwargs,
+            )
+        except httpx.HTTPError as exc:
+            raise APIError(f"Digital Twin API unavailable: {exc}") from exc
+        if response.status_code >= 400:
+            try:
+                detail = response.json().get("detail", response.text)
+            except ValueError:
+                detail = response.text
+            raise APIError(f"Digital Twin {response.status_code}: {detail}")
+        return response.json() if response.content else None
+
+    def get(self, path: str) -> Any:
+        return self._request("GET", path)
+
+    def put(self, path: str, payload: dict[str, Any]) -> Any:
+        return self._request("PUT", path, json=payload)
+
+    def active_run(self) -> dict[str, Any]:
+        return dict(self.get("/api/active-run"))
+
+    def active_projection(self) -> dict[str, Any]:
+        return dict(self.get("/api/executive-projection"))
+
+    def projection(self, run_id: str) -> dict[str, Any]:
+        return dict(self.get(f"/api/runs/{run_id}/executive-projection"))
+
+    def activate(self, run_id: str) -> dict[str, Any]:
+        return dict(self.put("/api/active-run", {"run_id": run_id}))
+
+    def runs(self) -> list[dict[str, Any]]:
+        return list(self.get("/api/runs"))
