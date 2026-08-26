@@ -320,6 +320,7 @@ def _gates_from_state(state: Any) -> tuple[tuple[str, ...], tuple[str, ...]]:
         autonomous.append("Diagnose")
 
     approvals = _val(state, "approval_result") or _val(state, "pending_approval_id")
+    history = _val(state, "action_history") or []
     if approvals:
         gated.append("Act")
     elif history:

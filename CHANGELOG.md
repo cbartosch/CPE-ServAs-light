@@ -36,6 +36,10 @@ forbidden. The two undefined-name defects were fixed directly, as were the small
 set of findings in Stage 1 runtime files where mechanical changes were low risk.
 New CADI code and future feature files remain subject to the complete rule set.
 
+The final candidate also restores the action-history value used by the telemetry
+projection after the initial lint cleanup removed it while leaving the reference
+in place. The telemetry projection and dashboard aggregation suite covers the fix.
+
 Report: `docs/AUDIT_v1.23.1.md`. Five findings, all against my own work.
 
 ### Retracted: the v1.20.0 confused-deputy finding was wrong

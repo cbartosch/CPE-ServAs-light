@@ -11,9 +11,10 @@ PASS  binary manifest entries remain byte-for-byte verified
 PASS  .gitattributes keeps tracked text on canonical LF for future checkouts
 PASS  Python compileall for source, scripts and tests
 PASS  git diff whitespace validation
-PASS  128 focused CADI/API/dashboard/Digital Twin/integrity/lint-baseline tests
+PASS  172 focused CADI/API/dashboard/Digital Twin/telemetry/integrity/lint-baseline tests
 PASS  lint-baseline audit: all 325 reported findings are fixed or exact-path scoped
 PASS  no wildcard, ALL or F821 suppression in the Ruff baseline
+PASS  telemetry projection retains action-history classification after lint cleanup
 NOTE  These corrections change test/packaging portability and integrity
       verification only; Stage 2 semantic reconciliation and Stage 3 install
       assurance remain out of scope.

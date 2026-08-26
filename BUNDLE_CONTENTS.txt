@@ -2,14 +2,14 @@ LPR CPE Service Assurance Demo Stage 1 - CADI Explicit
 Ruff baseline and target-laptop lint-gate correction
 Generated: 2026-08-26
 Indexed files: 266
-Indexed bytes: 12518355
+Indexed bytes: 12518745
 
 .dockerignore	114 bytes
 .env.example	3027 bytes
 .gitattributes	473 bytes
 .gitignore	152 bytes
-BUILD_TEST_REPORT.txt	5841 bytes
-CHANGELOG.md	88956 bytes
+BUILD_TEST_REPORT.txt	5935 bytes
+CHANGELOG.md	89202 bytes
 Dockerfile	1688 bytes
 LICENSE.txt	297 bytes
 Makefile	1780 bytes
@@ -205,7 +205,7 @@ src/lpr_cpe_demo/predictive/service.py	9982 bytes
 src/lpr_cpe_demo/predictive/signals.py	10198 bytes
 src/lpr_cpe_demo/retrieval.py	5728 bytes
 src/lpr_cpe_demo/routing.py	8699 bytes
-src/lpr_cpe_demo/telemetry.py	19892 bytes
+src/lpr_cpe_demo/telemetry.py	19942 bytes
 src/lpr_cpe_demo/ui/__init__.py	37 bytes
 src/lpr_cpe_demo/ui/app.py	3406 bytes
 src/lpr_cpe_demo/ui/artwork.py	1152 bytes
