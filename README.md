@@ -7,13 +7,23 @@ A Docker Desktop demonstration of an HFC/PON customer-premises-equipment service
 - optional LangChain-backed OpenAI or Anthropic RCA assistance;
 - human approval for RCA disagreement, remote actions, dispatch, Clean/Dirty Boots handover, and plant actions;
 - a Streamlit operations cockpit, incident workbench, human decision center, decision/model monitor, and system monitor;
-- an explicit CADI/Genesys call-center correlation contract that preserves source-system authority without claiming a live adapter;
+- an explicit DvSum CADDI/Genesys call-center correlation contract that preserves source-system authority without claiming a live adapter;
 - a shared measurement contract that reconciles population, grain, window, provenance and completeness across Executive, Predictive/Care and Operations views;
 - a strict, stateless MCP simulation endpoint for NXT, CPE, WFM, Clean Boots, jTrack MR, and plant actions;
 - PostgreSQL for the queryable incident and approval read model;
 - persistent idempotency and approval-consumption records for simulated MCP effects.
 
 > **Simulation only.** No production system is connected and production writes are disabled by default.
+
+## 24-Hour Install Assurance Watch
+
+Stage 3 adds supervised new-install assurance as an **assurance episode**, not a
+fault incident. Healthy HFC and PON installations complete a minimum 24-hour
+watch without inflating break/fix counts. Persistent defects are promoted once
+to a root incident, while Genesys contacts attach to the existing episode and
+DvSum CADDI receives a customer-safe analytical projection. See
+[`docs/INSTALL_ASSURANCE_WATCH.md`](docs/INSTALL_ASSURANCE_WATCH.md).
+
 
 ## Stage 2 — reconciled dashboard semantics
 
@@ -228,17 +238,17 @@ docker compose up --build -d
 
 The backend uses LangChain chat-model integrations and validates structured RCA output. In the default safe profile the fake assistant is used. For external providers, initialization failures fall back to the deterministic assistant only when explicitly permitted by configuration; the active provider and engine are shown in the System Monitor.
 
-## CADI / Genesys call-center layer
+## DvSum CADDI / Genesys call-center layer
 
-CADI is represented explicitly as the existing LPR call-center correlation and
+DvSum CADDI is represented explicitly as the existing LPR call-center correlation and
 presentation layer integrated with Genesys. It is **not** treated as a replacement
 system of record. CSG, OTS, Intraway, CommScope ServAssure NXT, Symphonica,
 Dvision/LLA, Plume and the operational repair systems remain authoritative for the
 facts they originate.
 
-This release exposes a contract-only CADI source map in both APIs and the UI. No
-live CADI endpoint, credentials or source data are connected. Maintenance and
-repair remain in the Operations/VPTO workflow; CADI receives a customer-safe status
+This release exposes a contract-only DvSum CADDI source map in both APIs and the UI. No
+live DvSum CADDI endpoint, credentials or source data are connected. Maintenance and
+repair remain in the Operations/VPTO workflow; DvSum CADDI receives a customer-safe status
 projection in the target architecture. See
 [`docs/CADI_INTEGRATION_CONTRACT.md`](docs/CADI_INTEGRATION_CONTRACT.md).
 
@@ -247,9 +257,9 @@ projection in the target architecture. See
 ```mermaid
 flowchart LR
     C[Customer] --> GX[Genesys]
-    GX --> CADI[CADI call-center context]
-    S[CSG / OTS / Intraway / NXT / Symphonica / Dvision-LLA / Plume] -. authoritative facts .-> CADI
-    CADI -. contract mapped; live adapter pending .-> UI[Streamlit GUI]
+    GX --> DvSum CADDI[DvSum CADDI call-center context]
+    S[CSG / OTS / Intraway / NXT / Symphonica / Dvision-LLA / Plume] -. authoritative facts .-> DvSum CADDI
+    DvSum CADDI -. contract mapped; live adapter pending .-> UI[Streamlit GUI]
     U[Operator] --> UI
     UI --> API[FastAPI query and command API]
     API --> DB[(PostgreSQL read model)]
@@ -261,7 +271,7 @@ flowchart LR
     M --> MS[MCP simulation server]
     MS --> N[NXT / CPE / WFM / jTrack simulations]
     G --> DB
-    G -. customer-safe repair status .-> CADI
+    G -. customer-safe repair status .-> DvSum CADDI
 ```
 
 See `docs/ARCHITECTURE.md` and `docs/WORKFLOW.md` for implementation detail.

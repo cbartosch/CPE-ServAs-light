@@ -12,6 +12,7 @@ from lpr_cpe_demo.measurement import (
     unavailable_metric,
 )
 
+from .install_assurance import latest_install_assurance_projection
 from .storage import get_active_run, iter_jsonl_gz, safe_run_path
 
 
@@ -588,7 +589,7 @@ def build_executive_projection(
         "pending_approvals": scorecard["pending_approvals"],
     }
 
-    return {
+    result = {
         "run_id": catalog.get("run_id", run_path.name),
         "release": catalog.get("release"),
         "config": catalog.get("config", {}),
@@ -601,3 +602,7 @@ def build_executive_projection(
         "stories": stories,
         "customer_journeys": stories,
     }
+    install_assurance = latest_install_assurance_projection(run_path)
+    if install_assurance is not None:
+        result["install_assurance"] = install_assurance
+    return result

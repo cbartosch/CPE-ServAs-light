@@ -1,0 +1,4 @@
+.stage3-manifest-exclusions.txt
+BUNDLE_MANIFEST.sha256
+FILE_MANIFEST.txt
+MANIFEST.sha256

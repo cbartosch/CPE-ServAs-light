@@ -16,8 +16,8 @@
 | Active-run versus Planning-model separation | PASS |
 | Full-population totals beyond pagination limits | PASS |
 | Predictive child-scan isolation | PASS |
-| CADI Stage 1 boundary retained | PASS |
-| Focused API, dashboard, CADI, HTML, telemetry and semantic tests | **201 PASS** |
+| DvSum CADDI Stage 1 boundary retained | PASS |
+| Focused API, dashboard, DvSum CADDI, HTML, telemetry and semantic tests | **201 PASS** |
 | Python source, scripts and tests compile | PASS |
 | `git diff --check` | PASS |
 

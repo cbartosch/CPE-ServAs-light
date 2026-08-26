@@ -87,6 +87,7 @@ SCENARIO_LABELS = {
 }
 
 RUN_STATE_KEYS = (
+    "install_run",
     "predictive_run",
     "care_run",
     "data_run",
@@ -95,6 +96,12 @@ RUN_STATE_KEYS = (
 )
 
 VIEW_ALIASES = {
+    "install": "install",
+    "install-assurance": "install",
+    "24-hour-install-watch": "install",
+    "caddi": "caddi",
+    "cadi": "caddi",
+    "dvsum-caddi": "caddi",
     "executive": "executive",
     "executive-view": "executive",
     "create": "create",
@@ -265,7 +272,7 @@ def _hero() -> None:
           <div class="lpr-pill-row">
             <span class="lpr-pill"><span class="lpr-dot"></span> Predictive HFC + PON</span>
             <span class="lpr-pill"><span class="lpr-dot"></span> Care correlation</span>
-            <span class="lpr-pill"><span class="lpr-dot"></span> CADI / Genesys contract mapped</span>
+            <span class="lpr-pill"><span class="lpr-dot"></span> DvSum CADDI / Genesys contract mapped</span>
             <span class="lpr-pill"><span class="lpr-dot"></span> AI reconciled to controls</span>
             <span class="lpr-pill"><span class="lpr-dot"></span> Production writes off</span>
           </div>
@@ -309,6 +316,7 @@ def _executive_crosslink(requested_view: str) -> None:
           <div class="lpr-crosslink-actions">
             <a class="lpr-crosslink-link legacy" target="_self" href="control-tower">← Legacy Control Tower</a>
             <a class="lpr-crosslink-link" target="_self" href="digital-twin?view=predictive">Predictive Health</a>
+            <a class="lpr-crosslink-link" target="_self" href="digital-twin?view=install-assurance">Install Assurance</a>
             <a class="lpr-crosslink-link" target="_self" href="digital-twin?view=customer-care">Customer Care</a>
           </div>
         </div>''',
@@ -529,6 +537,48 @@ def _executive_view(run_id: str) -> None:
                 "reconciliation": reconciliation,
                 "data_completeness": projection.get("data_completeness"),
             }
+        )
+
+    try:
+        install_projection = _request(
+            f"/api/runs/{urllib.parse.quote(run_id)}/install-assurance/projection"
+        )
+    except Exception:
+        install_projection = None
+    if install_projection:
+        install_metrics = install_projection["summary"]["metrics"]
+        install_pass = install_metrics["pass_rate_24h"]
+        _section(
+            "Installation assurance",
+            "24-hour new-install supervision",
+            "Assurance-episode metrics are separate from break/fix incidents.",
+        )
+        install_cols = st.columns(5)
+        install_cols[0].metric(
+            "Install assurance cohort",
+            f"{install_metrics['episodes_entering_watch']:,}",
+        )
+        install_cols[1].metric(
+            "Matured",
+            f"{install_metrics['matured_episodes']:,}",
+        )
+        install_cols[2].metric(
+            "Passed 24h",
+            "—"
+            if install_pass["value"] is None
+            else f"{100 * install_pass['value']:.1f}%",
+        )
+        install_cols[3].metric(
+            "Promoted to incident",
+            f"{install_metrics['episodes_promoted_to_incident']:,}",
+        )
+        install_cols[4].metric(
+            "Network before call",
+            f"{install_metrics['network_before_call_contacts']:,}",
+        )
+        st.caption(
+            "Healthy installations remain assurance episodes. Only persistent or "
+            "severe defects are promoted to a root incident."
         )
 
     with st.expander("Executive demo talk track", expanded=False):
@@ -822,8 +872,8 @@ def _customer_experience() -> None:
         ),
     )
     st.caption(
-        "Target presentation layer: CADI inside Genesys. The demo uses canonical run "
-        "evidence and does not claim a live CADI connection."
+        "Target presentation layer: DvSum CADDI inside Genesys. The demo uses canonical run "
+        "evidence and does not claim a live DvSum CADDI connection."
     )
     run_id = _run_id("care_run")
     if not run_id:
@@ -1000,7 +1050,7 @@ def _cadi_layer() -> None:
     summary = contract["summary"]
     _section(
         "Existing call-center layer",
-        "CADI & Genesys integration boundary",
+        "DvSum CADDI & Genesys integration boundary",
         (
             "Make the existing LPR call-center correlation investment explicit, "
             "preserve source authority, and identify where the assurance layer should "
@@ -1010,20 +1060,20 @@ def _cadi_layer() -> None:
 
     cols = st.columns(4)
     cols[0].metric("Mapped capability domains", summary["capability_domains"])
-    cols[1].metric("Declared existing in CADI", summary["declared_existing"])
+    cols[1].metric("Declared existing in DvSum CADDI", summary["declared_existing"])
     cols[2].metric("Known data gaps", summary["known_gaps"])
-    cols[3].metric("Live CADI adapter", "Not connected")
+    cols[3].metric("Live DvSum CADDI adapter", "Not connected")
 
     st.warning(
         "Contract-only status. The mapping below is based on LPR stakeholder input; "
-        "CADI APIs, field definitions, source precedence, latency, retention, ownership "
+        "DvSum CADDI APIs, field definitions, source precedence, latency, retention, ownership "
         "and contractor roadmap still require joint discovery."
     )
     st.info(contract["source_of_truth_policy"] + " " + contract["operations_boundary"])
 
     left, right = st.columns(2)
     with left:
-        st.markdown("### CADI remains")
+        st.markdown("### DvSum CADDI remains")
         st.markdown(
             """
             - The Genesys-facing call-center context and correlation experience.
@@ -1037,12 +1087,12 @@ def _cadi_layer() -> None:
             """
             - Predictive detection, evidence lineage and fault-side localization.
             - Governed next-best action and correlation to one root incident.
-            - Maintenance/repair handoff, validation and customer-safe status back to CADI.
+            - Maintenance/repair handoff, validation and customer-safe status back to DvSum CADDI.
             """
         )
 
     st.dataframe(cadi_contract_rows(), hide_index=True, use_container_width=True)
-    with st.expander("CADI architecture decision gate", expanded=False):
+    with st.expander("DvSum CADDI architecture decision gate", expanded=False):
         st.markdown(
             f"""
             **Preferred pattern:** `{contract['preferred_pattern']}`
@@ -1050,9 +1100,9 @@ def _cadi_layer() -> None:
             **Replacement policy:** `{contract['replacement_policy']}`
 
 
-            Stage 2 keeps the Stage 1 CADI contract intact while applying the shared
-            measurement model to active-run and Operations evidence. A live CADI adapter or
-            replacement decision remains out of scope until the CADI owner, Genesys owner,
+            Stage 2 keeps the Stage 1 DvSum CADDI contract intact while applying the shared
+            measurement model to active-run and Operations evidence. A live DvSum CADDI adapter or
+            replacement decision remains out of scope until the DvSum CADDI owner, Genesys owner,
             source-system teams and contractor confirm the architecture and responsibilities.
             """
         )
@@ -1219,7 +1269,7 @@ def _evidence() -> None:
             """
             **What the demo proves**
             - Predictive modem evidence and Customer Care are correlated through the same service and root incident.
-            - CADI is explicitly positioned as the Genesys call-center context layer; no live CADI adapter is claimed.
+            - DvSum CADDI is explicitly positioned as the Genesys call-center context layer; no live DvSum CADDI adapter is claimed.
             - Deterministic operating controls remain authoritative when an AI recommendation differs.
             - Dispatch requires diagnosis plus skills, parts and access readiness.
             - CPE replacement requires failed diagnostics or a documented reason.
@@ -1228,6 +1278,170 @@ def _evidence() -> None:
             """
         )
 
+
+
+def _install_episode_table(rows: list[dict]) -> list[dict]:
+    return [
+        {
+            "Episode": row.get("episode_id"),
+            "Service": row.get("service_id"),
+            "Access": row.get("technology"),
+            "Age": f"{float(row.get('age_hours', 0)):.1f}h",
+            "Lifecycle": _friendly(row.get("lifecycle_state")),
+            "Health": row.get("health_state"),
+            "Leading finding": row.get("leading_finding"),
+            "Current owner": _friendly(row.get("current_owner")),
+            "Root incident": row.get("incident_id") or "None — assurance only",
+        }
+        for row in rows
+    ]
+
+
+def _install_assurance() -> None:
+    _section(
+        "Assure",
+        "24-Hour Install Assurance Watch",
+        "Supervise new HFC and PON installations as assurance episodes. Healthy "
+        "installs pass without becoming incidents; persistent faults are promoted "
+        "once to a governed root incident.",
+    )
+    run_id = _run_id("install_run")
+    if not run_id:
+        _empty(
+            "No active run",
+            "Create a Digital Twin run first, then start an install assurance cohort.",
+        )
+        return
+    _run_chip(run_id)
+    st.caption(
+        "Install-watch metrics use assurance-episode grain and remain separate from "
+        "break/fix incident KPIs. The parent run remains immutable."
+    )
+
+    with st.expander("Create or replay an install watch", expanded=False):
+        controls = st.columns(4)
+        population = controls[0].number_input(
+            "New installs",
+            min_value=2,
+            max_value=5_000,
+            value=12,
+            step=1,
+        )
+        as_of_hours = controls[1].slider("Snapshot age", 0.0, 48.0, 24.0, 1.0)
+        stability_tail = controls[2].slider("Post-action stability tail", 1.0, 12.0, 4.0, 1.0)
+        seed = controls[3].number_input("Cohort seed", min_value=0, value=0, step=1)
+        if st.button("Start 24-hour assurance watch", type="primary"):
+            try:
+                with st.spinner("Building the supervised install cohort…"):
+                    summary = _request(
+                        f"/api/runs/{urllib.parse.quote(run_id)}/install-assurance/watches",
+                        "POST",
+                        {
+                            "population": int(population),
+                            "as_of_hours": float(as_of_hours),
+                            "stability_tail_hours": float(stability_tail),
+                            "seed": int(seed),
+                        },
+                    )
+                st.session_state["install_watch_id"] = summary["watch_id"]
+                st.success("Install assurance watch created without changing the parent run.")
+            except Exception as exc:
+                st.error(str(exc))
+
+    try:
+        projection = _request(
+            f"/api/runs/{urllib.parse.quote(run_id)}/install-assurance/projection"
+        )
+    except Exception:
+        st.info("No install assurance cohort exists for this run yet.")
+        return
+
+    summary = projection["summary"]
+    metrics = summary["metrics"]
+    pass_rate = metrics["pass_rate_24h"]
+    conversion = metrics["incident_conversion_rate"]
+    before_call = metrics["network_before_call_rate"]
+    top = st.columns(6)
+    top[0].metric("Installs under watch", f"{metrics['episodes_entering_watch']:,}")
+    top[1].metric("Matured episodes", f"{metrics['matured_episodes']:,}")
+    top[2].metric(
+        "24-hour pass rate",
+        "—" if pass_rate["value"] is None else f"{100 * pass_rate['value']:.1f}%",
+        help="Passed episodes divided by episodes whose effective watch window matured.",
+    )
+    top[3].metric("Promoted installs", f"{metrics['episodes_promoted_to_incident']:,}")
+    top[4].metric(
+        "Incident conversion",
+        "—" if conversion["value"] is None else f"{100 * conversion['value']:.1f}%",
+    )
+    top[5].metric(
+        "Network before call",
+        "—" if before_call["value"] is None else f"{100 * before_call['value']:.1f}%",
+    )
+
+    lifecycle = summary["lifecycle_partition"]
+    health = summary["health_partition"]
+    left, right = st.columns(2)
+    with left:
+        _section("Episode state", "Lifecycle partition")
+        st.dataframe(
+            [{"Lifecycle": _friendly(key), "Episodes": value} for key, value in lifecycle.items()],
+            hide_index=True,
+            use_container_width=True,
+        )
+    with right:
+        _section("Service health", "Current watch health")
+        st.dataframe(
+            [{"Health": key, "Episodes": value} for key, value in health.items()],
+            hide_index=True,
+            use_container_width=True,
+        )
+
+    episodes = list(projection.get("episodes", []))
+    _section("Supervision queue", "Installation episodes")
+    st.dataframe(_install_episode_table(episodes), hide_index=True, use_container_width=True)
+    if not episodes:
+        return
+    episode_id = st.selectbox(
+        "Choose an installation story",
+        [row["episode_id"] for row in episodes],
+        format_func=lambda value: next(
+            f"{row['technology']} · {_friendly(row['lifecycle_state'])} · "
+            f"{row['service_id']}"
+            for row in episodes
+            if row["episode_id"] == value
+        ),
+    )
+    selected = next(row for row in episodes if row["episode_id"] == episode_id)
+    caddi = next(
+        (
+            row
+            for row in projection.get("caddi_contexts", [])
+            if row.get("episode_id") == episode_id
+        ),
+        None,
+    )
+    cols = st.columns(3)
+    cols[0].metric("Watch state", _friendly(selected.get("lifecycle_state")))
+    cols[1].metric("Health", selected.get("health_state", "—"))
+    cols[2].metric("Incident", selected.get("incident_id") or "Not created")
+    st.write(f"**Leading finding:** {selected.get('leading_finding')}")
+    st.write(f"**Next action:** {_friendly(selected.get('next_action'))}")
+    st.write(f"**Effective maturity:** {_timestamp(selected.get('effective_maturity_at'))}")
+    if selected.get("network_before_call"):
+        st.success("Network evidence preceded the Genesys contact; diagnostics are not restarted.")
+    if selected.get("incident_id") is None:
+        st.info("This remains an assurance episode and is not counted as a break/fix incident.")
+    else:
+        st.warning("Persistent evidence promoted this episode to one governed root incident.")
+
+    with st.expander("DvSum CADDI & Genesys context", expanded=False):
+        if caddi:
+            st.json(caddi)
+        else:
+            st.info("No DvSum CADDI projection is available for this episode.")
+    with st.expander("Technical assurance episode", expanded=False):
+        st.json(selected)
 
 def render() -> None:
     st.markdown(executive_style.css(), unsafe_allow_html=True)
@@ -1242,8 +1456,9 @@ def render() -> None:
         ("executive", "Executive View", lambda: _executive_view(run_id)),
         ("create", "Create Demo", _create_demo),
         ("predictive", "Predictive Health", _predictive_health),
+        ("install", "Install Assurance", _install_assurance),
         ("care", "Customer Experience", _customer_experience),
-        ("cadi", "CADI & Genesys", _cadi_layer),
+        ("cadi", "DvSum CADDI & Genesys", _cadi_layer),
         ("subscriber", "Subscriber Story", _subscriber_story),
         ("decisions", "Decisions & Controls", _decision_control),
         ("evidence", "Evidence & Audit", _evidence),

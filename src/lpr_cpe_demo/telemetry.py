@@ -191,11 +191,11 @@ DATA_CONTRACT: tuple[PanelContract, ...] = (
     PanelContract("cadi_call_center_context", "per Genesys interaction", tuple(
         _req(
             capability.label,
-            "CADI / Genesys backed by " + ", ".join(capability.authoritative_sources),
+            "DvSum CADDI / Genesys backed by " + ", ".join(capability.authoritative_sources),
             capability.grain,
             "missing",
             (
-                "CADI capability supplied by LPR stakeholders; no live CADI adapter is "
+                "DvSum CADDI capability supplied by LPR stakeholders; no live DvSum CADDI adapter is "
                 "connected. " + capability.authority_note
             ),
         )

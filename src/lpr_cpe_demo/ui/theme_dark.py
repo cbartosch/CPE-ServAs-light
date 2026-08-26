@@ -214,22 +214,22 @@ def css() -> str:
 
 
 def executive_crosslink() -> str:
-    """Return links into active-run evidence and the CADI/Genesys contract."""
+    """Return links into active-run evidence and the DvSum CADDI/Genesys contract."""
     return (
         '<div class="ct-crosslink">'
         '<div><div class="ct-crosslink-title">Continue into active-run evidence</div>'
         '<div class="ct-crosslink-copy">Active-run mode uses the same canonical '
         'measurement projection as Predictive Health and Customer Care. The '
         'independent seeded benchmark is available only in Planning model mode. '
-        'The CADI/Genesys contract remains available as a separate context layer.'
+        'The DvSum CADDI/Genesys contract remains available as a separate context layer.'
         '</div></div>'
         '<div class="ct-crosslink-actions">'
         '<a class="ct-crosslink-link primary" target="_self" '
-        'href="digital-twin?view=predictive">Predictive health →</a>'
+        'href="digital-twin?view=install-assurance">24-Hour Install Watch</a><a class="ct-crosslink-link primary" target="_self" href="digital-twin?view=predictive">Predictive health →</a>'
         '<a class="ct-crosslink-link" target="_self" '
         'href="digital-twin?view=customer-care">Customer Care →</a>'
         '<a class="ct-crosslink-link" target="_self" '
-        'href="digital-twin?view=cadi">CADI / Genesys →</a>'
+        'href="digital-twin?view=caddi">DvSum CADDI / Genesys →</a>'
         '</div></div>'
     )
 

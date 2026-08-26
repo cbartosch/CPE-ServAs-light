@@ -436,20 +436,20 @@ def _agent_status_block() -> Block:
 
 
 def _cadi_layer_block() -> Block:
-    """Expose CADI as the existing Genesys-facing correlation layer."""
+    """Expose DvSum CADDI as the existing Genesys-facing correlation layer."""
 
     contract = cadi_contract()
     summary = contract["summary"]
     return Block(
         key="cadi_call_center_layer",
-        title="CADI / Genesys call-center context layer",
+        title="DvSum CADDI / Genesys call-center context layer",
         provenance="assumed",
         note=(
-            "ASSUMED stakeholder-supplied current-state contract, not a live connection. CADI "
+            "ASSUMED stakeholder-supplied current-state contract, not a live connection. DvSum CADDI "
             "correlates and presents call-center context in Genesys; CSG, OTS, "
             "Intraway, NXT, Symphonica, Dvision/LLA, Plume and operational repair "
             "systems remain authoritative for their facts. The preferred target is to "
-            "augment or federate with CADI, avoiding a second source of truth."
+            "augment or federate with DvSum CADDI, avoiding a second source of truth."
         ),
         data={
             "status": contract["integration_status"],
@@ -513,7 +513,7 @@ def build_from_flow(records: list[IncidentRecord]) -> Dashboard:
         version="1.0-flow", theme=THEME,
         badges=[{"label": f"{len(agg)} incidents from the flow", "type": "scope"},
                 {"label": "live telemetry", "type": "observability"},
-                {"label": "CADI contract mapped; adapter not connected",
+                {"label": "DvSum CADDI contract mapped; adapter not connected",
                  "type": "caveat"},
                 {"label": "unwired sources labelled", "type": "caveat"}],
         control_panel={"assurance_mode": "L2 assisted, human gate on every dispatch",
@@ -586,7 +586,7 @@ def build(*, count: int = 60, seed: int = 20260817) -> Dashboard:
                       f"{totals['taps']:,} taps, {totals['odps']:,} ODPs",
              "type": "scope"},
             {"label": "Assumed hubs and rates", "type": "caveat"},
-            {"label": "CADI contract mapped; adapter not connected",
+            {"label": "DvSum CADDI contract mapped; adapter not connected",
              "type": "caveat"},
             {"label": f"seed {seed}, reproducible", "type": "observability"},
         ],

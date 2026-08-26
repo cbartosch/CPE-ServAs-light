@@ -16,7 +16,7 @@
 | GET | `/api/measurement-contract` | canonical entity grains, formulas, statuses and invariants |
 | GET | `/api/operations-projection` | complete live-workflow projection using the shared metric schema |
 | GET | `/api/measurement-projection` | alias of the live Operations projection |
-| GET | `/api/integrations/cadi` | contract-only CADI/Genesys capability and authority map |
+| GET | `/api/integrations/cadi` | contract-only DvSum CADDI/Genesys capability and authority map |
 | GET | `/api/system/status` | engine, model and MCP status |
 | POST | `/api/reset` | clear demo data with confirmation |
 
@@ -38,3 +38,18 @@ The Digital Twin API on port 8001 requires Basic Auth and additionally exposes:
 
 Headline dashboard metrics come from the projection endpoints, not dataset page
 lengths. See `docs/SHARED_MEASUREMENT_CONTRACT.md`.
+
+## Install Assurance
+
+- `POST /api/runs/{run_id}/install-assurance/watches` creates an immutable child
+  watch without changing the canonical run.
+- `GET /api/runs/{run_id}/install-assurance/watches` lists watch snapshots.
+- `GET /api/runs/{run_id}/install-assurance/watches/{watch_id}` returns episode,
+  observation, action, contact, incident and DvSum CADDI context rows.
+- `GET /api/runs/{run_id}/install-assurance/projection` returns the latest watch
+  projection for a run.
+- `GET /api/install-assurance/projection` returns the latest watch for the active
+  run.
+
+Canonical DvSum CADDI contract: `GET /api/integrations/caddi`. The former
+`/api/integrations/cadi` spelling remains a deprecated compatibility alias.

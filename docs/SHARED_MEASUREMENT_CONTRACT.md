@@ -168,7 +168,7 @@ the populations as not implicitly linked.
    `truncated` metadata where applicable.
 6. Care priority and predictive network-risk severity remain separate concepts.
 7. `quality checks` is presented as `data-integrity controls`.
-8. CADI remains the Genesys-facing context layer; no live CADI adapter is claimed.
+8. DvSum CADDI remains the Genesys-facing context layer; no live DvSum CADDI adapter is claimed.
 
 ## Reconciliation invariants
 

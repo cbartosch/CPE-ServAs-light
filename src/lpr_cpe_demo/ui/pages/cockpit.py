@@ -1,10 +1,16 @@
 from __future__ import annotations
 
+import base64
+import json
+import os
+import urllib.error
+import urllib.request
+
 import pandas as pd
 import plotly.express as px
 import streamlit as st
 
-from lpr_cpe_demo.cadi import cadi_contract, cadi_contract_rows
+from lpr_cpe_demo.caddi import cadi_contract, cadi_contract_rows
 from lpr_cpe_demo.config import get_settings
 from lpr_cpe_demo.ui.client import APIError
 from lpr_cpe_demo.ui.common import (
@@ -70,6 +76,56 @@ def _active_run_comparison(operations: dict) -> None:
             "therefore values are not expected to match until shared run/service IDs are projected."
         )
         st.dataframe(rows, hide_index=True, use_container_width=True)
+
+
+def _install_assurance_projection() -> dict | None:
+    base = os.getenv("DT_API_URL", "http://digital-twin-api:8001")
+    user = os.getenv("DT_USER", "demo")
+    password = os.getenv("DT_PASSWORD", "CHANGE_ME")
+    request = urllib.request.Request(base + "/api/install-assurance/projection")
+    token = base64.b64encode(f"{user}:{password}".encode()).decode()
+    request.add_header("Authorization", f"Basic {token}")
+    try:
+        with urllib.request.urlopen(request, timeout=5) as response:
+            return json.loads(response.read())
+    except (urllib.error.HTTPError, urllib.error.URLError, TimeoutError, ValueError):
+        return None
+
+
+def _install_assurance_panel() -> None:
+    projection = _install_assurance_projection()
+    st.subheader("24-Hour Install Assurance")
+    if not projection:
+        st.caption(
+            "No active install watch is available. Install supervision remains "
+            "separate from the break/fix incident queue."
+        )
+        st.markdown(
+            '<a href="digital-twin?view=install-assurance" target="_self">'
+            "Open Install Assurance</a>",
+            unsafe_allow_html=True,
+        )
+        return
+    summary = projection["summary"]
+    lifecycle = summary["lifecycle_partition"]
+    workload = summary["workload"]
+    columns = st.columns(6)
+    columns[0].metric("Active", lifecycle.get("ACTIVE", 0))
+    columns[1].metric("Recovering", lifecycle.get("RECOVERING", 0))
+    columns[2].metric("Passed", lifecycle.get("PASSED_24H", 0))
+    columns[3].metric("Promoted", lifecycle.get("PROMOTED_TO_INCIDENT", 0))
+    columns[4].metric("Clean Boots", workload.get("clean_boots_work_orders", 0))
+    columns[5].metric("MR handoffs", workload.get("maintenance_requests", 0))
+    st.caption(
+        "Episode lifecycle is mutually exclusive. Workload counters are separate "
+        "and may overlap with promoted episodes. DvSum CADDI receives a "
+        "customer-safe projection; Operations owns execution and closure."
+    )
+    st.markdown(
+        '<a href="digital-twin?view=install-assurance" target="_self">'
+        "Open the supervised-install queue</a>",
+        unsafe_allow_html=True,
+    )
 
 
 @st.fragment(run_every=f"{get_settings().ui_refresh_seconds}s")
@@ -151,11 +207,11 @@ def live_cockpit() -> None:
 def _cadi_boundary() -> None:
     contract = cadi_contract()
     st.info(
-        "CADI remains the Genesys-facing call-center context layer. This Operations "
+        "DvSum CADDI remains the Genesys-facing call-center context layer. This Operations "
         "Cockpit remains the execution view for incidents, field work, MRs, "
-        "maintenance, repair and validated closure. No live CADI adapter is connected."
+        "maintenance, repair and validated closure. No live DvSum CADDI adapter is connected."
     )
-    with st.expander("CADI handoff and source-of-truth boundary", expanded=False):
+    with st.expander("DvSum CADDI handoff and source-of-truth boundary", expanded=False):
         st.write(contract["source_of_truth_policy"])
         st.write(contract["operations_boundary"])
         st.dataframe(cadi_contract_rows(), hide_index=True, use_container_width=True)
@@ -167,5 +223,6 @@ def render() -> None:
         "Live workflow records projected through the shared measurement contract.",
     )
     render_banner()
+    _install_assurance_panel()
     _cadi_boundary()
     live_cockpit()

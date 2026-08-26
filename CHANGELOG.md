@@ -1,3 +1,14 @@
+# 1.25.0 — Stage 3 Install Assurance
+
+- Add the 24-Hour Install Assurance Watch as an assurance-episode child artifact.
+- Keep healthy installations out of break/fix incident counts.
+- Promote persistent HFC/PON defects idempotently to root incidents.
+- Add adaptive short-horizon observations, remote stabilization, Clean Boots,
+  tap/ODP MR handoff, common-cause consolidation and post-action stability tails.
+- Publish customer-safe DvSum CADDI/Genesys context without claiming a live adapter.
+- Add executive, predictive/Customer Care and Operations install-watch views while
+  keeping Stage 2 canonical metrics unchanged.
+
 # Changelog
 
 ## 1.24.0 — shared measurement model and dashboard reconciliation

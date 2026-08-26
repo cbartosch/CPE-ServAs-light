@@ -9,7 +9,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
 from lpr_cpe_demo import __version__
-from lpr_cpe_demo.cadi import cadi_contract
+from lpr_cpe_demo.caddi import cadi_contract
+from lpr_cpe_demo.caddi import caddi_contract
 from lpr_cpe_demo.config import Settings, get_settings
 from lpr_cpe_demo.domain import ApprovalDecisionInput, ApprovalStatus, FaultDomain
 from lpr_cpe_demo.measurement import measurement_contract
@@ -77,6 +78,11 @@ def create_app(
 
     def get_service(request: Request) -> WorkflowService:
         return request.app.state.workflow_service
+
+    @app.get("/api/integrations/caddi", tags=["integrations"])
+    @app.get("/api/integrations/cadi", tags=["integrations"], deprecated=True)
+    def caddi_integration() -> dict[str, Any]:
+        return caddi_contract()
 
     @app.get("/health", tags=["system"])
     def health() -> dict[str, str]:
@@ -193,10 +199,6 @@ def create_app(
     @app.get("/api/dashboard", tags=["monitoring"])
     def dashboard(workflow: WorkflowService = Depends(get_service)) -> dict[str, Any]:
         return workflow.dashboard()
-
-    @app.get("/api/integrations/cadi", tags=["integrations"])
-    def _cadi_integration_contract() -> dict[str, Any]:
-        return cadi_contract()
 
     @app.get("/api/system/status", tags=["system"])
     def system_status(workflow: WorkflowService = Depends(get_service)) -> dict[str, Any]:

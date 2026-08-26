@@ -46,15 +46,15 @@ Each synthetic contact is promoted to a `care_ticket`. The ticket stays on the c
 
 `care_ticket_reviews` expose deterministic RCA, model/agent output, reconciliation state, predictive context, and evidence references in one record for operational review.
 
-## CADI / Genesys call-center plane
+## DvSum CADDI / Genesys call-center plane
 
-CADI is declared as the existing LPR call-center correlation and presentation
-layer integrated with Genesys. The Digital Twin does not claim a live CADI
+DvSum CADDI is declared as the existing LPR call-center correlation and presentation
+layer integrated with Genesys. The Digital Twin does not claim a live DvSum CADDI
 connection. It exposes the contract so the Customer Care experience can be
-designed to build on CADI rather than become a second source of truth.
+designed to build on DvSum CADDI rather than become a second source of truth.
 
 CSG, OTS, Intraway, NXT, Symphonica, Dvision/LLA, Plume and operational
-repair systems remain authoritative for the facts they originate. CADI is the
+repair systems remain authoritative for the facts they originate. DvSum CADDI is the
 intended place to present a correlated customer-safe view. Operations, Clean
 Boots, jTrack and validation remain responsible for incident, work and closure
 state. See `../CADI_INTEGRATION_CONTRACT.md`.

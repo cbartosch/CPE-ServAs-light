@@ -9,10 +9,19 @@ from fastapi import Depends, FastAPI, HTTPException, Query
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
 from pydantic import BaseModel, Field
 
+from lpr_cpe_demo.caddi import caddi_contract
+
 from ..cadi import cadi_contract
 from ..measurement import measurement_contract
 from . import __version__
 from .executive_projection import build_executive_projection
+from .install_assurance import (
+    create_install_assurance_watch,
+    install_assurance_contract,
+    latest_install_assurance_projection,
+    list_install_assurance_watches,
+    load_install_assurance_watch,
+)
 from .models import GenerationConfig, HumanDecision
 from .orchestrator import (
     DATASETS,
@@ -53,6 +62,13 @@ class PredictiveScanRequest(BaseModel):
     population: int = Field(default=20_000, ge=1, le=500_000)
     days: int = Field(default=14, ge=7, le=60)
     day_index: int = Field(default=0, ge=0, le=365)
+
+
+class InstallAssuranceWatchRequest(BaseModel):
+    population: int = Field(default=12, ge=1, le=5_000)
+    as_of_hours: float = Field(default=24.0, ge=0, le=72)
+    stability_tail_hours: float = Field(default=4.0, ge=1, le=12)
+    seed: int = Field(default=0, ge=0, le=2_147_483_647)
 
 
 app = FastAPI(title="LPR CPE Digital Twin", version=__version__)
@@ -101,6 +117,12 @@ def _build_projection(run_id: str) -> dict:
         raise HTTPException(409, f"executive projection unavailable: {exc}") from exc
 
 
+@app.get("/api/integrations/caddi")
+@app.get("/api/integrations/cadi", deprecated=True)
+def caddi_integration(_: dict = Depends(principal)):
+    return caddi_contract()
+
+
 @app.get("/health")
 def health():
     return {"status": "ok", "version": __version__, "production_writes": False, "release": "Stage 2 semantic reconciliation", "predictive_care_integration": True, "measurement_schema": "1.0"}
@@ -118,7 +140,6 @@ def ready(_: dict = Depends(principal)):
     return {"status": "ready", "data_root": str(DATA_ROOT)}
 
 
-@app.get("/api/integrations/cadi")
 def _cadi_integration_contract(_: dict = Depends(principal)):
     return cadi_contract()
 
@@ -297,6 +318,71 @@ def predictive_scan_detail(
         raise HTTPException(400, str(exc)) from exc
     except KeyError as exc:
         raise HTTPException(404, "predictive scan not found") from exc
+
+
+@app.get("/api/install-assurance/contract")
+def install_watch_contract(_: dict = Depends(principal)):
+    return install_assurance_contract()
+
+
+@app.post("/api/runs/{run_id}/install-assurance/watches")
+def create_install_watch(
+    run_id: str,
+    request: InstallAssuranceWatchRequest,
+    _: dict = Depends(principal),
+):
+    run_path = _run_path(run_id)
+    if not (run_path / "catalog.json").is_file():
+        raise HTTPException(404, "run not found")
+    try:
+        return create_install_assurance_watch(
+            run_path,
+            population=request.population,
+            as_of_hours=request.as_of_hours,
+            stability_tail_hours=request.stability_tail_hours,
+            seed=request.seed,
+        )
+    except ValueError as exc:
+        raise HTTPException(422, str(exc)) from exc
+
+
+@app.get("/api/runs/{run_id}/install-assurance/watches")
+def install_watches(run_id: str, _: dict = Depends(principal)):
+    run_path = _run_path(run_id)
+    if not (run_path / "catalog.json").is_file():
+        raise HTTPException(404, "run not found")
+    return list_install_assurance_watches(run_path)
+
+
+@app.get("/api/runs/{run_id}/install-assurance/watches/{watch_id}")
+def install_watch_detail(
+    run_id: str,
+    watch_id: str,
+    limit: int = Query(default=500, ge=1, le=5000),
+    _: dict = Depends(principal),
+):
+    try:
+        return load_install_assurance_watch(_run_path(run_id), watch_id, limit=limit)
+    except ValueError as exc:
+        raise HTTPException(400, str(exc)) from exc
+    except KeyError as exc:
+        raise HTTPException(404, "install assurance watch not found") from exc
+
+
+@app.get("/api/runs/{run_id}/install-assurance/projection")
+def install_watch_projection(run_id: str, _: dict = Depends(principal)):
+    projection = latest_install_assurance_projection(_run_path(run_id))
+    if projection is None:
+        raise HTTPException(404, "no install assurance watch for run")
+    return projection
+
+
+@app.get("/api/install-assurance/projection")
+def active_install_watch_projection(_: dict = Depends(principal)):
+    projection = latest_install_assurance_projection(_run_path(_active_run_id()))
+    if projection is None:
+        raise HTTPException(404, "no install assurance watch for active run")
+    return projection
 
 
 @app.get("/api/runs/{run_id}/care/tickets")
