@@ -36,8 +36,8 @@ from typing import Any, Literal
 
 from .agents.status import RECORDER, describe_provider
 from .benchmarks import citation
-from .cadi import cadi_contract, cadi_contract_rows
 from .commercial import BLAST_RADIUS_PLANT_EVENT, PROTECTION_REASON
+from .dalli import dalli_contract, dalli_contract_rows
 from .effort import false_positive_cost
 from .fault_generator import DOMAIN_MIX, generate_faults, summarise
 from .geography import sites_in_cpe_footprint
@@ -435,21 +435,22 @@ def _agent_status_block() -> Block:
         data=rows)
 
 
-def _cadi_layer_block() -> Block:
-    """Expose DvSum CADDI as the existing Genesys-facing correlation layer."""
+def _dalli_layer_block() -> Block:
+    """Expose DvSum DALLI as the existing Genesys-facing correlation layer."""
 
-    contract = cadi_contract()
+    contract = dalli_contract()
     summary = contract["summary"]
     return Block(
         key="cadi_call_center_layer",
-        title="DvSum CADDI / Genesys call-center context layer",
+        title="DvSum DALLI / Genesys call-center context layer",
         provenance="assumed",
         note=(
-            "ASSUMED stakeholder-supplied current-state contract, not a live connection. DvSum CADDI "
+            "ASSUMED stakeholder-supplied current-state contract, not a live connection. "
+            "DvSum DALLI "
             "correlates and presents call-center context in Genesys; CSG, OTS, "
             "Intraway, NXT, Symphonica, Dvision/LLA, Plume and operational repair "
             "systems remain authoritative for their facts. The preferred target is to "
-            "augment or federate with DvSum CADDI, avoiding a second source of truth."
+            "augment or federate with DvSum DALLI, avoiding a second source of truth."
         ),
         data={
             "status": contract["integration_status"],
@@ -458,7 +459,7 @@ def _cadi_layer_block() -> Block:
             "source_of_truth_policy": contract["source_of_truth_policy"],
             "operations_boundary": contract["operations_boundary"],
             "summary": summary,
-            "capabilities": cadi_contract_rows(),
+            "capabilities": dalli_contract_rows(),
         },
     )
 
@@ -513,7 +514,7 @@ def build_from_flow(records: list[IncidentRecord]) -> Dashboard:
         version="1.0-flow", theme=THEME,
         badges=[{"label": f"{len(agg)} incidents from the flow", "type": "scope"},
                 {"label": "live telemetry", "type": "observability"},
-                {"label": "DvSum CADDI contract mapped; adapter not connected",
+                {"label": "DvSum DALLI contract mapped; adapter not connected",
                  "type": "caveat"},
                 {"label": "unwired sources labelled", "type": "caveat"}],
         control_panel={"assurance_mode": "L2 assisted, human gate on every dispatch",
@@ -558,7 +559,7 @@ def build_from_flow(records: list[IncidentRecord]) -> Dashboard:
               agg.playbook_success()),
         _commercial_priority_block(),
         _agent_status_block(),
-        _cadi_layer_block(),
+        _dalli_layer_block(),
         _data_contract_block(),
     ]
     return dash
@@ -586,7 +587,7 @@ def build(*, count: int = 60, seed: int = 20260817) -> Dashboard:
                       f"{totals['taps']:,} taps, {totals['odps']:,} ODPs",
              "type": "scope"},
             {"label": "Assumed hubs and rates", "type": "caveat"},
-            {"label": "DvSum CADDI contract mapped; adapter not connected",
+            {"label": "DvSum DALLI contract mapped; adapter not connected",
              "type": "caveat"},
             {"label": f"seed {seed}, reproducible", "type": "observability"},
         ],
@@ -608,7 +609,7 @@ def build(*, count: int = 60, seed: int = 20260817) -> Dashboard:
         _playbooks(),
         _commercial_priority_block(),
         _agent_status_block(),
-        _cadi_layer_block(),
+        _dalli_layer_block(),
         _data_contract_block(),
     ]
     return dash

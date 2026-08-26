@@ -10,8 +10,8 @@ import pandas as pd
 import plotly.express as px
 import streamlit as st
 
-from lpr_cpe_demo.caddi import cadi_contract, cadi_contract_rows
 from lpr_cpe_demo.config import get_settings
+from lpr_cpe_demo.dalli import dalli_contract, dalli_contract_rows
 from lpr_cpe_demo.ui.client import APIError
 from lpr_cpe_demo.ui.common import (
     api,
@@ -118,7 +118,7 @@ def _install_assurance_panel() -> None:
     columns[5].metric("MR handoffs", workload.get("maintenance_requests", 0))
     st.caption(
         "Episode lifecycle is mutually exclusive. Workload counters are separate "
-        "and may overlap with promoted episodes. DvSum CADDI receives a "
+        "and may overlap with promoted episodes. DvSum DALLI receives a "
         "customer-safe projection; Operations owns execution and closure."
     )
     st.markdown(
@@ -204,17 +204,17 @@ def live_cockpit() -> None:
         )
 
 
-def _cadi_boundary() -> None:
-    contract = cadi_contract()
+def _dalli_boundary() -> None:
+    contract = dalli_contract()
     st.info(
-        "DvSum CADDI remains the Genesys-facing call-center context layer. This Operations "
+        "DvSum DALLI remains the Genesys-facing call-center context layer. This Operations "
         "Cockpit remains the execution view for incidents, field work, MRs, "
-        "maintenance, repair and validated closure. No live DvSum CADDI adapter is connected."
+        "maintenance, repair and validated closure. No live DvSum DALLI adapter is connected."
     )
-    with st.expander("DvSum CADDI handoff and source-of-truth boundary", expanded=False):
+    with st.expander("DvSum DALLI handoff and source-of-truth boundary", expanded=False):
         st.write(contract["source_of_truth_policy"])
         st.write(contract["operations_boundary"])
-        st.dataframe(cadi_contract_rows(), hide_index=True, use_container_width=True)
+        st.dataframe(dalli_contract_rows(), hide_index=True, use_container_width=True)
 
 
 def render() -> None:
@@ -224,5 +224,5 @@ def render() -> None:
     )
     render_banner()
     _install_assurance_panel()
-    _cadi_boundary()
+    _dalli_boundary()
     live_cockpit()

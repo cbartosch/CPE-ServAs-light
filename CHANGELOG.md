@@ -1,3 +1,13 @@
+## 1.25.1 — DvSum DALLI naming and compatibility repair
+
+- Use the full project-facing label **DvSum DALLI** in Executive, Predictive/Care,
+  Operations and Install Assurance panels.
+- Add canonical `/api/integrations/dalli` and `view=dalli` entry points.
+- Retain `/caddi`, `/cadi`, `view=caddi`, `view=cadi` and `view=dali` as deprecated
+  compatibility aliases.
+- Repair the Stage 3 merge regressions in the DvSum integration modules and API imports.
+- Keep Stage 2 measurement results and Stage 3 install-assurance behavior unchanged.
+
 # 1.25.0 — Stage 3 Install Assurance
 
 - Add the 24-Hour Install Assurance Watch as an assurance-episode child artifact.
@@ -5,7 +15,7 @@
 - Promote persistent HFC/PON defects idempotently to root incidents.
 - Add adaptive short-horizon observations, remote stabilization, Clean Boots,
   tap/ODP MR handoff, common-cause consolidation and post-action stability tails.
-- Publish customer-safe DvSum CADDI/Genesys context without claiming a live adapter.
+- Publish customer-safe DvSum DALLI/Genesys context without claiming a live adapter.
 - Add executive, predictive/Customer Care and Operations install-watch views while
   keeping Stage 2 canonical metrics unchanged.
 
@@ -28,20 +38,20 @@ contacts and approvals remain separate workload grains. Predictive child scans
 are explicitly exploratory. Care correlation now reports canonical root
 attachments instead of the unsupported `duplicate incidents avoided` claim.
 
-CADI remains the explicit Genesys-facing context layer from Stage 1; no live CADI
+DvSum DALLI remains the explicit Genesys-facing context layer from Stage 1; no live DvSum DALLI
 adapter is claimed. The 24-Hour Install Assurance Watch remains excluded pending
 Stage 2 sign-off. See `docs/SHARED_MEASUREMENT_CONTRACT.md`.
 
 ## 1.23.1 - audit: a retraction, and the third unreachable capability
 
-### Stage-gated LPR extension: CADI made explicit
+### Stage-gated LPR extension: DvSum DALLI made explicit
 
-Stage 1 adds CADI as the declared Genesys-facing call-center correlation and
+Stage 1 adds DvSum DALLI as the declared Genesys-facing call-center correlation and
 presentation layer. The executable contract maps CSG, OTS, Intraway, NXT,
 Symphonica, Dvision/LLA and the missing Plume Wi-Fi feed, while preserving the
 originating systems as authoritative. Maintenance and repair remain an explicit
 Operations/VPTO boundary. Both APIs and the Executive, Care, legacy Control Tower
-and Operations views expose the contract and state that no live CADI adapter is
+and Operations views expose the contract and state that no live DvSum DALLI adapter is
 connected. Stage 2 metric reconciliation and Stage 3 install assurance are
 intentionally not included pending operator sign-off.
 
@@ -50,7 +60,7 @@ candidate: source-inspection tests called `Path.read_text()` without an encoding
 so Python 3.14 on a Western Windows locale attempted CP1252 decoding and failed on
 UTF-8 UI glyphs such as the status dot. Repository text reads now specify UTF-8
 explicitly, and an integrity guard rejects future locale-dependent calls. This is
-a packaging/test-portability correction only; CADI behavior and Stage 1 scope are
+a packaging/test-portability correction only; DvSum DALLI behavior and Stage 1 scope are
 unchanged.
 
 A second Windows-only packaging defect was then exposed: Git converted tracked
@@ -63,10 +73,10 @@ LF. A regression test exercises a CRLF checkout explicitly.
 The first complete target-laptop Ruff run then exposed 325 findings accumulated
 across legacy source, scripts and tests. Stage 1 now records that debt as an
 explicit path-and-rule baseline rather than weakening the repository-wide command
-or expanding CADI scope into a broad refactor. Wildcards, `ALL` and `F821` are
+or expanding DvSum DALLI scope into a broad refactor. Wildcards, `ALL` and `F821` are
 forbidden. The two undefined-name defects were fixed directly, as were the small
 set of findings in Stage 1 runtime files where mechanical changes were low risk.
-New CADI code and future feature files remain subject to the complete rule set.
+New DvSum DALLI code and future feature files remain subject to the complete rule set.
 
 The final candidate also restores the action-history value used by the telemetry
 projection after the initial lint cleanup removed it while leaving the reference

@@ -226,22 +226,22 @@ def _render_planning_model() -> None:
             _chart(health, lambda: st.dataframe(health.data, hide_index=True,
                                                 use_container_width=True))
 
-    cadi = dash.block("cadi_call_center_layer")
-    st.markdown(td.card_open(cadi.title, cadi.provenance, cadi.note),
+    dalli = dash.block("cadi_call_center_layer")
+    st.markdown(td.card_open(dalli.title, dalli.provenance, dalli.note),
                 unsafe_allow_html=True)
-    cadi_summary = cadi.data["summary"]
-    cadi_cols = st.columns(4)
-    cadi_cols[0].metric("Mapped domains", cadi_summary["capability_domains"])
-    cadi_cols[1].metric("Declared in DvSum CADDI", cadi_summary["declared_existing"])
-    cadi_cols[2].metric("Known gaps", cadi_summary["known_gaps"])
-    cadi_cols[3].metric("Live adapter", "No — contract only")
+    dalli_summary = dalli.data["summary"]
+    dalli_cols = st.columns(4)
+    dalli_cols[0].metric("Mapped domains", dalli_summary["capability_domains"])
+    dalli_cols[1].metric("Declared in DvSum DALLI", dalli_summary["declared_existing"])
+    dalli_cols[2].metric("Known gaps", dalli_summary["known_gaps"])
+    dalli_cols[3].metric("Live adapter", "No — contract only")
     st.info(
-        cadi.data["source_of_truth_policy"] + " " + cadi.data["operations_boundary"]
+        dalli.data["source_of_truth_policy"] + " " + dalli.data["operations_boundary"]
     )
-    st.dataframe(cadi.data["capabilities"], hide_index=True,
+    st.dataframe(dalli.data["capabilities"], hide_index=True,
                  use_container_width=True)
     st.caption(
-        "DvSum CADDI capability mapping is based on LPR stakeholder input. APIs, field "
+        "DvSum DALLI capability mapping is based on LPR stakeholder input. APIs, field "
         "definitions, latency, source precedence and contractor roadmap require "
         "joint discovery before a live integration is claimed."
     )

@@ -9,9 +9,7 @@ from fastapi import Depends, FastAPI, HTTPException, Query
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
 from pydantic import BaseModel, Field
 
-from lpr_cpe_demo.caddi import caddi_contract
-
-from ..cadi import cadi_contract
+from ..dalli import dalli_contract
 from ..measurement import measurement_contract
 from . import __version__
 from .executive_projection import build_executive_projection
@@ -117,15 +115,25 @@ def _build_projection(run_id: str) -> dict:
         raise HTTPException(409, f"executive projection unavailable: {exc}") from exc
 
 
-@app.get("/api/integrations/caddi")
+@app.get("/api/integrations/dalli")
+@app.get("/api/integrations/caddi", deprecated=True)
 @app.get("/api/integrations/cadi", deprecated=True)
-def caddi_integration(_: dict = Depends(principal)):
-    return caddi_contract()
+def dalli_integration(_: dict = Depends(principal)):
+    return dalli_contract()
 
 
 @app.get("/health")
 def health():
-    return {"status": "ok", "version": __version__, "production_writes": False, "release": "Stage 2 semantic reconciliation", "predictive_care_integration": True, "measurement_schema": "1.0"}
+    return {
+        "status": "ok",
+        "version": __version__,
+        "production_writes": False,
+        "release": "Stage 3 install assurance with DvSum DALLI",
+        "predictive_care_integration": True,
+        "install_assurance": True,
+        "dalli_integration": "contract_only",
+        "measurement_schema": "1.0",
+    }
 
 
 @app.get("/ready")
@@ -138,10 +146,6 @@ def ready(_: dict = Depends(principal)):
     except OSError as exc:
         raise HTTPException(503, f"data root is not writable: {exc}") from exc
     return {"status": "ready", "data_root": str(DATA_ROOT)}
-
-
-def _cadi_integration_contract(_: dict = Depends(principal)):
-    return cadi_contract()
 
 
 @app.get("/api/measurement-contract")

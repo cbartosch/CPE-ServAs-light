@@ -67,15 +67,16 @@ def test_api_rejects_wrong_approval_role(service: WorkflowService) -> None:
         assert response.status_code == 403
 
 
-def test_api_exposes_cadi_integration_contract(service: WorkflowService) -> None:
+def test_api_exposes_dalli_integration_contract(service: WorkflowService) -> None:
     app = create_app(settings=service.settings, service=service)
     with TestClient(app) as client:
-        response = client.get("/api/integrations/cadi")
+        response = client.get("/api/integrations/dalli")
         assert response.status_code == 200
         body = response.json()
+        assert body["layer"] == "DvSum DALLI"
         assert body["integration_status"] == "contract_only"
         assert body["live_connection"] is False
-        assert body["owner_scope"] == "Call center / Genesys"
+        assert "Call Center via Genesys" in body["owner_scope"]
 
 
 def test_api_exposes_shared_measurement_contract_and_operations_projection(

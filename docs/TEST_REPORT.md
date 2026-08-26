@@ -1,3 +1,20 @@
+# Stage 3 DvSum DALLI naming repair candidate
+
+- Canonical display name: **DvSum DALLI**
+- Canonical API: `GET /api/integrations/dalli`
+- Canonical navigation: `digital-twin?view=dalli`
+- Compatibility aliases: CADDI/CADI imports, routes, and query values retained
+- Focused regression gate: **214 passed**
+- Stage 2 semantic projection: unchanged
+- Stage 3 install-watch behavior: unchanged
+- Standalone Control Tower HTML: regenerated with DvSum DALLI labels
+- Python compileall: pass
+- Ruff: target-laptop gate required because the executable was unavailable in the packaging runtime
+
+See `docs/STAGE3_DVSUM_DALLI_AUDIT.md`.
+
+---
+
 # Test Report
 
 ## Stage 2 semantic reconciliation candidate
@@ -16,8 +33,8 @@
 | Active-run versus Planning-model separation | PASS |
 | Full-population totals beyond pagination limits | PASS |
 | Predictive child-scan isolation | PASS |
-| DvSum CADDI Stage 1 boundary retained | PASS |
-| Focused API, dashboard, DvSum CADDI, HTML, telemetry and semantic tests | **201 PASS** |
+| DvSum DALLI Stage 1 boundary retained | PASS |
+| Focused API, dashboard, DvSum DALLI, HTML, telemetry and semantic tests | **201 PASS** |
 | Python source, scripts and tests compile | PASS |
 | `git diff --check` | PASS |
 

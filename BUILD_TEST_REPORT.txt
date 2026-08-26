@@ -1,3 +1,20 @@
+# Stage 3 DvSum DALLI naming repair candidate
+
+- Canonical display name: **DvSum DALLI**
+- Canonical API: `GET /api/integrations/dalli`
+- Canonical navigation: `digital-twin?view=dalli`
+- Compatibility aliases: CADDI/CADI imports, routes, and query values retained
+- Focused regression gate: **214 passed**
+- Stage 2 semantic projection: unchanged
+- Stage 3 install-watch behavior: unchanged
+- Standalone Control Tower HTML: regenerated with DvSum DALLI labels
+- Python compileall: pass
+- Ruff: target-laptop gate required because the executable was unavailable in the packaging runtime
+
+See `docs/STAGE3_DVSUM_DALLI_AUDIT.md`.
+
+---
+
 LPR CPE SERVICE ASSURANCE DEMO - BUILD AND TEST REPORT
 ======================================================
 

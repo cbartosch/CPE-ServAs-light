@@ -16,12 +16,13 @@ import os
 import shutil
 import uuid
 from collections import defaultdict
+from collections.abc import Iterable
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
-from typing import Any, Iterable
+from typing import Any
 
-from lpr_cpe_demo.caddi import project_install_assurance_context
+from lpr_cpe_demo.dalli import project_install_assurance_context
 
 from .storage import (
     iter_jsonl_gz,
@@ -63,7 +64,13 @@ class InstallWatchArtifact:
     actions: list[dict[str, Any]]
     contacts: list[dict[str, Any]]
     incidents: list[dict[str, Any]]
-    caddi_contexts: list[dict[str, Any]]
+    dalli_contexts: list[dict[str, Any]]
+
+    @property
+    def caddi_contexts(self) -> list[dict[str, Any]]:
+        """Compatibility alias for artifacts created before the DALLI label fix."""
+
+        return self.dalli_contexts
 
 
 def _iso(value: datetime) -> str:
@@ -349,7 +356,9 @@ def _observation(
                 "ds_rx_dbmv": -1.0 if health == "GREEN" else -11.0 if health == "AMBER" else -16.2,
                 "us_tx_dbmv": 44.0 if health == "GREEN" else 52.5 if health == "AMBER" else 56.0,
                 "ds_mer_db": 38.0 if health == "GREEN" else 32.0 if health == "AMBER" else 28.5,
-                "uncorrectable_ratio": 2e-8 if health == "GREEN" else 7e-5 if health == "AMBER" else 2e-3,
+                "uncorrectable_ratio": (
+                    2e-8 if health == "GREEN" else 7e-5 if health == "AMBER" else 2e-3
+                ),
                 "t3_timeouts": 0 if health == "GREEN" else 8 if health == "AMBER" else 31,
             }
         )
@@ -479,7 +488,7 @@ def _build_artifact(
     actions: list[dict[str, Any]] = []
     contacts: list[dict[str, Any]] = []
     incidents_by_id: dict[str, dict[str, Any]] = {}
-    caddi_contexts: list[dict[str, Any]] = []
+    dalli_contexts: list[dict[str, Any]] = []
 
     for index, service in enumerate(selected):
         episode_id = f"{EPISODE_PREFIX}{_digest(cohort_id, service['service_id'], length=12)}"
@@ -679,7 +688,9 @@ def _build_artifact(
             "leading_finding": latest["leading_finding"],
             "next_action": next_action,
             "next_update_at": _iso(min(snapshot_at + timedelta(hours=1), effective_maturity_at)),
-            "diagnostic_confidence": 0.93 if health == "RED" else 0.82 if health == "AMBER" else 0.97,
+            "diagnostic_confidence": (
+                0.93 if health == "RED" else 0.82 if health == "AMBER" else 0.97
+            ),
             "production_write": False,
         }
         episodes.append(episode)
@@ -720,7 +731,7 @@ def _build_artifact(
             incident["mr_ids"].extend(mr_ids)
 
         incident = incidents_by_id.get(incident_id or "")
-        caddi_contexts.append(
+        dalli_contexts.append(
             project_install_assurance_context(
                 episode=episode,
                 contact=contact,
@@ -757,7 +768,11 @@ def _build_artifact(
         for episode in episodes
     )]
     stable_durations = [
-        ((_parse(episode["stable_since"]) or snapshot_at) - (_parse(episode["started_at"]) or snapshot_at)).total_seconds() / 3600
+        (
+            (_parse(episode["stable_since"]) or snapshot_at)
+            - (_parse(episode["started_at"]) or snapshot_at)
+        ).total_seconds()
+        / 3600
         for episode in episodes
         if episode.get("stable_since")
     ]
@@ -843,10 +858,17 @@ def _build_artifact(
             ),
             "canonical_parent_run_unchanged": True,
         },
-        "caddi": {
-            "canonical_name": "DvSum CADDI",
+        "dalli": {
+            "canonical_name": "DvSum DALLI",
             "live_connection": False,
-            "contexts": len(caddi_contexts),
+            "contexts": len(dalli_contexts),
+            "genesys_contacts": len(contacts),
+        },
+        "caddi": {
+            "canonical_name": "DvSum DALLI",
+            "compatibility_alias": True,
+            "live_connection": False,
+            "contexts": len(dalli_contexts),
             "genesys_contacts": len(contacts),
         },
         "production_writes": False,
@@ -858,7 +880,7 @@ def _build_artifact(
         actions=actions,
         contacts=contacts,
         incidents=incidents,
-        caddi_contexts=caddi_contexts,
+        dalli_contexts=dalli_contexts,
     )
 
 
@@ -927,7 +949,7 @@ def install_assurance_contract() -> dict[str, Any]:
         ),
         "source_boundaries": {
             "episode_authority": "LPR Install Assurance",
-            "analytical_layer": "DvSum CADDI",
+            "analytical_layer": "DvSum DALLI",
             "interaction_channel": "Genesys",
             "incident_and_repair_authority": "LPR Operations and jTrack",
         },
@@ -977,7 +999,7 @@ def create_install_assurance_watch(
         write_jsonl_gz(build / "actions.jsonl.gz", artifact.actions)
         write_jsonl_gz(build / "contacts.jsonl.gz", artifact.contacts)
         write_jsonl_gz(build / "incidents.jsonl.gz", artifact.incidents)
-        write_jsonl_gz(build / "caddi_contexts.jsonl.gz", artifact.caddi_contexts)
+        write_jsonl_gz(build / "dalli_contexts.jsonl.gz", artifact.dalli_contexts)
         (build / "summary.json").write_text(
             json.dumps(artifact.summary, indent=2, sort_keys=True),
             encoding="utf-8",
@@ -1016,6 +1038,10 @@ def load_install_assurance_watch(
     path = Path(run_path) / "install_assurance" / watch_id
     if not path.is_dir():
         raise KeyError(watch_id)
+    context_path = path / "dalli_contexts.jsonl.gz"
+    if not context_path.is_file():
+        context_path = path / "caddi_contexts.jsonl.gz"
+    dalli_contexts = load_jsonl_gz(context_path, limit=limit)
     return {
         "summary": json.loads((path / "summary.json").read_text(encoding="utf-8")),
         "episodes": load_jsonl_gz(path / "episodes.jsonl.gz", limit=limit),
@@ -1023,7 +1049,8 @@ def load_install_assurance_watch(
         "actions": load_jsonl_gz(path / "actions.jsonl.gz", limit=limit),
         "contacts": load_jsonl_gz(path / "contacts.jsonl.gz", limit=limit),
         "incidents": load_jsonl_gz(path / "incidents.jsonl.gz", limit=limit),
-        "caddi_contexts": load_jsonl_gz(path / "caddi_contexts.jsonl.gz", limit=limit),
+        "dalli_contexts": dalli_contexts,
+        "caddi_contexts": dalli_contexts,
     }
 
 
@@ -1038,5 +1065,6 @@ def latest_install_assurance_projection(run_path: Path) -> dict[str, Any] | None
         "episodes": detail["episodes"],
         "contacts": detail["contacts"],
         "incidents": detail["incidents"],
-        "caddi_contexts": detail["caddi_contexts"],
+        "dalli_contexts": detail["dalli_contexts"],
+        "caddi_contexts": detail["dalli_contexts"],
     }

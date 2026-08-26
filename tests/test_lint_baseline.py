@@ -23,9 +23,13 @@ def test_stage1_and_future_feature_files_are_not_baselined() -> None:
     baseline = _ruff_config()["lint"]["per-file-ignores"]
     protected = {
         "src/lpr_cpe_demo/cadi.py",
+        "src/lpr_cpe_demo/caddi.py",
+        "src/lpr_cpe_demo/dalli.py",
+        "src/lpr_cpe_demo/digital_twin/install_assurance.py",
         "src/lpr_cpe_demo/measurement.py",
         "src/lpr_cpe_demo/ui/measurement.py",
         "tests/test_cadi.py",
+        "tests/test_install_assurance.py",
         "tests/test_measurement_semantics.py",
         "tests/test_lint_baseline.py",
     }
