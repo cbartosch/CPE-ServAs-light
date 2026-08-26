@@ -34,16 +34,16 @@ from __future__ import annotations
 from dataclasses import asdict, dataclass, field
 from typing import Any, Literal
 
-from .agents.status import RECORDER, describe_provider
-from .commercial import BLAST_RADIUS_PLANT_EVENT, PROTECTION_REASON
 from .ab_metrics import CREW_FOR_DOMAIN
+from .agents.status import RECORDER, describe_provider
 from .benchmarks import citation, wasted_visit_cost
+from .cadi import cadi_contract, cadi_contract_rows
+from .commercial import BLAST_RADIUS_PLANT_EVENT, PROTECTION_REASON
 from .effort import false_positive_cost
 from .fault_generator import DOMAIN_MIX, generate_faults, summarise
-from .telemetry import (DATA_CONTRACT, Aggregator, IncidentRecord,
-                        contract_summary)
 from .geography import sites_in_cpe_footprint
 from .plant import PLANT_ASSUMPTIONS, footprint_totals, households
+from .telemetry import DATA_CONTRACT, Aggregator, IncidentRecord, contract_summary
 
 Provenance = Literal["computed", "assumed", "synthetic"]
 
@@ -436,6 +436,34 @@ def _agent_status_block() -> Block:
         data=rows)
 
 
+def _cadi_layer_block() -> Block:
+    """Expose CADI as the existing Genesys-facing correlation layer."""
+
+    contract = cadi_contract()
+    summary = contract["summary"]
+    return Block(
+        key="cadi_call_center_layer",
+        title="CADI / Genesys call-center context layer",
+        provenance="assumed",
+        note=(
+            "ASSUMED stakeholder-supplied current-state contract, not a live connection. CADI "
+            "correlates and presents call-center context in Genesys; CSG, OTS, "
+            "Intraway, NXT, Symphonica, Dvision/LLA, Plume and operational repair "
+            "systems remain authoritative for their facts. The preferred target is to "
+            "augment or federate with CADI, avoiding a second source of truth."
+        ),
+        data={
+            "status": contract["integration_status"],
+            "live_connection": contract["live_connection"],
+            "positioning": contract["positioning"],
+            "source_of_truth_policy": contract["source_of_truth_policy"],
+            "operations_boundary": contract["operations_boundary"],
+            "summary": summary,
+            "capabilities": cadi_contract_rows(),
+        },
+    )
+
+
 def _data_contract_block() -> Block:
     """What every other panel needs, and what is still missing.
 
@@ -486,6 +514,8 @@ def build_from_flow(records: list[IncidentRecord]) -> Dashboard:
         version="1.0-flow", theme=THEME,
         badges=[{"label": f"{len(agg)} incidents from the flow", "type": "scope"},
                 {"label": "live telemetry", "type": "observability"},
+                {"label": "CADI contract mapped; adapter not connected",
+                 "type": "caveat"},
                 {"label": "unwired sources labelled", "type": "caveat"}],
         control_panel={"assurance_mode": "L2 assisted, human gate on every dispatch",
                        "incidents": len(agg),
@@ -529,6 +559,7 @@ def build_from_flow(records: list[IncidentRecord]) -> Dashboard:
               agg.playbook_success()),
         _commercial_priority_block(),
         _agent_status_block(),
+        _cadi_layer_block(),
         _data_contract_block(),
     ]
     return dash
@@ -556,6 +587,8 @@ def build(*, count: int = 60, seed: int = 20260817) -> Dashboard:
                       f"{totals['taps']:,} taps, {totals['odps']:,} ODPs",
              "type": "scope"},
             {"label": "Assumed hubs and rates", "type": "caveat"},
+            {"label": "CADI contract mapped; adapter not connected",
+             "type": "caveat"},
             {"label": f"seed {seed}, reproducible", "type": "observability"},
         ],
         control_panel={
@@ -576,6 +609,7 @@ def build(*, count: int = 60, seed: int = 20260817) -> Dashboard:
         _playbooks(),
         _commercial_priority_block(),
         _agent_status_block(),
+        _cadi_layer_block(),
         _data_contract_block(),
     ]
     return dash

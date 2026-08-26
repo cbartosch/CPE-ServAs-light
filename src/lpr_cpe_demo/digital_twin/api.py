@@ -9,6 +9,7 @@ from fastapi import Depends, FastAPI, HTTPException, Query
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
 from pydantic import BaseModel, Field
 
+from ..cadi import cadi_contract
 from . import __version__
 from .executive_projection import build_executive_projection
 from .models import GenerationConfig, HumanDecision
@@ -114,6 +115,11 @@ def ready(_: dict = Depends(principal)):
     except OSError as exc:
         raise HTTPException(503, f"data root is not writable: {exc}") from exc
     return {"status": "ready", "data_root": str(DATA_ROOT)}
+
+
+@app.get("/api/integrations/cadi")
+def _cadi_integration_contract(_: dict = Depends(principal)):
+    return cadi_contract()
 
 
 @app.get("/api/runs")

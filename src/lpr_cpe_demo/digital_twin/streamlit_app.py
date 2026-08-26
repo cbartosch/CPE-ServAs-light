@@ -12,6 +12,7 @@ from datetime import datetime
 
 import streamlit as st
 
+from ..cadi import cadi_contract, cadi_contract_rows
 from . import executive_style
 
 API = os.getenv("DT_API_URL", "http://api:8001")
@@ -97,6 +98,9 @@ VIEW_ALIASES = {
     "care": "care",
     "customer-care": "care",
     "customer-experience": "care",
+    "cadi": "cadi",
+    "genesys": "cadi",
+    "cadi-genesys": "cadi",
     "subscriber": "subscriber",
     "subscriber-story": "subscriber",
     "decisions": "decisions",
@@ -213,6 +217,7 @@ def _hero() -> None:
           <div class="lpr-pill-row">
             <span class="lpr-pill"><span class="lpr-dot"></span> Predictive HFC + PON</span>
             <span class="lpr-pill"><span class="lpr-dot"></span> Care correlation</span>
+            <span class="lpr-pill"><span class="lpr-dot"></span> CADI / Genesys contract mapped</span>
             <span class="lpr-pill"><span class="lpr-dot"></span> AI reconciled to controls</span>
             <span class="lpr-pill"><span class="lpr-dot"></span> Production writes off</span>
           </div>
@@ -608,6 +613,11 @@ def _customer_experience() -> None:
         "Customer experience & Care correlation",
         "Show what the customer reported, whether the network saw it first, and how the contact attaches to one governed root incident.",
     )
+    st.caption(
+        "Target call-center presentation layer: CADI inside Genesys. This demo does "
+        "not connect to a live CADI endpoint; the CADI & Genesys tab documents the "
+        "declared source and authority boundaries."
+    )
     run_id = _run_id("care_run")
     if not run_id:
         _empty("No Care story yet", "Create a demo first. The Customer Care queue is generated and correlated automatically.")
@@ -717,6 +727,68 @@ def _customer_experience() -> None:
             st.json(review)
         with detail_tabs[3]:
             st.json(case)
+
+
+def _cadi_layer() -> None:
+    contract = cadi_contract()
+    summary = contract["summary"]
+    _section(
+        "Existing call-center layer",
+        "CADI & Genesys integration boundary",
+        (
+            "Make the existing LPR call-center correlation investment explicit, "
+            "preserve source authority, and identify where the assurance layer should "
+            "augment rather than create a second source of truth."
+        ),
+    )
+
+    cols = st.columns(4)
+    cols[0].metric("Mapped capability domains", summary["capability_domains"])
+    cols[1].metric("Declared existing in CADI", summary["declared_existing"])
+    cols[2].metric("Known data gaps", summary["known_gaps"])
+    cols[3].metric("Live CADI adapter", "Not connected")
+
+    st.warning(
+        "Contract-only status. The mapping below is based on LPR stakeholder input; "
+        "CADI APIs, field definitions, source precedence, latency, retention, ownership "
+        "and contractor roadmap still require joint discovery."
+    )
+    st.info(contract["source_of_truth_policy"] + " " + contract["operations_boundary"])
+
+    left, right = st.columns(2)
+    with left:
+        st.markdown("### CADI remains")
+        st.markdown(
+            """
+            - The Genesys-facing call-center context and correlation experience.
+            - A presentation of billing, outage, provisioning and service evidence.
+            - The place where an agent sees an existing issue and the best current route.
+            """
+        )
+    with right:
+        st.markdown("### Assurance layer adds")
+        st.markdown(
+            """
+            - Predictive detection, evidence lineage and fault-side localization.
+            - Governed next-best action and correlation to one root incident.
+            - Maintenance/repair handoff, validation and customer-safe status back to CADI.
+            """
+        )
+
+    st.dataframe(cadi_contract_rows(), hide_index=True, use_container_width=True)
+    with st.expander("CADI architecture decision gate", expanded=False):
+        st.markdown(
+            f"""
+            **Preferred pattern:** `{contract['preferred_pattern']}`
+
+            **Replacement policy:** `{contract['replacement_policy']}`
+
+
+            Stage 1 documents the contract only. A live adapter or replacement decision is
+            out of scope until the CADI owner, Genesys owner, source-system teams and the
+            current contractor confirm the architecture and operating responsibilities.
+            """
+        )
 
 
 def _subscriber_story() -> None:
@@ -880,6 +952,7 @@ def _evidence() -> None:
             """
             **What the demo proves**
             - Predictive modem evidence and Customer Care are correlated through the same service and root incident.
+            - CADI is explicitly positioned as the Genesys call-center context layer; no live CADI adapter is claimed.
             - Deterministic operating controls remain authoritative when an AI recommendation differs.
             - Dispatch requires diagnosis plus skills, parts and access readiness.
             - CPE replacement requires failed diagnostics or a documented reason.
@@ -903,6 +976,7 @@ def render() -> None:
         ("create", "Create Demo", _create_demo),
         ("predictive", "Predictive Health", _predictive_health),
         ("care", "Customer Experience", _customer_experience),
+        ("cadi", "CADI & Genesys", _cadi_layer),
         ("subscriber", "Subscriber Story", _subscriber_story),
         ("decisions", "Decisions & Controls", _decision_control),
         ("evidence", "Evidence & Audit", _evidence),

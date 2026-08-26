@@ -46,6 +46,19 @@ Each synthetic contact is promoted to a `care_ticket`. The ticket stays on the c
 
 `care_ticket_reviews` expose deterministic RCA, model/agent output, reconciliation state, predictive context, and evidence references in one record for operational review.
 
+## CADI / Genesys call-center plane
+
+CADI is declared as the existing LPR call-center correlation and presentation
+layer integrated with Genesys. The Digital Twin does not claim a live CADI
+connection. It exposes the contract so the Customer Care experience can be
+designed to build on CADI rather than become a second source of truth.
+
+CSG, OTS, Intraway, NXT, Symphonica, Dvision/LLA, Plume and operational
+repair systems remain authoritative for the facts they originate. CADI is the
+intended place to present a correlated customer-safe view. Operations, Clean
+Boots, jTrack and validation remain responsible for incident, work and closure
+state. See `../CADI_INTEGRATION_CONTRACT.md`.
+
 ## Canonical graph and hard controls
 
 Each attempt has a unique `case_id` but carries `root_case_id` and `root_incident_id`. Repeats keep the original root incident and service identity and require supervisor escalation. No repeat or Customer Care record creates a second incident.

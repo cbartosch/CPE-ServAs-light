@@ -32,6 +32,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Iterable, Literal, Protocol
 
+from .cadi import CADI_CAPABILITIES
+
 Availability = Literal["in_flow", "modelled", "missing"]
 
 # Stages, in the order the engine walks them, mapped onto the funnel the dashboard
@@ -184,6 +186,19 @@ DATA_CONTRACT: tuple[PanelContract, ...] = (
              "incident", "modelled"),
         _req("households behind the element", "plant model", "plant element",
              "modelled"),
+    )),
+    PanelContract("cadi_call_center_context", "per Genesys interaction", tuple(
+        _req(
+            capability.label,
+            "CADI / Genesys backed by " + ", ".join(capability.authoritative_sources),
+            capability.grain,
+            "missing",
+            (
+                "CADI capability supplied by LPR stakeholders; no live CADI adapter is "
+                "connected. " + capability.authority_note
+            ),
+        )
+        for capability in CADI_CAPABILITIES
     )),
     PanelContract("playbook_backlog", "daily", (
         _req("action_type outcomes over time",

@@ -214,18 +214,21 @@ def css() -> str:
 
 
 def executive_crosslink() -> str:
-    """Return reciprocal links into the active-run predictive and Care workspace."""
+    """Return links into active-run evidence and the CADI/Genesys contract."""
     return (
         '<div class="ct-crosslink">'
         '<div><div class="ct-crosslink-title">Continue into active-run evidence</div>'
         '<div class="ct-crosslink-copy">The legacy scorecard remains a modeled '
         'benchmark. Open the connected workflow to inspect predictive modem risk, '
-        'Customer Care correlation and governed resolution for the active run.</div></div>'
+        'Customer Care correlation, CADI/Genesys context and governed resolution '
+        'for the active run.</div></div>'
         '<div class="ct-crosslink-actions">'
         '<a class="ct-crosslink-link primary" target="_self" '
         'href="digital-twin?view=predictive">Predictive health →</a>'
         '<a class="ct-crosslink-link" target="_self" '
         'href="digital-twin?view=customer-care">Customer Care →</a>'
+        '<a class="ct-crosslink-link" target="_self" '
+        'href="digital-twin?view=cadi">CADI / Genesys →</a>'
         '</div></div>'
     )
 

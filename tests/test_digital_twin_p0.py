@@ -979,7 +979,8 @@ def test_68_legacy_control_tower_cross_links_into_active_run_workflows():
     assert "td.executive_crosslink()" in control
     assert 'href="digital-twin?view=predictive"' in theme
     assert 'href="digital-twin?view=customer-care"' in theme
-    assert "active-run predictive and Care workspace" in theme
+    assert 'href="digital-twin?view=cadi"' in theme
+    assert "CADI/Genesys contract" in theme
 
 
 def test_69_predictive_and_care_workspace_links_back_to_legacy_control_tower():

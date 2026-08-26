@@ -7,6 +7,7 @@ A Docker Desktop demonstration of an HFC/PON customer-premises-equipment service
 - optional LangChain-backed OpenAI or Anthropic RCA assistance;
 - human approval for RCA disagreement, remote actions, dispatch, Clean/Dirty Boots handover, and plant actions;
 - a Streamlit operations cockpit, incident workbench, human decision center, decision/model monitor, and system monitor;
+- an explicit CADI/Genesys call-center correlation contract that preserves source-system authority without claiming a live adapter;
 - a strict, stateless MCP simulation endpoint for NXT, CPE, WFM, Clean Boots, jTrack MR, and plant actions;
 - PostgreSQL for the queryable incident and approval read model;
 - persistent idempotency and approval-consumption records for simulated MCP effects.
@@ -214,11 +215,29 @@ docker compose up --build -d
 
 The backend uses LangChain chat-model integrations and validates structured RCA output. In the default safe profile the fake assistant is used. For external providers, initialization failures fall back to the deterministic assistant only when explicitly permitted by configuration; the active provider and engine are shown in the System Monitor.
 
+## CADI / Genesys call-center layer
+
+CADI is represented explicitly as the existing LPR call-center correlation and
+presentation layer integrated with Genesys. It is **not** treated as a replacement
+system of record. CSG, OTS, Intraway, CommScope ServAssure NXT, Symphonica,
+Dvision/LLA, Plume and the operational repair systems remain authoritative for the
+facts they originate.
+
+This release exposes a contract-only CADI source map in both APIs and the UI. No
+live CADI endpoint, credentials or source data are connected. Maintenance and
+repair remain in the Operations/VPTO workflow; CADI receives a customer-safe status
+projection in the target architecture. See
+[`docs/CADI_INTEGRATION_CONTRACT.md`](docs/CADI_INTEGRATION_CONTRACT.md).
+
 ## Architecture
 
 ```mermaid
 flowchart LR
-    U[Operator] --> UI[Streamlit GUI]
+    C[Customer] --> GX[Genesys]
+    GX --> CADI[CADI call-center context]
+    S[CSG / OTS / Intraway / NXT / Symphonica / Dvision-LLA / Plume] -. authoritative facts .-> CADI
+    CADI -. contract mapped; live adapter pending .-> UI[Streamlit GUI]
+    U[Operator] --> UI
     UI --> API[FastAPI query and command API]
     API --> DB[(PostgreSQL read model)]
     API --> G[LangGraph workflow]
@@ -229,6 +248,7 @@ flowchart LR
     M --> MS[MCP simulation server]
     MS --> N[NXT / CPE / WFM / jTrack simulations]
     G --> DB
+    G -. customer-safe repair status .-> CADI
 ```
 
 See `docs/ARCHITECTURE.md` and `docs/WORKFLOW.md` for implementation detail.

@@ -198,6 +198,26 @@ def render() -> None:
             _chart(health, lambda: st.dataframe(health.data, hide_index=True,
                                                 use_container_width=True))
 
+    cadi = dash.block("cadi_call_center_layer")
+    st.markdown(td.card_open(cadi.title, cadi.provenance, cadi.note),
+                unsafe_allow_html=True)
+    cadi_summary = cadi.data["summary"]
+    cadi_cols = st.columns(4)
+    cadi_cols[0].metric("Mapped domains", cadi_summary["capability_domains"])
+    cadi_cols[1].metric("Declared in CADI", cadi_summary["declared_existing"])
+    cadi_cols[2].metric("Known gaps", cadi_summary["known_gaps"])
+    cadi_cols[3].metric("Live adapter", "No — contract only")
+    st.info(
+        cadi.data["source_of_truth_policy"] + " " + cadi.data["operations_boundary"]
+    )
+    st.dataframe(cadi.data["capabilities"], hide_index=True,
+                 use_container_width=True)
+    st.caption(
+        "CADI capability mapping is based on LPR stakeholder input. APIs, field "
+        "definitions, latency, source precedence and contractor roadmap require "
+        "joint discovery before a live integration is claimed."
+    )
+
     contract = dash.block("data_contract")
     st.markdown(td.card_open(contract.title, contract.provenance, contract.note),
                 unsafe_allow_html=True)

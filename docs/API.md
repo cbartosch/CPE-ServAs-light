@@ -13,6 +13,7 @@
 | GET | `/api/approvals` | human decision queue |
 | POST | `/api/approvals/{id}/decision` | approve, override, request more or reject |
 | GET | `/api/dashboard` | cockpit metrics |
+| GET | `/api/integrations/cadi` | contract-only CADI/Genesys capability and authority map |
 | GET | `/api/system/status` | engine, model and MCP status |
 | POST | `/api/reset` | clear demo data with confirmation |
 

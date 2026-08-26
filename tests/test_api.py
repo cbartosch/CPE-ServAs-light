@@ -65,3 +65,14 @@ def test_api_rejects_wrong_approval_role(service: WorkflowService) -> None:
             },
         )
         assert response.status_code == 403
+
+
+def test_api_exposes_cadi_integration_contract(service: WorkflowService) -> None:
+    app = create_app(settings=service.settings, service=service)
+    with TestClient(app) as client:
+        response = client.get("/api/integrations/cadi")
+        assert response.status_code == 200
+        body = response.json()
+        assert body["integration_status"] == "contract_only"
+        assert body["live_connection"] is False
+        assert body["owner_scope"] == "Call center / Genesys"

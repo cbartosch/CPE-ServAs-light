@@ -29,6 +29,7 @@ docs/AUDIT_DEEP_v1.13.2.md
 docs/AUDIT_v1.12.1.md
 docs/AUDIT_v1.16.1.md
 docs/AUDIT_v1.23.1.md
+docs/CADI_INTEGRATION_CONTRACT.md
 docs/COMPARISON_AND_IMPROVEMENTS.md
 docs/DEPENDENCY_PINS.md
 docs/DISPATCH_RULE.md
@@ -131,6 +132,7 @@ src/lpr_cpe_demo/agents/status.py
 src/lpr_cpe_demo/api/__init__.py
 src/lpr_cpe_demo/api/main.py
 src/lpr_cpe_demo/benchmarks.py
+src/lpr_cpe_demo/cadi.py
 src/lpr_cpe_demo/commercial.py
 src/lpr_cpe_demo/config.py
 src/lpr_cpe_demo/controls.py
@@ -234,6 +236,7 @@ tests/test_api.py
 tests/test_assets.py
 tests/test_benchmarks.py
 tests/test_bundle_integrity.py
+tests/test_cadi.py
 tests/test_commercial.py
 tests/test_controls.py
 tests/test_dashboard.py

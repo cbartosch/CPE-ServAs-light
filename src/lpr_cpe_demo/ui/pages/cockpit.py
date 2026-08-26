@@ -4,8 +4,8 @@ import pandas as pd
 import plotly.express as px
 import streamlit as st
 
+from lpr_cpe_demo.cadi import cadi_contract, cadi_contract_rows
 from lpr_cpe_demo.config import get_settings
-
 from lpr_cpe_demo.ui.client import APIError
 from lpr_cpe_demo.ui.common import api, demo_header, render_banner, stage_label
 
@@ -72,7 +72,21 @@ def live_cockpit() -> None:
         st.info(f"Selected {selected}. Open the Incident Workbench from the navigation menu.")
 
 
+def _cadi_boundary() -> None:
+    contract = cadi_contract()
+    st.info(
+        "CADI remains the Genesys-facing call-center context layer. This Operations "
+        "Cockpit remains the execution view for incidents, field work, MRs, "
+        "maintenance, repair and validated closure. No live CADI adapter is connected."
+    )
+    with st.expander("CADI handoff and source-of-truth boundary", expanded=False):
+        st.write(contract["source_of_truth_policy"])
+        st.write(contract["operations_boundary"])
+        st.dataframe(cadi_contract_rows(), hide_index=True, use_container_width=True)
+
+
 def render() -> None:
     demo_header("Operations Cockpit", "Live read-model view of incidents, approvals and outcomes.")
     render_banner()
+    _cadi_boundary()
     live_cockpit()

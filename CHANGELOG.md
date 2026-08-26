@@ -2,6 +2,17 @@
 
 ## 1.23.1 - audit: a retraction, and the third unreachable capability
 
+### Stage-gated LPR extension: CADI made explicit
+
+Stage 1 adds CADI as the declared Genesys-facing call-center correlation and
+presentation layer. The executable contract maps CSG, OTS, Intraway, NXT,
+Symphonica, Dvision/LLA and the missing Plume Wi-Fi feed, while preserving the
+originating systems as authoritative. Maintenance and repair remain an explicit
+Operations/VPTO boundary. Both APIs and the Executive, Care, legacy Control Tower
+and Operations views expose the contract and state that no live CADI adapter is
+connected. Stage 2 metric reconciliation and Stage 3 install assurance are
+intentionally not included pending operator sign-off.
+
 Report: `docs/AUDIT_v1.23.1.md`. Five findings, all against my own work.
 
 ### Retracted: the v1.20.0 confused-deputy finding was wrong

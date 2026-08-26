@@ -71,6 +71,28 @@ MCP_STRICT_VERSION=true
 
 The API checks the MCP `/health` response before workflow startup and fails on profile, protocol-version or statelessness mismatch. The custom implementation exposes only the tool-list and tool-call subset required by the demonstration.
 
+## CADI / Genesys call-center boundary
+
+CADI is the existing LPR call-center correlation and presentation layer integrated
+with Genesys. It is represented explicitly in this bundle as a contract-only layer;
+there is no live CADI client or source data connection.
+
+```mermaid
+flowchart LR
+    SRC[CSG / OTS / Intraway / NXT / Symphonica / Dvision-LLA / Plume] -->|authoritative facts| CADI[CADI context]
+    GEN[Genesys interaction] --> CADI
+    CADI --> AGENT[Call-center agent]
+    SRC --> ASSURE[Assurance and orchestration]
+    ASSURE --> OPS[Operations / Clean Boots / jTrack / repair]
+    OPS -->|customer-safe state projection| CADI
+```
+
+The originating systems remain authoritative. CADI correlates and presents the
+context needed by the call center. Operations remains authoritative for incident,
+work-order, MR, maintenance, repair and validated closure state. The preferred
+target is to augment or federate with CADI before considering selective replacement.
+See `docs/CADI_INTEGRATION_CONTRACT.md` for the capability and discovery contract.
+
 ## LPR data represented by fixtures
 
 - CommScope ServAssure NXT alarm and health evidence
