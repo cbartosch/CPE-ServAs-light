@@ -28,6 +28,14 @@ verifier now hashes UTF-8 text in canonical LF form while continuing to verify
 binary files byte-for-byte, and `.gitattributes` keeps future text checkouts on
 LF. A regression test exercises a CRLF checkout explicitly.
 
+The first complete target-laptop Ruff run then exposed 325 findings accumulated
+across legacy source, scripts and tests. Stage 1 now records that debt as an
+explicit path-and-rule baseline rather than weakening the repository-wide command
+or expanding CADI scope into a broad refactor. Wildcards, `ALL` and `F821` are
+forbidden. The two undefined-name defects were fixed directly, as were the small
+set of findings in Stage 1 runtime files where mechanical changes were low risk.
+New CADI code and future feature files remain subject to the complete rule set.
+
 Report: `docs/AUDIT_v1.23.1.md`. Five findings, all against my own work.
 
 ### Retracted: the v1.20.0 confused-deputy finding was wrong

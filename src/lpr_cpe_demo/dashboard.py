@@ -31,12 +31,11 @@ to have a number quoted back as fact in a steering committee.
 
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass, field
+from dataclasses import dataclass, field
 from typing import Any, Literal
 
-from .ab_metrics import CREW_FOR_DOMAIN
 from .agents.status import RECORDER, describe_provider
-from .benchmarks import citation, wasted_visit_cost
+from .benchmarks import citation
 from .cadi import cadi_contract, cadi_contract_rows
 from .commercial import BLAST_RADIUS_PLANT_EVENT, PROTECTION_REASON
 from .effort import false_positive_cost

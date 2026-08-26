@@ -1,15 +1,15 @@
 LPR CPE Service Assurance Demo Stage 1 - CADI Explicit
-Windows CRLF manifest portability correction
+Ruff baseline and target-laptop lint-gate correction
 Generated: 2026-08-26
-Indexed files: 264
-Indexed bytes: 12509863
+Indexed files: 266
+Indexed bytes: 12518355
 
 .dockerignore	114 bytes
 .env.example	3027 bytes
 .gitattributes	473 bytes
 .gitignore	152 bytes
-BUILD_TEST_REPORT.txt	5503 bytes
-CHANGELOG.md	88395 bytes
+BUILD_TEST_REPORT.txt	5841 bytes
+CHANGELOG.md	88956 bytes
 Dockerfile	1688 bytes
 LICENSE.txt	297 bytes
 Makefile	1780 bytes
@@ -41,6 +41,7 @@ docs/DEPENDENCY_PINS.md	1882 bytes
 docs/DISPATCH_RULE.md	7363 bytes
 docs/ENVIRONMENT_COMPATIBILITY.md	3395 bytes
 docs/LAPTOP_RESOURCE_GUIDE.md	958 bytes
+docs/LINT_BASELINE.md	1675 bytes
 docs/OFFLINE_AND_LOW_RESOURCE.md	1748 bytes
 docs/PACKAGE_VERSIONS.md	1604 bytes
 docs/RED_TEAM_v1.20.0.md	8368 bytes
@@ -70,7 +71,7 @@ docs/video/slates/09_provenance.png	191147 bytes
 docs/video/slates/10_rigour.png	177716 bytes
 docs/video/slates/11_close.png	144914 bytes
 integration/executive_theme.py	192 bytes
-pyproject.toml	2115 bytes
+pyproject.toml	6787 bytes
 reference/CPE_Service_Assurance_Architecture.docx	22112 bytes
 reference/CPE_demo_spec_audit_and_changes.md	32285 bytes
 reference/LPR_CPE_Service_Assurance_Mockup_Design_Specification_v1_1_Audit_Hardened.docx	971521 bytes
@@ -136,13 +137,13 @@ src/lpr_cpe_demo/agents/guards.py	10119 bytes
 src/lpr_cpe_demo/agents/provider.py	7512 bytes
 src/lpr_cpe_demo/agents/status.py	6892 bytes
 src/lpr_cpe_demo/api/__init__.py	54 bytes
-src/lpr_cpe_demo/api/main.py	7569 bytes
+src/lpr_cpe_demo/api/main.py	7596 bytes
 src/lpr_cpe_demo/benchmarks.py	7091 bytes
 src/lpr_cpe_demo/cadi.py	10126 bytes
 src/lpr_cpe_demo/commercial.py	37376 bytes
 src/lpr_cpe_demo/config.py	3919 bytes
 src/lpr_cpe_demo/controls.py	5482 bytes
-src/lpr_cpe_demo/dashboard.py	30034 bytes
+src/lpr_cpe_demo/dashboard.py	29967 bytes
 src/lpr_cpe_demo/digital_twin/__init__.py	86 bytes
 src/lpr_cpe_demo/digital_twin/api.py	11595 bytes
 src/lpr_cpe_demo/digital_twin/care.py	8359 bytes
@@ -204,7 +205,7 @@ src/lpr_cpe_demo/predictive/service.py	9982 bytes
 src/lpr_cpe_demo/predictive/signals.py	10198 bytes
 src/lpr_cpe_demo/retrieval.py	5728 bytes
 src/lpr_cpe_demo/routing.py	8699 bytes
-src/lpr_cpe_demo/telemetry.py	19965 bytes
+src/lpr_cpe_demo/telemetry.py	19892 bytes
 src/lpr_cpe_demo/ui/__init__.py	37 bytes
 src/lpr_cpe_demo/ui/app.py	3406 bytes
 src/lpr_cpe_demo/ui/artwork.py	1152 bytes
@@ -218,10 +219,10 @@ src/lpr_cpe_demo/ui/executive_theme.py	192 bytes
 src/lpr_cpe_demo/ui/fmt.py	1111 bytes
 src/lpr_cpe_demo/ui/pages/__init__.py	30 bytes
 src/lpr_cpe_demo/ui/pages/cockpit.py	3354 bytes
-src/lpr_cpe_demo/ui/pages/control_tower.py	11213 bytes
+src/lpr_cpe_demo/ui/pages/control_tower.py	11282 bytes
 src/lpr_cpe_demo/ui/pages/decisions.py	4311 bytes
 src/lpr_cpe_demo/ui/pages/digital_twin.py	323 bytes
-src/lpr_cpe_demo/ui/pages/footprint.py	8617 bytes
+src/lpr_cpe_demo/ui/pages/footprint.py	8656 bytes
 src/lpr_cpe_demo/ui/pages/incident.py	5538 bytes
 src/lpr_cpe_demo/ui/pages/model_monitor.py	4272 bytes
 src/lpr_cpe_demo/ui/pages/scenarios.py	1423 bytes
@@ -245,12 +246,13 @@ tests/test_bundle_integrity.py	7364 bytes
 tests/test_cadi.py	5437 bytes
 tests/test_commercial.py	25360 bytes
 tests/test_controls.py	5647 bytes
-tests/test_dashboard.py	11566 bytes
+tests/test_dashboard.py	11538 bytes
 tests/test_digital_twin_p0.py	46438 bytes
 tests/test_fault_generator.py	9896 bytes
 tests/test_geo_layers.py	6478 bytes
 tests/test_geography.py	15815 bytes
 tests/test_html_report.py	9535 bytes
+tests/test_lint_baseline.py	1256 bytes
 tests/test_llm_boundary.py	1043 bytes
 tests/test_mcp_controls.py	3449 bytes
 tests/test_mcp_http.py	5252 bytes
@@ -264,7 +266,7 @@ tests/test_routing_theme.py	12292 bytes
 tests/test_security_store.py	8623 bytes
 tests/test_sidebar.py	6467 bytes
 tests/test_telemetry.py	15641 bytes
-tests/test_ui_widgets.py	24065 bytes
+tests/test_ui_widgets.py	24088 bytes
 tests/test_workflow.py	6186 bytes
 vendor/.gitkeep	0 bytes
 vendor/README.md	446 bytes

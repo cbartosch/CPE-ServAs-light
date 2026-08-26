@@ -11,11 +11,15 @@ PASS  binary manifest entries remain byte-for-byte verified
 PASS  .gitattributes keeps tracked text on canonical LF for future checkouts
 PASS  Python compileall for source, scripts and tests
 PASS  git diff whitespace validation
+PASS  128 focused CADI/API/dashboard/Digital Twin/integrity/lint-baseline tests
+PASS  lint-baseline audit: all 325 reported findings are fixed or exact-path scoped
+PASS  no wildcard, ALL or F821 suppression in the Ruff baseline
 NOTE  These corrections change test/packaging portability and integrity
       verification only; Stage 2 semantic reconciliation and Stage 3 install
       assurance remain out of scope.
-NOTE  Ruff is pinned for the target environment but was not installed in the
-      packaging runtime used for this correction.
+NOTE  Ruff 0.13.3 was not available in the packaging runtime. The target
+      laptop must execute `python -m ruff check src scripts tests`; the candidate
+      contains an exact rule-scoped baseline for the 325 findings reported there.
 Bundle revision: 1.2 improved comparison build
 Assembly date: 2026-08-17
 Build environment: Linux x86_64, Python 3.13.5

@@ -36,6 +36,7 @@ docs/DEPENDENCY_PINS.md
 docs/DISPATCH_RULE.md
 docs/ENVIRONMENT_COMPATIBILITY.md
 docs/LAPTOP_RESOURCE_GUIDE.md
+docs/LINT_BASELINE.md
 docs/OFFLINE_AND_LOW_RESOURCE.md
 docs/PACKAGE_VERSIONS.md
 docs/RED_TEAM_v1.20.0.md
@@ -246,6 +247,7 @@ tests/test_fault_generator.py
 tests/test_geo_layers.py
 tests/test_geography.py
 tests/test_html_report.py
+tests/test_lint_baseline.py
 tests/test_llm_boundary.py
 tests/test_mcp_controls.py
 tests/test_mcp_http.py

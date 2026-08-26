@@ -20,12 +20,12 @@ import pathlib
 
 import streamlit as st
 
-from lpr_cpe_demo.geo_layers import (OSM_ATTRIBUTION, OSM_POLICY_URL,
+from lpr_cpe_demo.geo_layers import (INITIAL_VIEW, OSM_ATTRIBUTION, OSM_POLICY_URL,
                                      ROUTE_CAVEAT, TILE_URL,
                                      dispatch_route, ferry_arcs,
                                      hub_records, marker_records,
                                      site_records)
-from lpr_cpe_demo.geography import (DISPATCH_BASES, SITE_BY_ID, assumed_bases,
+from lpr_cpe_demo.geography import (DISPATCH_BASES, assumed_bases,
                                     core_sites, ferry_terminals,
                                     sites_in_cpe_footprint)
 
@@ -69,10 +69,11 @@ def _render_folium(route_path) -> None:
     fmap = folium.Map(location=[INITIAL_VIEW["latitude"], INITIAL_VIEW["longitude"]],
                       zoom_start=9, tiles=TILE_URL, attr=OSM_ATTRIBUTION)
     for rec in site_records():
+        red, green, blue = rec["colour"][:3]
         folium.CircleMarker(
             [rec["lat"], rec["lon"]], radius=5,
             color="#FCFBFA", weight=1, fill=True, fill_opacity=0.9,
-            fill_color="#%02x%02x%02x" % tuple(rec["colour"][:3]),
+            fill_color=f"#{red:02x}{green:02x}{blue:02x}",
             tooltip=f"{rec['name']} — {rec['archetype']} — {rec['technologies']}",
         ).add_to(fmap)
     for rec in marker_records():

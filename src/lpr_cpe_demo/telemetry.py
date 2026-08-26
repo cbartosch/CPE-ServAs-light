@@ -29,8 +29,9 @@ appending a second one.
 
 from __future__ import annotations
 
+from collections.abc import Iterable
 from dataclasses import dataclass, field
-from typing import Any, Iterable, Literal, Protocol
+from typing import Any, Literal, Protocol
 
 from .cadi import CADI_CAPABILITIES
 
@@ -319,7 +320,6 @@ def _gates_from_state(state: Any) -> tuple[tuple[str, ...], tuple[str, ...]]:
         autonomous.append("Diagnose")
 
     approvals = _val(state, "approval_result") or _val(state, "pending_approval_id")
-    history = _val(state, "action_history") or []
     if approvals:
         gated.append("Act")
     elif history:
@@ -348,7 +348,6 @@ def project(state: Any, *, site_id: str = "", archetype: str = "",
     """
     stage = str(_val(state, "stage", "unknown"))
     gated, autonomous = _gates_from_state(state)
-    history = _val(state, "action_history") or []
     field_visits = int(_val(state, "field_visits", 0) or 0)
     mr_attempts = int(_val(state, "mr_attempts", 0) or 0)
 

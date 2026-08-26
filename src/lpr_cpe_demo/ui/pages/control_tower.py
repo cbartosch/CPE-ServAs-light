@@ -57,7 +57,8 @@ def render() -> None:
         unsafe_allow_html=True)
     for col, (key, colour) in zip(strip[1:], (("computed", td.ACCENTS["green"]),
                                              ("assumed", td.ACCENTS["amber"]),
-                                             ("synthetic", td.ACCENTS["red"]))):
+                                             ("synthetic", td.ACCENTS["red"])),
+                                           strict=True):
         col.markdown(
             f'<div class="ct-card"><div class="ct-kpi-label">{key} panels</div>'
             f'<div class="ct-kpi-value" style="color:{colour}">'
@@ -68,7 +69,7 @@ def render() -> None:
     st.markdown(td.card_open(kpis.title, kpis.provenance, kpis.note),
                 unsafe_allow_html=True)
     cols = st.columns(len(kpis.data))
-    for col, item in zip(cols, kpis.data):
+    for col, item in zip(cols, kpis.data, strict=True):
         col.markdown(td.kpi(item["label"], item["value"], item["description"]),
                      unsafe_allow_html=True)
 

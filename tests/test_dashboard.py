@@ -12,8 +12,12 @@ import unittest
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
-from lpr_cpe_demo.dashboard import (BUCKET_COLOUR, DOMAIN_TO_BUCKET,  # noqa: E402
-                                    THEME, Dashboard, build)
+from lpr_cpe_demo.dashboard import (  # noqa: E402
+    BUCKET_COLOUR,
+    DOMAIN_TO_BUCKET,
+    THEME,
+    build,
+)
 from lpr_cpe_demo.ui import theme_dark as td  # noqa: E402
 
 TEMPLATE_AREAS = {"Jumeirah", "Business Bay", "DIFC", "Marina", "Palm"}
