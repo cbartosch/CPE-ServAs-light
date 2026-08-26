@@ -100,7 +100,7 @@ class TestGeneratedPage(unittest.TestCase):
             cwd=ROOT, capture_output=True, text=True,
             env={"PYTHONPATH": "src", "PATH": "/usr/bin:/bin"})
         assert out.returncode == 0, out.stderr
-        cls.text = pathlib.Path("/tmp/ct_test.html").read_text()
+        cls.text = pathlib.Path("/tmp/ct_test.html").read_text(encoding="utf-8")
         cls.data = _payload(cls.text)
 
     def test_it_generates_and_declares_a_doctype(self):
@@ -170,7 +170,7 @@ class TestGeneratedPage(unittest.TestCase):
             cwd=ROOT, capture_output=True, text=True,
             env={"PYTHONPATH": "src", "PATH": "/usr/bin:/bin"})
         self.assertEqual(second.returncode, 0, second.stderr)
-        other = pathlib.Path("/tmp/ct_test2.html").read_text()
+        other = pathlib.Path("/tmp/ct_test2.html").read_text(encoding="utf-8")
         strip = lambda t: re.sub(r"Generated [^ ]+ [^ ]+ UTC", "", t)
         self.assertEqual(strip(self.text), strip(other))
 
@@ -196,6 +196,6 @@ class TestGeneratedPage(unittest.TestCase):
             env={"PYTHONPATH": "src", "PATH": "/usr/bin:/bin"})
         self.assertEqual(out.returncode, 0, out.stderr)
         strip = lambda t: re.sub(r"Generated [^ ]+ [^ ]+ UTC", "", t)
-        self.assertEqual(strip(HTML.read_text()),
-                         strip(pathlib.Path("/tmp/ct_current.html").read_text()),
+        self.assertEqual(strip(HTML.read_text(encoding="utf-8")),
+                         strip(pathlib.Path("/tmp/ct_current.html").read_text(encoding="utf-8")),
                          "regenerate with scripts/generate_control_tower_html.py")

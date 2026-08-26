@@ -153,7 +153,7 @@ class OSRMRouter:
         if path is None or not path.exists():
             return None
         try:
-            return self.parse(json.loads(path.read_text()), source="osrm-cache")
+            return self.parse(json.loads(path.read_text(encoding="utf-8")), source="osrm-cache")
         except Exception:
             return None
 

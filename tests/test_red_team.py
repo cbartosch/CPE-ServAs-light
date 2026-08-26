@@ -193,7 +193,7 @@ class TestTokenIsBoundToTheAction(unittest.TestCase):
 
     def test_the_registry_now_uses_the_consolidated_check(self):
         """Statically verified: tools.py needs pydantic and cannot run here."""
-        text = (ROOT / "src/lpr_cpe_demo/mcp_server/tools.py").read_text()
+        text = (ROOT / "src/lpr_cpe_demo/mcp_server/tools.py").read_text(encoding="utf-8")
         self.assertIn("verify_approval_for", text)
         self.assertIn("idempotency_key=idempotency_key", text)
         self.assertNotIn("APPROVAL_INCIDENT_MISMATCH", text,

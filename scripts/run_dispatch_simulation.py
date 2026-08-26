@@ -36,7 +36,7 @@ FIXTURES = ROOT / "src/lpr_cpe_demo/fixtures"
 def load() -> list[dict]:
     out = []
     for path in sorted(FIXTURES.glob("*.json")):
-        data = json.loads(path.read_text())
+        data = json.loads(path.read_text(encoding="utf-8"))
         if data.get("site_id") and data.get("true_domain"):
             data["_stem"] = path.stem
             out.append(data)

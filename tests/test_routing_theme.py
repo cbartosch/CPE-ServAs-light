@@ -196,7 +196,8 @@ class TestArtworkIsOriginalAndOptional(unittest.TestCase):
         for name in ("landmark_band.svg", "landmark_watermark.svg"):
             path = ASSETS / name
             self.assertTrue(path.exists(), name)
-            self.assertTrue(ET.fromstring(path.read_text()).tag.endswith("svg"), name)
+            root = ET.fromstring(path.read_text(encoding="utf-8"))
+            self.assertTrue(root.tag.endswith("svg"), name)
 
     SVG_NS = "http://www.w3.org/2000/svg"
 
@@ -208,7 +209,7 @@ class TestArtworkIsOriginalAndOptional(unittest.TestCase):
         """
         import re
         for name in ("landmark_band.svg", "landmark_watermark.svg"):
-            text = (ASSETS / name).read_text()
+            text = (ASSETS / name).read_text(encoding="utf-8")
             self.assertNotIn("<image", text, name)
             self.assertNotIn("xlink:href", text, name)
             urls = [u for u in re.findall(r"https?://[^\"'\s>]+", text)
@@ -217,7 +218,7 @@ class TestArtworkIsOriginalAndOptional(unittest.TestCase):
 
     def test_artwork_carries_an_accessible_label(self):
         for name in ("landmark_band.svg", "landmark_watermark.svg"):
-            self.assertIn("aria-label", (ASSETS / name).read_text(), name)
+            self.assertIn("aria-label", (ASSETS / name).read_text(encoding="utf-8"), name)
 
     def test_data_uris_are_produced(self):
         self.assertTrue(artwork.band_data_uri().startswith("data:image/svg+xml;base64,"))

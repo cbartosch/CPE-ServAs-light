@@ -107,7 +107,7 @@ def _public_definitions() -> dict[str, tuple[str, int]]:
     """Public top-level callables and classes, by name, with where they live."""
     found: dict[str, tuple[str, int]] = {}
     for path in sorted(SRC.rglob("*.py")):
-        tree = ast.parse(path.read_text())
+        tree = ast.parse(path.read_text(encoding="utf-8"))
         for node in tree.body:
             if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef,
                                  ast.ClassDef)):
@@ -134,7 +134,7 @@ def _references(name: str, roots: tuple[pathlib.Path, ...],
         for path in root.rglob("*.py"):
             if exclude and exclude in str(path):
                 continue
-            for line in path.read_text().splitlines():
+            for line in path.read_text(encoding="utf-8").splitlines():
                 if definition.match(line.strip()):
                     continue
                 count += len(pattern.findall(line))

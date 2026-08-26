@@ -61,7 +61,7 @@ class Widget:
 def collect() -> list[Widget]:
     widgets = []
     for path in sorted(UI.rglob("*.py")):
-        for node in ast.walk(ast.parse(path.read_text())):
+        for node in ast.walk(ast.parse(path.read_text(encoding="utf-8"))):
             if isinstance(node, ast.Call):
                 name = getattr(node.func, "attr", None)
                 if name in BOUNDED_WIDGETS:
@@ -118,12 +118,12 @@ class TestPageStructure(unittest.TestCase):
         for path in sorted((UI / "pages").glob("*.py")):
             if path.name == "__init__.py":
                 continue
-            tree = ast.parse(path.read_text())
+            tree = ast.parse(path.read_text(encoding="utf-8"))
             names = {n.name for n in tree.body if isinstance(n, ast.FunctionDef)}
             self.assertIn("render", names, f"{path.name} has no render()")
 
     def test_every_page_module_is_registered_in_the_app(self):
-        app = (UI / "app.py").read_text()
+        app = (UI / "app.py").read_text(encoding="utf-8")
         for path in sorted((UI / "pages").glob("*.py")):
             if path.name == "__init__.py":
                 continue
@@ -139,7 +139,7 @@ class TestNoUnsupportedPydeckApi(unittest.TestCase):
 
     def test_from_json_is_not_called_anywhere(self):
         for path in sorted(UI.rglob("*.py")):
-            for node in ast.walk(ast.parse(path.read_text())):
+            for node in ast.walk(ast.parse(path.read_text(encoding="utf-8"))):
                 if isinstance(node, ast.Attribute) and node.attr == "from_json":
                     self.fail(f"{path.name}:{node.lineno} calls from_json, "
                               f"which the installed pydeck does not provide")
@@ -166,7 +166,7 @@ class TestDollarSignsAreEscapedForMarkdown(unittest.TestCase):
     def test_no_bare_dollar_in_markdown_arguments(self):
         offenders = []
         for path in sorted(UI.rglob("*.py")):
-            for node in ast.walk(ast.parse(path.read_text())):
+            for node in ast.walk(ast.parse(path.read_text(encoding="utf-8"))):
                 if not isinstance(node, ast.Call):
                     continue
                 if getattr(node.func, "attr", None) not in self.MARKDOWN_CALLS:
@@ -400,7 +400,7 @@ class TestNoUseBeforeAssignment(unittest.TestCase):
 
     def _offenders(self, path: pathlib.Path) -> list[str]:
         import symtable
-        source = path.read_text()
+        source = path.read_text(encoding="utf-8")
         tree = ast.parse(source)
         table = symtable.symtable(source, str(path), "exec")
 
@@ -471,10 +471,10 @@ class TestRoutingIsActuallyWired(unittest.TestCase):
     SIM = UI / "pages" / "simulator.py"
 
     def test_the_page_builds_a_router(self):
-        self.assertIn("router_from_env()", self.SIM.read_text())
+        self.assertIn("router_from_env()", self.SIM.read_text(encoding="utf-8"))
 
     def test_the_router_is_passed_to_the_map(self):
-        tree = ast.parse(self.SIM.read_text())
+        tree = ast.parse(self.SIM.read_text(encoding="utf-8"))
         calls = [n for n in ast.walk(tree)
                  if isinstance(n, ast.Call)
                  and getattr(n.func, "id", "") == "_render_map"]
@@ -486,7 +486,7 @@ class TestRoutingIsActuallyWired(unittest.TestCase):
                           "computed and then discarded")
 
     def test_road_leg_records_receives_the_router(self):
-        text = self.SIM.read_text()
+        text = self.SIM.read_text(encoding="utf-8")
         self.assertIn("road_leg_records(shown, router)", text)
 
 
@@ -503,7 +503,7 @@ class TestBaseImageIsParameterised(unittest.TestCase):
     DOCKERFILES = ("docker/app.Dockerfile", "docker/mcp.Dockerfile")
 
     def _text(self, name: str) -> str:
-        return (ROOT / name).read_text()
+        return (ROOT / name).read_text(encoding="utf-8")
 
     def test_no_dockerfile_hardcodes_the_base_image(self):
         for name in self.DOCKERFILES:
@@ -524,13 +524,13 @@ class TestBaseImageIsParameterised(unittest.TestCase):
 
     def test_compose_passes_the_base_image_to_every_built_service(self):
         import yaml
-        compose = yaml.safe_load((ROOT / "docker-compose.yml").read_text())
+        compose = yaml.safe_load((ROOT / "docker-compose.yml").read_text(encoding="utf-8"))
         for service in ("api", "mcp-sim", "test"):
             args = compose["services"][service]["build"]["args"]
             self.assertIn("BASE_IMAGE", args, service)
 
     def test_the_env_template_explains_why_the_in_image_ca_does_not_help(self):
-        template = (ROOT / ".env.example").read_text()
+        template = (ROOT / ".env.example").read_text(encoding="utf-8")
         self.assertIn("BASE_IMAGE", template)
         self.assertIn("before any build layer", template)
 
@@ -538,5 +538,5 @@ class TestBaseImageIsParameterised(unittest.TestCase):
         for name in ("scripts/registry-doctor.ps1", "scripts/registry-doctor.sh"):
             path = ROOT / name
             self.assertTrue(path.exists(), name)
-            self.assertIn("capture-ca", path.read_text(),
+            self.assertIn("capture-ca", path.read_text(encoding="utf-8"),
                           "it must say why the existing CA script cannot help here")

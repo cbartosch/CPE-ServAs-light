@@ -131,7 +131,7 @@ class TestRetrieval(unittest.TestCase):
 
 class TestBenchmarkCorpus(unittest.TestCase):
     def setUp(self):
-        self.cases = json.loads(BENCH.read_text())["cases"]
+        self.cases = json.loads(BENCH.read_text(encoding="utf-8"))["cases"]
 
     def test_every_case_has_ground_truth(self):
         self.assertTrue(all(c.get("true_domain") for c in self.cases))
@@ -207,7 +207,7 @@ class TestHarnessEndToEnd(unittest.TestCase):
                              cwd=ROOT, capture_output=True, text=True,
                              env={"PYTHONPATH": "src", "PATH": "/usr/bin:/bin"})
         self.assertEqual(out.returncode, 0, out.stderr)
-        self.result = json.loads(pathlib.Path("/tmp/ab_result.json").read_text())
+        self.result = json.loads(pathlib.Path("/tmp/ab_result.json").read_text(encoding="utf-8"))
         self.arms = {a["arm"]: a for a in self.result["arms"]}
 
     def test_every_arm_runs(self):

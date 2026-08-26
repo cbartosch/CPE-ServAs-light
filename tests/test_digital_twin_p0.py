@@ -507,7 +507,7 @@ def test_34_live_approval_materializes_action_validation_and_closure(tmp_path):
     assert any(v["case_id"] == pending for v in rows_after["validation_events"])
     assert any(r["case_id"] == pending for r in rows_after["resolution_events"])
     assert quality_check(rows_after)["passed"] is True
-    updated_catalog = __import__("json").loads((run_path / "catalog.json").read_text())
+    updated_catalog = __import__("json").loads((run_path / "catalog.json").read_text(encoding="utf-8"))
     assert updated_catalog["quality"]["passed"] is True
     assert all(d["sha256"] == sha256_file(run_path / d["path"]) for d in updated_catalog["datasets"])
 
@@ -542,7 +542,7 @@ def test_36_api_returns_4xx_for_invalid_run_and_unsupported_format(tmp_path, mon
 
 
 def test_37_docker_image_prepares_writable_data_root():
-    dockerfile = (Path(__file__).parents[1] / "docker" / "Dockerfile.digital-twin").read_text()
+    dockerfile = (Path(__file__).parents[1] / "docker" / "Dockerfile.digital-twin").read_text(encoding="utf-8")
     assert "mkdir -p /data" in dockerfile
     assert "chown -R lpr:lpr /app /data" in dockerfile
 
@@ -565,8 +565,8 @@ def test_38_case_store_releases_sqlite_before_directory_publish(tmp_path):
 
 def test_39_bundle_targets_python_3_14_2():
     root = Path(__file__).parents[1]
-    pyproject = (root / "pyproject.toml").read_text()
-    dockerfile = (root / "docker" / "Dockerfile.digital-twin").read_text()
+    pyproject = (root / "pyproject.toml").read_text(encoding="utf-8")
+    dockerfile = (root / "docker" / "Dockerfile.digital-twin").read_text(encoding="utf-8")
     assert 'requires-python = ">=3.14.2,<3.14.3"' in pyproject
     assert 'ARG BASE_IMAGE=python:3.14.2-slim-bookworm' in dockerfile
     assert 'FROM ${BASE_IMAGE}' in dockerfile
@@ -600,7 +600,7 @@ def test_40_atomic_replace_retries_transient_permission_error(tmp_path, monkeypa
 
 def test_41_host_ruff_contract_is_packaged():
     root = Path(__file__).parents[1]
-    pyproject = (root / "pyproject.toml").read_text()
+    pyproject = (root / "pyproject.toml").read_text(encoding="utf-8")
     assert 'target-version = "py314"' in pyproject
     assert 'line-length = 100' in pyproject
     assert 'select = ["E", "F", "I", "B", "UP", "RUF"]' in pyproject
@@ -613,9 +613,9 @@ def test_41_host_ruff_contract_is_packaged():
         "workflow.py",
     ]
     for name in long_line_modules:
-        first = (root / "src" / "lpr_cpe_demo" / "digital_twin" / name).read_text().splitlines()[0]
+        first = (root / "src" / "lpr_cpe_demo" / "digital_twin" / name).read_text(encoding="utf-8").splitlines()[0]
         assert first == "# ruff: noqa: E501"
-    assert (root / "tests" / "test_digital_twin_p0.py").read_text().splitlines()[0] == "# ruff: noqa: E501, I001"
+    assert (root / "tests" / "test_digital_twin_p0.py").read_text(encoding="utf-8").splitlines()[0] == "# ruff: noqa: E501, I001"
 
 
 def test_42_predictive_and_care_datasets_are_correlated(tmp_path):
@@ -734,9 +734,9 @@ def test_46_quality_gate_catches_predictive_care_corruption(tmp_path):
 
 def test_47_digital_twin_docker_supports_verified_corporate_tls():
     root = Path(__file__).resolve().parents[1]
-    dockerfile = (root / "docker" / "Dockerfile.digital-twin").read_text()
-    compose = (root / "docker-compose.yml").read_text()
-    env_example = (root / ".env.example").read_text()
+    dockerfile = (root / "docker" / "Dockerfile.digital-twin").read_text(encoding="utf-8")
+    compose = (root / "docker-compose.yml").read_text(encoding="utf-8")
+    env_example = (root / ".env.example").read_text(encoding="utf-8")
     assert "ARG BASE_IMAGE=python:3.14.2-slim-bookworm" in dockerfile
     assert "COPY docker/certs/" in dockerfile
     assert "update-ca-certificates" in dockerfile
@@ -749,14 +749,14 @@ def test_47_digital_twin_docker_supports_verified_corporate_tls():
 
 def test_48_predictive_bridge_uses_py314_collections_abc_imports():
     root = Path(__file__).resolve().parents[1]
-    source = (root / "src" / "lpr_cpe_demo" / "digital_twin" / "predictive_bridge.py").read_text()
+    source = (root / "src" / "lpr_cpe_demo" / "digital_twin" / "predictive_bridge.py").read_text(encoding="utf-8")
     assert "from collections.abc import Iterable, Sequence" in source
     assert "from typing import Iterable, Sequence" not in source
 
 
 def test_49_streamlit_run_id_propagates_and_recovers_latest():
     root = Path(__file__).resolve().parents[1]
-    source = (root / "src" / "lpr_cpe_demo" / "digital_twin" / "streamlit_app.py").read_text()
+    source = (root / "src" / "lpr_cpe_demo" / "digital_twin" / "streamlit_app.py").read_text(encoding="utf-8")
     assert "RUN_STATE_KEYS = (" in source
     for key in ("predictive_run", "care_run", "data_run", "sub_run", "decision_run"):
         assert f'"{key}"' in source
@@ -768,7 +768,7 @@ def test_49_streamlit_run_id_propagates_and_recovers_latest():
 
 def test_50_streamlit_module_is_safe_to_embed_in_main_ui():
     root = Path(__file__).resolve().parents[1]
-    source = (root / "src" / "lpr_cpe_demo" / "digital_twin" / "streamlit_app.py").read_text()
+    source = (root / "src" / "lpr_cpe_demo" / "digital_twin" / "streamlit_app.py").read_text(encoding="utf-8")
     assert 'if __name__ == "__main__":' in source
     assert source.rstrip().endswith('if __name__ == "__main__":\n    render()')
     compile(source, "streamlit_app.py", "exec")
@@ -778,7 +778,7 @@ def test_51_unified_compose_has_one_ui_and_both_apis():
     import yaml
 
     root = Path(__file__).resolve().parents[1]
-    compose = yaml.safe_load((root / "docker-compose.yml").read_text())
+    compose = yaml.safe_load((root / "docker-compose.yml").read_text(encoding="utf-8"))
     services = compose["services"]
     assert {"postgres", "mcp-sim", "api", "digital-twin-api", "ui"}.issubset(services)
     assert "digital-twin-ui" not in services
@@ -792,8 +792,8 @@ def test_51_unified_compose_has_one_ui_and_both_apis():
 
 def test_52_main_ui_integration_exposes_digital_twin_page():
     root = Path(__file__).resolve().parents[1]
-    app = (root / "src" / "lpr_cpe_demo" / "ui" / "app.py").read_text()
-    page = (root / "src" / "lpr_cpe_demo" / "ui" / "pages" / "digital_twin.py").read_text()
+    app = (root / "src" / "lpr_cpe_demo" / "ui" / "app.py").read_text(encoding="utf-8")
+    page = (root / "src" / "lpr_cpe_demo" / "ui" / "pages" / "digital_twin.py").read_text(encoding="utf-8")
     assert "digital_twin," in app
     assert 'title="Predictive & Customer Care"' in app
     assert 'url_path="digital-twin"' in app
@@ -803,9 +803,9 @@ def test_52_main_ui_integration_exposes_digital_twin_page():
 
 def test_53_executive_theme_is_packaged_and_applied():
     root = Path(__file__).resolve().parents[1]
-    app = (root / "src" / "lpr_cpe_demo" / "ui" / "app.py").read_text()
-    theme = (root / "integration" / "executive_theme.py").read_text()
-    style = (root / "src" / "lpr_cpe_demo" / "digital_twin" / "executive_style.py").read_text()
+    app = (root / "src" / "lpr_cpe_demo" / "ui" / "app.py").read_text(encoding="utf-8")
+    theme = (root / "integration" / "executive_theme.py").read_text(encoding="utf-8")
+    style = (root / "src" / "lpr_cpe_demo" / "digital_twin" / "executive_style.py").read_text(encoding="utf-8")
     assert "executive_theme" in app
     assert "executive_theme.css()" in app
     assert "Service Assurance Command Center" in app
@@ -821,7 +821,7 @@ def test_53_executive_theme_is_packaged_and_applied():
 
 def test_54_digital_twin_has_executive_first_information_architecture():
     root = Path(__file__).resolve().parents[1]
-    source = (root / "src" / "lpr_cpe_demo" / "digital_twin" / "streamlit_app.py").read_text()
+    source = (root / "src" / "lpr_cpe_demo" / "digital_twin" / "streamlit_app.py").read_text(encoding="utf-8")
     assert "Predict before the call. Resolve once." in source
     assert '"Executive View"' in source
     assert '"Create Demo"' in source
@@ -836,7 +836,7 @@ def test_54_digital_twin_has_executive_first_information_architecture():
 
 def test_55_executive_view_uses_business_kpis_and_progressive_disclosure():
     root = Path(__file__).resolve().parents[1]
-    source = (root / "src" / "lpr_cpe_demo" / "digital_twin" / "streamlit_app.py").read_text()
+    source = (root / "src" / "lpr_cpe_demo" / "digital_twin" / "streamlit_app.py").read_text(encoding="utf-8")
     for label in (
         "Homes modeled",
         "Service risks found",
@@ -855,8 +855,8 @@ def test_55_executive_view_uses_business_kpis_and_progressive_disclosure():
 
 def test_56_executive_ui_preserves_governance_and_simulation_disclosures():
     root = Path(__file__).resolve().parents[1]
-    source = (root / "src" / "lpr_cpe_demo" / "digital_twin" / "streamlit_app.py").read_text()
-    app = (root / "src" / "lpr_cpe_demo" / "ui" / "app.py").read_text()
+    source = (root / "src" / "lpr_cpe_demo" / "digital_twin" / "streamlit_app.py").read_text(encoding="utf-8")
+    app = (root / "src" / "lpr_cpe_demo" / "ui" / "app.py").read_text(encoding="utf-8")
     assert "Production writes off" in source
     assert "deterministic controls" in source.lower()
     assert "objective restoration evidence" in source
@@ -974,8 +974,8 @@ def test_67_active_run_storage_recovers_from_latest_catalog(tmp_path):
 
 def test_68_legacy_control_tower_cross_links_into_active_run_workflows():
     root = Path(__file__).resolve().parents[1]
-    control = (root / "src" / "lpr_cpe_demo" / "ui" / "pages" / "control_tower.py").read_text()
-    theme = (root / "src" / "lpr_cpe_demo" / "ui" / "theme_dark.py").read_text()
+    control = (root / "src" / "lpr_cpe_demo" / "ui" / "pages" / "control_tower.py").read_text(encoding="utf-8")
+    theme = (root / "src" / "lpr_cpe_demo" / "ui" / "theme_dark.py").read_text(encoding="utf-8")
     assert "td.executive_crosslink()" in control
     assert 'href="digital-twin?view=predictive"' in theme
     assert 'href="digital-twin?view=customer-care"' in theme
@@ -985,7 +985,7 @@ def test_68_legacy_control_tower_cross_links_into_active_run_workflows():
 
 def test_69_predictive_and_care_workspace_links_back_to_legacy_control_tower():
     root = Path(__file__).resolve().parents[1]
-    source = (root / "src" / "lpr_cpe_demo" / "digital_twin" / "streamlit_app.py").read_text()
+    source = (root / "src" / "lpr_cpe_demo" / "digital_twin" / "streamlit_app.py").read_text(encoding="utf-8")
     assert 'href="control-tower"' in source
     assert 'href="digital-twin?view=predictive"' in source
     assert 'href="digital-twin?view=customer-care"' in source
@@ -997,7 +997,7 @@ def test_69_predictive_and_care_workspace_links_back_to_legacy_control_tower():
 
 def test_70_legacy_control_tower_forces_a_dark_grey_background():
     root = Path(__file__).resolve().parents[1]
-    source = (root / "src" / "lpr_cpe_demo" / "ui" / "theme_dark.py").read_text()
+    source = (root / "src" / "lpr_cpe_demo" / "ui" / "theme_dark.py").read_text(encoding="utf-8")
     assert 'LEGACY_GREY_950 = "#171717"' in source
     assert 'LEGACY_GREY_900 = "#232323"' in source
     assert 'LEGACY_GREY_800 = "#303030"' in source

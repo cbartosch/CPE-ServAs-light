@@ -133,19 +133,19 @@ class TestWiredIntoEveryPage(unittest.TestCase):
     APP = ROOT / "src/lpr_cpe_demo/ui/app.py"
 
     def test_the_sidebar_renderer_is_called_from_the_app_shell(self):
-        self.assertIn("model_sidebar.render()", self.APP.read_text())
+        self.assertIn("model_sidebar.render()", self.APP.read_text(encoding="utf-8"))
 
     def test_it_is_called_inside_the_shared_sidebar_block(self):
         """Inside `with st.sidebar` in app.py, so it precedes page dispatch and
         appears regardless of which page renders."""
-        text = self.APP.read_text()
+        text = self.APP.read_text(encoding="utf-8")
         self.assertLess(text.index("model_sidebar.render()"), text.index("pages = {"))
         self.assertGreater(text.index("model_sidebar.render()"),
                            text.index("with st.sidebar:"))
 
     def test_the_module_does_not_import_streamlit_at_module_scope(self):
         """Kept local so the panel's logic is testable without Streamlit."""
-        source = (ROOT / "src/lpr_cpe_demo/ui/sidebar.py").read_text()
+        source = (ROOT / "src/lpr_cpe_demo/ui/sidebar.py").read_text(encoding="utf-8")
         tree = ast.parse(source)
         for node in tree.body:
             if isinstance(node, (ast.Import, ast.ImportFrom)):

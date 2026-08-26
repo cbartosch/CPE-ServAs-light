@@ -189,7 +189,7 @@ class TestErrorCosts(unittest.TestCase):
 
 class TestScenariosCarryPlant(unittest.TestCase):
     def setUp(self):
-        self.fixtures = {p.stem: json.loads(p.read_text())
+        self.fixtures = {p.stem: json.loads(p.read_text(encoding="utf-8"))
                          for p in FIXTURES.glob("*.json")}
 
     def test_located_scenarios_have_a_plant_chain(self):
@@ -234,7 +234,7 @@ class TestSimulationScript(unittest.TestCase):
                              cwd=ROOT, capture_output=True, text=True,
                              env={"PYTHONPATH": "src", "PATH": "/usr/bin:/bin"})
         self.assertEqual(out.returncode, 0, out.stderr)
-        payload = json.loads(pathlib.Path("/tmp/ab_cost.json").read_text())
+        payload = json.loads(pathlib.Path("/tmp/ab_cost.json").read_text(encoding="utf-8"))
         by_arm = {c["arm"]: c for c in payload["error_cost"]}
         self.assertEqual(set(by_arm),
                          {"deterministic", "plus_scripted_model", "plus_retrieval",

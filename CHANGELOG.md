@@ -13,6 +13,14 @@ and Operations views expose the contract and state that no live CADI adapter is
 connected. Stage 2 metric reconciliation and Stage 3 install assurance are
 intentionally not included pending operator sign-off.
 
+Windows validation exposed a locale-dependent test defect in the first Stage 1
+candidate: source-inspection tests called `Path.read_text()` without an encoding,
+so Python 3.14 on a Western Windows locale attempted CP1252 decoding and failed on
+UTF-8 UI glyphs such as the status dot. Repository text reads now specify UTF-8
+explicitly, and an integrity guard rejects future locale-dependent calls. This is
+a packaging/test-portability correction only; CADI behavior and Stage 1 scope are
+unchanged.
+
 Report: `docs/AUDIT_v1.23.1.md`. Five findings, all against my own work.
 
 ### Retracted: the v1.20.0 confused-deputy finding was wrong

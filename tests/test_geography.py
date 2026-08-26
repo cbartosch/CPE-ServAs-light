@@ -180,7 +180,7 @@ class TestBaseSelection(unittest.TestCase):
 
 class TestScenariosAreLocated(unittest.TestCase):
     def setUp(self):
-        self.fixtures = {p.stem: json.loads(p.read_text())
+        self.fixtures = {p.stem: json.loads(p.read_text(encoding="utf-8"))
                          for p in FIXTURES.glob("*.json")}
 
     def test_every_scenario_has_a_real_site(self):
@@ -211,18 +211,18 @@ class TestScenariosAreLocated(unittest.TestCase):
                 self.assertTrue(d["dirty_boots_base"]["requires_ferry"], name)
 
     def test_benchmark_cases_are_located(self):
-        cases = json.loads(BENCH.read_text())["cases"]
+        cases = json.loads(BENCH.read_text(encoding="utf-8"))["cases"]
         for case in cases:
             self.assertIn(case.get("site_id"), SITE_BY_ID, case["case_id"])
 
     def test_benchmark_spans_more_than_one_archetype(self):
-        cases = json.loads(BENCH.read_text())["cases"]
+        cases = json.loads(BENCH.read_text(encoding="utf-8"))["cases"]
         self.assertGreaterEqual(len({c["archetype"] for c in cases}), 3)
 
 
 class TestGeneratedMap(unittest.TestCase):
     def setUp(self):
-        self.svg = MAP_SVG.read_text()
+        self.svg = MAP_SVG.read_text(encoding="utf-8")
         self.root = ET.fromstring(self.svg)
 
     def test_map_is_valid_svg(self):
@@ -258,7 +258,7 @@ class TestGeneratedMap(unittest.TestCase):
             cwd=ROOT, capture_output=True, text=True,
             env={"PYTHONPATH": "src", "PATH": "/usr/bin:/bin"})
         self.assertEqual(out.returncode, 0, out.stderr)
-        self.assertEqual(MAP_SVG.read_text(), self.svg,
+        self.assertEqual(MAP_SVG.read_text(encoding="utf-8"), self.svg,
                          "regenerate with scripts/generate_footprint_map.py")
 
 

@@ -103,10 +103,10 @@ def test_digital_twin_api_exposes_the_cadi_contract() -> None:
 
 
 def test_all_three_ui_surfaces_make_the_cadi_boundary_visible() -> None:
-    control = (ROOT / "src/lpr_cpe_demo/ui/pages/control_tower.py").read_text()
-    theme = (ROOT / "src/lpr_cpe_demo/ui/theme_dark.py").read_text()
-    digital = (ROOT / "src/lpr_cpe_demo/digital_twin/streamlit_app.py").read_text()
-    cockpit = (ROOT / "src/lpr_cpe_demo/ui/pages/cockpit.py").read_text()
+    control = (ROOT / "src/lpr_cpe_demo/ui/pages/control_tower.py").read_text(encoding="utf-8")
+    theme = (ROOT / "src/lpr_cpe_demo/ui/theme_dark.py").read_text(encoding="utf-8")
+    digital = (ROOT / "src/lpr_cpe_demo/digital_twin/streamlit_app.py").read_text(encoding="utf-8")
+    cockpit = (ROOT / "src/lpr_cpe_demo/ui/pages/cockpit.py").read_text(encoding="utf-8")
 
     assert 'dash.block("cadi_call_center_layer")' in control
     assert 'href="digital-twin?view=cadi"' in theme
@@ -117,7 +117,7 @@ def test_all_three_ui_surfaces_make_the_cadi_boundary_visible() -> None:
 
 
 def test_cadi_contract_document_is_explicit_about_stage_boundaries() -> None:
-    document = (ROOT / "docs/CADI_INTEGRATION_CONTRACT.md").read_text()
+    document = (ROOT / "docs/CADI_INTEGRATION_CONTRACT.md").read_text(encoding="utf-8")
     assert "second source of truth" in " ".join(document.split())
     assert "Genesys" in document
     assert "Chuck" not in document  # operational boundary, not personal dependency

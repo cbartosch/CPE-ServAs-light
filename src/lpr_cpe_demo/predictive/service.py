@@ -45,7 +45,7 @@ class FlagHistory:
     def load(self) -> "FlagHistory":
         if self.path and self.path.exists():
             try:
-                blob = json.loads(self.path.read_text())
+                blob = json.loads(self.path.read_text(encoding="utf-8"))
                 self.flags = blob.get("closed_flags", {})
                 self.open_tickets = blob.get("open_tickets", {})
             except Exception:

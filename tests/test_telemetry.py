@@ -332,8 +332,8 @@ class TestEngineInstrumentation(unittest.TestCase):
     SRC = ROOT / "src/lpr_cpe_demo/workflow/engine.py"
 
     def setUp(self):
-        self.tree = ast.parse(self.SRC.read_text())
-        self.text = self.SRC.read_text()
+        self.tree = ast.parse(self.SRC.read_text(encoding="utf-8"))
+        self.text = self.SRC.read_text(encoding="utf-8")
 
     def test_the_sink_is_optional(self):
         self.assertIn("telemetry_sink", self.text)

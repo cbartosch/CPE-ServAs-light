@@ -417,7 +417,7 @@ class TestTheAgentsAreActuallyReachable(unittest.TestCase):
 
     def _app_sources(self) -> str:
         return "\n".join(
-            p.read_text() for p in self.SRC.rglob("*.py")
+            p.read_text(encoding="utf-8") for p in self.SRC.rglob("*.py")
             if "agents" not in p.parts)
 
     def test_a_decision_agent_is_constructed_somewhere_in_the_application(self):
@@ -512,7 +512,7 @@ class TestProviderSwitchesAgree(unittest.TestCase):
                               AnthropicProvider)
 
     def test_the_env_template_documents_both(self):
-        template = (ROOT / ".env.example").read_text()
+        template = (ROOT / ".env.example").read_text(encoding="utf-8")
         self.assertIn("MODEL_PROVIDER", template)
         self.assertIn("LLM_PROVIDER", template)
 
