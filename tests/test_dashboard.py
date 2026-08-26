@@ -226,7 +226,7 @@ class TestDarkThemeReadability(unittest.TestCase):
         html = td.executive_crosslink()
         self.assertIn('href="digital-twin?view=predictive"', html)
         self.assertIn('href="digital-twin?view=customer-care"', html)
-        self.assertIn('href="digital-twin?view=cadi"', html)
+        self.assertIn('href="digital-twin?view=caddi"', html)
         self.assertEqual(html.count('target="_self"'), 3)
 
     def test_plotly_layout_is_transparent_so_the_gradient_shows(self):

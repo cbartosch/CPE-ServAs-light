@@ -4,7 +4,7 @@ import pandas as pd
 import plotly.express as px
 import streamlit as st
 
-from lpr_cpe_demo.cadi import cadi_contract, cadi_contract_rows
+from lpr_cpe_demo.caddi import caddi_contract, caddi_contract_rows
 from lpr_cpe_demo.config import get_settings
 from lpr_cpe_demo.ui.client import APIError
 from lpr_cpe_demo.ui.common import api, demo_header, render_banner, stage_label
@@ -72,21 +72,26 @@ def live_cockpit() -> None:
         st.info(f"Selected {selected}. Open the Incident Workbench from the navigation menu.")
 
 
-def _cadi_boundary() -> None:
-    contract = cadi_contract()
+def _caddi_boundary() -> None:
+    contract = caddi_contract()
     st.info(
-        "CADI remains the Genesys-facing call-center context layer. This Operations "
-        "Cockpit remains the execution view for incidents, field work, MRs, "
-        "maintenance, repair and validated closure. No live CADI adapter is connected."
+        "DvSum CADDI is an AI analytics and correlation product for Call Center and "
+        "Network Operations, but the declared LPR deployment remains Call Center-facing "
+        "through Genesys. This Operations Cockpit is not presented as a CADDI screen and "
+        "remains the authoritative execution view for incidents, "
+        "field work, MRs, maintenance, repair and validated closure. No live DvSum CADDI "
+        "adapter is connected."
     )
-    with st.expander("CADI handoff and source-of-truth boundary", expanded=False):
+    with st.expander(
+        "DvSum CADDI analytics and operational-authority boundary", expanded=False
+    ):
         st.write(contract["source_of_truth_policy"])
         st.write(contract["operations_boundary"])
-        st.dataframe(cadi_contract_rows(), hide_index=True, use_container_width=True)
+        st.dataframe(caddi_contract_rows(), hide_index=True, use_container_width=True)
 
 
 def render() -> None:
     demo_header("Operations Cockpit", "Live read-model view of incidents, approvals and outcomes.")
     render_banner()
-    _cadi_boundary()
+    _caddi_boundary()
     live_cockpit()

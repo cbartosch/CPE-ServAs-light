@@ -1,5 +1,23 @@
 # Changelog
 
+## 1.23.2 - Stage 1 amendment: DvSum CADDI corrected and re-audited
+
+The Stage 1 product name and architecture are corrected from **CADI** to
+**DvSum CADDI** (*Conversational Analytics for Data Driven Insights*). CADDI is
+now represented as an AI analytics and correlation product for Call Center and
+Network Operations. The stakeholder-supplied LPR deployment remains Call Center-
+facing through Genesys; no CADDI deployment into Chuck/VPTO is claimed. ServAssure
+NXT remains an important collection and normalization layer.
+
+The authoritative-system boundary is unchanged: source systems own the facts they
+originate, while the LPR operational workflow owns incident, dispatch, maintenance,
+MR, repair, validation and closure state. A canonical `caddi` module, API route and
+UI view are added; the previous `cadi` names remain deprecated compatibility
+aliases. No live adapter, credential, write-back or replacement decision is added.
+
+This amendment is based on the signed-off Stage 1 code. It does not include or
+modify Stage 2 semantic-reconciliation logic or Stage 3 install assurance.
+
 ## 1.23.1 - audit: a retraction, and the third unreachable capability
 
 ### Stage-gated LPR extension: CADI made explicit

@@ -46,18 +46,22 @@ Each synthetic contact is promoted to a `care_ticket`. The ticket stays on the c
 
 `care_ticket_reviews` expose deterministic RCA, model/agent output, reconciliation state, predictive context, and evidence references in one record for operational review.
 
-## CADI / Genesys call-center plane
+## DvSum CADDI analytics plane
 
-CADI is declared as the existing LPR call-center correlation and presentation
-layer integrated with Genesys. The Digital Twin does not claim a live CADI
-connection. It exposes the contract so the Customer Care experience can be
-designed to build on CADI rather than become a second source of truth.
+DvSum CADDI is an AI analytics and correlation product for Call Center and
+Network Operations. The stakeholder-supplied LPR deployment is explicitly narrower:
+it remains Call Center-facing through Genesys and is not claimed as Chuck/VPTO's
+maintenance-and-repair tool. CommScope ServAssure NXT collects and normalizes key
+network and subscriber performance information that CADDI can analyze. The Digital
+Twin does not claim a live CADDI connection. It exposes the contract so Customer
+Care can build on the existing capability and Operations can remain a separate,
+linked execution workflow rather than create a second truth.
 
-CSG, OTS, Intraway, NXT, Symphonica, Dvision/LLA, Plume and operational
-repair systems remain authoritative for the facts they originate. CADI is the
-intended place to present a correlated customer-safe view. Operations, Clean
-Boots, jTrack and validation remain responsible for incident, work and closure
-state. See `../CADI_INTEGRATION_CONTRACT.md`.
+CSG, OTS, Intraway, ServAssure NXT, Symphonica, Dvision/LLA, Plume and the
+operational repair systems remain authoritative for the facts they originate.
+The LPR operational workflow, Clean Boots, jTrack and validation remain
+authoritative for incident, work and closure state. See
+`../DVSUM_CADDI_INTEGRATION_CONTRACT.md`.
 
 ## Canonical graph and hard controls
 

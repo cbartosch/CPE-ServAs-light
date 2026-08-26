@@ -1,5 +1,29 @@
 # Test Report
 
+## Stage 1 DvSum CADDI amendment audit — 26 August 2026
+
+The product name and architecture have been corrected to **DvSum CADDI** without
+introducing Stage 2 semantic-reconciliation logic or Stage 3 install assurance.
+
+| Gate | Result |
+|---|---:|
+| DvSum CADDI/CADI compatibility, API, dashboard, Digital Twin, lint-baseline and telemetry suite | **164 PASS** |
+| Bundle-integrity suite after manifest regeneration | **12 PASS** |
+| Changed-file AST, UTF-8, line-length, secret and no-live-client checks | PASS |
+| Model-output differential outside the CADDI contract block | PASS |
+| Existing Stage 2 bundle hash preserved | PASS |
+| Full repository collection | **808 tests** |
+| Full collection result after manifest refresh | **793 PASS / 13 inherited FAIL / 2 SKIP** |
+
+The thirteen failures reproduce on the signed-off Stage 1 base and concern the
+existing `.env`/TLS policy fixture, idempotency-key claims in older approval-token
+tests, the FastAPI reachability heuristic, a stale Python 3.12 Docker expectation
+and workflow tests using the same older token fixture. They are not changed in this
+amendment because Stage 2 results must remain unchanged.
+
+See [`AUDIT_STAGE1_DVSUM_CADDI_v1.23.2.md`](AUDIT_STAGE1_DVSUM_CADDI_v1.23.2.md)
+for the complete audit.
+
 ## Revision under test
 
 - Bundle: **LPR CPE Service Assurance Demo v1.2 improved**

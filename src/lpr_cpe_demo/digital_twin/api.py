@@ -9,7 +9,7 @@ from fastapi import Depends, FastAPI, HTTPException, Query
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
 from pydantic import BaseModel, Field
 
-from ..cadi import cadi_contract
+from ..caddi import caddi_contract
 from . import __version__
 from .executive_projection import build_executive_projection
 from .models import GenerationConfig, HumanDecision
@@ -117,9 +117,10 @@ def ready(_: dict = Depends(principal)):
     return {"status": "ready", "data_root": str(DATA_ROOT)}
 
 
-@app.get("/api/integrations/cadi")
-def _cadi_integration_contract(_: dict = Depends(principal)):
-    return cadi_contract()
+@app.get("/api/integrations/caddi")
+@app.get("/api/integrations/cadi", deprecated=True)
+def _caddi_integration_contract(_: dict = Depends(principal)):
+    return caddi_contract()
 
 
 @app.get("/api/runs")

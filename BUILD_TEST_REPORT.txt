@@ -1,6 +1,23 @@
 LPR CPE SERVICE ASSURANCE DEMO — BUILD AND TEST REPORT
 ======================================================
 
+STAGE 1 DVSUM CADDI AMENDMENT AUDIT — 2026-08-26
+------------------------------------------------
+PASS  Product corrected to DvSum CADDI (Conversational Analytics for Data Driven Insights)
+PASS  Product scope (Call Center + Network Operations) is separated from declared LPR scope (Call Center/Genesys only)
+PASS  Genesys interaction-channel and ServAssure NXT collection/normalization roles are explicit
+PASS  Source-system and operational-authority boundaries are preserved
+PASS  Canonical caddi module/API/view plus deprecated cadi compatibility aliases
+PASS  164 amendment-specific and adjacent regression tests
+PASS  12 bundle-integrity tests after manifest regeneration
+PASS  Changed-file AST, UTF-8, secret, no-live-client and line-length checks
+PASS  Model-derived dashboard outputs unchanged outside the CADDI contract block
+PASS  Existing Stage 2 bundle remains byte-identical (SHA-256 d6adb39b...7903b)
+PASS  Stage 2 measurement and Stage 3 install-assurance implementation remain absent
+AUDIT Full repository collection: 808 tests; 13 inherited failures reproduce on signed-off Stage 1
+NOTE  See docs/AUDIT_STAGE1_DVSUM_CADDI_v1.23.2.md for findings and evidence.
+NOTE  Exact Ruff 0.13.3 was unavailable in the isolated audit runtime; target-laptop Ruff remains mandatory.
+
 STAGE 1 CADI WINDOWS PORTABILITY CORRECTIONS — 2026-08-26
 ---------------------------------------------------
 PASS  113 focused CADI/API/dashboard/Digital Twin tests

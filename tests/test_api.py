@@ -67,12 +67,21 @@ def test_api_rejects_wrong_approval_role(service: WorkflowService) -> None:
         assert response.status_code == 403
 
 
-def test_api_exposes_cadi_integration_contract(service: WorkflowService) -> None:
+def test_api_exposes_dvsum_caddi_integration_contract(service: WorkflowService) -> None:
     app = create_app(settings=service.settings, service=service)
     with TestClient(app) as client:
-        response = client.get("/api/integrations/cadi")
-        assert response.status_code == 200
-        body = response.json()
+        canonical = client.get("/api/integrations/caddi")
+        legacy = client.get("/api/integrations/cadi")
+        assert canonical.status_code == 200
+        assert legacy.status_code == 200
+        assert canonical.json() == legacy.json()
+        body = canonical.json()
         assert body["integration_status"] == "contract_only"
         assert body["live_connection"] is False
-        assert body["owner_scope"] == "Call center / Genesys"
+        assert body["product_scope"] == "Call Center and Network Operations"
+        assert body["declared_lpr_deployment_scope"] == "Call Center via Genesys"
+        assert body["owner_scope"] == "Call Center via Genesys (declared LPR deployment)"
+        assert body["layer"] == "DvSum CADDI"
+        schema = client.get("/openapi.json").json()
+        assert schema["paths"]["/api/integrations/cadi"]["get"]["deprecated"] is True
+        assert "deprecated" not in schema["paths"]["/api/integrations/caddi"]["get"]

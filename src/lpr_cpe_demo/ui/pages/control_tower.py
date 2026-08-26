@@ -199,24 +199,24 @@ def render() -> None:
             _chart(health, lambda: st.dataframe(health.data, hide_index=True,
                                                 use_container_width=True))
 
-    cadi = dash.block("cadi_call_center_layer")
-    st.markdown(td.card_open(cadi.title, cadi.provenance, cadi.note),
+    caddi = dash.block("cadi_call_center_layer")
+    st.markdown(td.card_open(caddi.title, caddi.provenance, caddi.note),
                 unsafe_allow_html=True)
-    cadi_summary = cadi.data["summary"]
-    cadi_cols = st.columns(4)
-    cadi_cols[0].metric("Mapped domains", cadi_summary["capability_domains"])
-    cadi_cols[1].metric("Declared in CADI", cadi_summary["declared_existing"])
-    cadi_cols[2].metric("Known gaps", cadi_summary["known_gaps"])
-    cadi_cols[3].metric("Live adapter", "No — contract only")
+    caddi_summary = caddi.data["summary"]
+    caddi_cols = st.columns(4)
+    caddi_cols[0].metric("Mapped domains", caddi_summary["capability_domains"])
+    caddi_cols[1].metric("Declared in DvSum CADDI", caddi_summary["declared_existing"])
+    caddi_cols[2].metric("Known gaps", caddi_summary["known_gaps"])
+    caddi_cols[3].metric("Live adapter", "No — contract only")
     st.info(
-        cadi.data["source_of_truth_policy"] + " " + cadi.data["operations_boundary"]
+        caddi.data["source_of_truth_policy"] + " " + caddi.data["operations_boundary"]
     )
-    st.dataframe(cadi.data["capabilities"], hide_index=True,
+    st.dataframe(caddi.data["capabilities"], hide_index=True,
                  use_container_width=True)
     st.caption(
-        "CADI capability mapping is based on LPR stakeholder input. APIs, field "
-        "definitions, latency, source precedence and contractor roadmap require "
-        "joint discovery before a live integration is claimed."
+        "DvSum CADDI product scope is externally verified; the stakeholder-supplied LPR "
+        "deployment remains Call Center/Genesys only. APIs, fields, latency and the "
+        "contractor roadmap require joint discovery before a live integration is claimed."
     )
 
     contract = dash.block("data_contract")

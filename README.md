@@ -7,7 +7,7 @@ A Docker Desktop demonstration of an HFC/PON customer-premises-equipment service
 - optional LangChain-backed OpenAI or Anthropic RCA assistance;
 - human approval for RCA disagreement, remote actions, dispatch, Clean/Dirty Boots handover, and plant actions;
 - a Streamlit operations cockpit, incident workbench, human decision center, decision/model monitor, and system monitor;
-- an explicit CADI/Genesys call-center correlation contract that preserves source-system authority without claiming a live adapter;
+- an explicit DvSum CADDI product contract covering Call Center and Network Operations, while preserving the declared LPR deployment as Call Center/Genesys only and claiming no live adapter;
 - a strict, stateless MCP simulation endpoint for NXT, CPE, WFM, Clean Boots, jTrack MR, and plant actions;
 - PostgreSQL for the queryable incident and approval read model;
 - persistent idempotency and approval-consumption records for simulated MCP effects.
@@ -215,28 +215,38 @@ docker compose up --build -d
 
 The backend uses LangChain chat-model integrations and validates structured RCA output. In the default safe profile the fake assistant is used. For external providers, initialization failures fall back to the deterministic assistant only when explicitly permitted by configuration; the active provider and engine are shown in the System Monitor.
 
-## CADI / Genesys call-center layer
+## DvSum CADDI analytics layer
 
-CADI is represented explicitly as the existing LPR call-center correlation and
-presentation layer integrated with Genesys. It is **not** treated as a replacement
-system of record. CSG, OTS, Intraway, CommScope ServAssure NXT, Symphonica,
-Dvision/LLA, Plume and the operational repair systems remain authoritative for the
-facts they originate.
+The product is **DvSum CADDI** (*Conversational Analytics for Data Driven
+Insights*). Its public product scope includes Call Center and Network Operations.
+The declared LPR deployment in the stakeholder input remains Call Center-facing
+through Genesys; this bundle does not claim a CADDI deployment into Chuck/VPTO.
+CommScope ServAssure NXT is an important collection and normalization layer for
+network and subscriber performance evidence.
 
-This release exposes a contract-only CADI source map in both APIs and the UI. No
-live CADI endpoint, credentials or source data are connected. Maintenance and
-repair remain in the Operations/VPTO workflow; CADI receives a customer-safe status
-projection in the target architecture. See
-[`docs/CADI_INTEGRATION_CONTRACT.md`](docs/CADI_INTEGRATION_CONTRACT.md).
+DvSum CADDI is not treated as a replacement system of record. CSG, OTS,
+Intraway, ServAssure NXT, Symphonica, Dvision/LLA, Plume and the operational
+repair systems remain authoritative for the facts and lifecycle states they
+originate. CADDI may correlate, explain and recommend, but must carry source
+lineage and analytical confidence.
+
+This release exposes a contract-only DvSum CADDI source and authority map through
+both APIs and the UI. No live CADDI endpoint, credentials or source data are
+connected. The LPR operational workflow remains authoritative for incidents,
+dispatch, Clean Boots, jTrack MRs, repair, validation and closure. See
+[`docs/DVSUM_CADDI_INTEGRATION_CONTRACT.md`](docs/DVSUM_CADDI_INTEGRATION_CONTRACT.md).
 
 ## Architecture
 
 ```mermaid
 flowchart LR
     C[Customer] --> GX[Genesys]
-    GX --> CADI[CADI call-center context]
-    S[CSG / OTS / Intraway / NXT / Symphonica / Dvision-LLA / Plume] -. authoritative facts .-> CADI
-    CADI -. contract mapped; live adapter pending .-> UI[Streamlit GUI]
+    NXT[ServAssure NXT
+collect + normalize] --> CADDI[DvSum CADDI
+AI analytics + correlation]
+    S[CSG / OTS / Intraway / Symphonica / Dvision-LLA / Plume] -. authoritative facts .-> CADDI
+    CADDI --> GX
+    CADDI -. contract mapped; live adapter pending .-> UI[Streamlit GUI]
     U[Operator] --> UI
     UI --> API[FastAPI query and command API]
     API --> DB[(PostgreSQL read model)]
@@ -248,7 +258,7 @@ flowchart LR
     M --> MS[MCP simulation server]
     MS --> N[NXT / CPE / WFM / jTrack simulations]
     G --> DB
-    G -. customer-safe repair status .-> CADI
+    G -. operational status + validated outcome .-> CADDI
 ```
 
 See `docs/ARCHITECTURE.md` and `docs/WORKFLOW.md` for implementation detail.

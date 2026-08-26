@@ -22,7 +22,9 @@ def test_lint_baseline_is_explicit_and_rule_scoped() -> None:
 def test_stage1_and_future_feature_files_are_not_baselined() -> None:
     baseline = _ruff_config()["lint"]["per-file-ignores"]
     protected = {
+        "src/lpr_cpe_demo/caddi.py",
         "src/lpr_cpe_demo/cadi.py",
+        "tests/test_caddi.py",
         "tests/test_cadi.py",
         "tests/test_lint_baseline.py",
     }

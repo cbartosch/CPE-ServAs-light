@@ -12,7 +12,7 @@ from datetime import datetime
 
 import streamlit as st
 
-from ..cadi import cadi_contract, cadi_contract_rows
+from ..caddi import caddi_contract, caddi_contract_rows
 from . import executive_style
 
 API = os.getenv("DT_API_URL", "http://api:8001")
@@ -98,9 +98,11 @@ VIEW_ALIASES = {
     "care": "care",
     "customer-care": "care",
     "customer-experience": "care",
-    "cadi": "cadi",
-    "genesys": "cadi",
-    "cadi-genesys": "cadi",
+    "caddi": "caddi",
+    "dvsum-caddi": "caddi",
+    "cadi": "caddi",
+    "genesys": "caddi",
+    "cadi-genesys": "caddi",
     "subscriber": "subscriber",
     "subscriber-story": "subscriber",
     "decisions": "decisions",
@@ -217,7 +219,7 @@ def _hero() -> None:
           <div class="lpr-pill-row">
             <span class="lpr-pill"><span class="lpr-dot"></span> Predictive HFC + PON</span>
             <span class="lpr-pill"><span class="lpr-dot"></span> Care correlation</span>
-            <span class="lpr-pill"><span class="lpr-dot"></span> CADI / Genesys contract mapped</span>
+            <span class="lpr-pill"><span class="lpr-dot"></span> DvSum CADDI / Genesys contract mapped</span>
             <span class="lpr-pill"><span class="lpr-dot"></span> AI reconciled to controls</span>
             <span class="lpr-pill"><span class="lpr-dot"></span> Production writes off</span>
           </div>
@@ -614,8 +616,9 @@ def _customer_experience() -> None:
         "Show what the customer reported, whether the network saw it first, and how the contact attaches to one governed root incident.",
     )
     st.caption(
-        "Target call-center presentation layer: CADI inside Genesys. This demo does "
-        "not connect to a live CADI endpoint; the CADI & Genesys tab documents the "
+        "DvSum CADDI provides AI analytics and correlation for Call Center and Network "
+        "Operations; Genesys is the customer-interaction channel. This demo does not "
+        "connect to a live CADDI endpoint. The DvSum CADDI & Genesys tab documents the "
         "declared source and authority boundaries."
     )
     run_id = _run_id("care_run")
@@ -729,54 +732,54 @@ def _customer_experience() -> None:
             st.json(case)
 
 
-def _cadi_layer() -> None:
-    contract = cadi_contract()
+def _caddi_layer() -> None:
+    contract = caddi_contract()
     summary = contract["summary"]
     _section(
-        "Existing call-center layer",
-        "CADI & Genesys integration boundary",
+        "Existing AI analytics layer",
+        "DvSum CADDI · Genesys · ServAssure NXT boundary",
         (
-            "Make the existing LPR call-center correlation investment explicit, "
-            "preserve source authority, and identify where the assurance layer should "
-            "augment rather than create a second source of truth."
+            "Make DvSum CADDI's product scope explicit while preserving the declared LPR "
+            "deployment as Call Center-facing through Genesys, and identify where the LPR "
+            "assurance workflow should build on it rather than create a second truth."
         ),
     )
 
     cols = st.columns(4)
     cols[0].metric("Mapped capability domains", summary["capability_domains"])
-    cols[1].metric("Declared existing in CADI", summary["declared_existing"])
+    cols[1].metric("Declared in DvSum CADDI", summary["declared_existing"])
     cols[2].metric("Known data gaps", summary["known_gaps"])
-    cols[3].metric("Live CADI adapter", "Not connected")
+    cols[3].metric("Live CADDI adapter", "Not connected")
 
     st.warning(
-        "Contract-only status. The mapping below is based on LPR stakeholder input; "
-        "CADI APIs, field definitions, source precedence, latency, retention, ownership "
-        "and contractor roadmap still require joint discovery."
+        "Contract-only status. DvSum CADDI product scope is externally verified; the LPR "
+        "mapping below is stakeholder supplied. APIs, fields, source precedence, latency, "
+        "retention, ownership and the contractor roadmap still require joint discovery."
     )
     st.info(contract["source_of_truth_policy"] + " " + contract["operations_boundary"])
 
     left, right = st.columns(2)
     with left:
-        st.markdown("### CADI remains")
+        st.markdown("### DvSum CADDI provides")
         st.markdown(
             """
-            - The Genesys-facing call-center context and correlation experience.
-            - A presentation of billing, outage, provisioning and service evidence.
-            - The place where an agent sees an existing issue and the best current route.
+            - AI analytics and correlation for Call Center and Network Operations.
+            - Network-aware subscriber context in the Genesys customer-service journey.
+            - Analysis of ServAssure NXT and other declared LPR data sources.
             """
         )
     with right:
-        st.markdown("### Assurance layer adds")
+        st.markdown("### LPR assurance workflow owns")
         st.markdown(
             """
-            - Predictive detection, evidence lineage and fault-side localization.
-            - Governed next-best action and correlation to one root incident.
-            - Maintenance/repair handoff, validation and customer-safe status back to CADI.
+            - A separate Operations/VPTO execution workflow, not a claimed CADDI deployment.
+            - Deterministic controls, dispatch, Clean Boots, jTrack MR and repair state.
+            - Objective validation, closure and customer-safe status back to CADDI/Genesys.
             """
         )
 
-    st.dataframe(cadi_contract_rows(), hide_index=True, use_container_width=True)
-    with st.expander("CADI architecture decision gate", expanded=False):
+    st.dataframe(caddi_contract_rows(), hide_index=True, use_container_width=True)
+    with st.expander("DvSum CADDI architecture decision gate", expanded=False):
         st.markdown(
             f"""
             **Preferred pattern:** `{contract['preferred_pattern']}`
@@ -785,8 +788,8 @@ def _cadi_layer() -> None:
 
 
             Stage 1 documents the contract only. A live adapter or replacement decision is
-            out of scope until the CADI owner, Genesys owner, source-system teams and the
-            current contractor confirm the architecture and operating responsibilities.
+            out of scope until the DvSum CADDI owner, Genesys owner, source-system teams and
+            the current contractor confirm the architecture and operating responsibilities.
             """
         )
 
@@ -952,7 +955,7 @@ def _evidence() -> None:
             """
             **What the demo proves**
             - Predictive modem evidence and Customer Care are correlated through the same service and root incident.
-            - CADI is explicitly positioned as the Genesys call-center context layer; no live CADI adapter is claimed.
+            - DvSum CADDI product scope includes Call Center and Network Operations; the declared LPR deployment remains Call Center/Genesys only and no live adapter is claimed.
             - Deterministic operating controls remain authoritative when an AI recommendation differs.
             - Dispatch requires diagnosis plus skills, parts and access readiness.
             - CPE replacement requires failed diagnostics or a documented reason.
@@ -976,7 +979,7 @@ def render() -> None:
         ("create", "Create Demo", _create_demo),
         ("predictive", "Predictive Health", _predictive_health),
         ("care", "Customer Experience", _customer_experience),
-        ("cadi", "CADI & Genesys", _cadi_layer),
+        ("caddi", "DvSum CADDI & Genesys", _caddi_layer),
         ("subscriber", "Subscriber Story", _subscriber_story),
         ("decisions", "Decisions & Controls", _decision_control),
         ("evidence", "Evidence & Audit", _evidence),
