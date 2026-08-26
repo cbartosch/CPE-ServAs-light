@@ -1,5 +1,6 @@
 .dockerignore
 .env.example
+.gitattributes
 .gitignore
 BUILD_TEST_REPORT.txt
 BUNDLE_CONTENTS.txt

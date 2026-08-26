@@ -116,12 +116,36 @@ class TestManifestVerifier(unittest.TestCase):
         self.assertEqual(out.returncode, 0, out.stdout + out.stderr)
         self.assertIn("matches the manifest", out.stdout)
 
+    def test_verifier_accepts_windows_crlf_checkout(self):
+        """Line-ending presentation changes must not look like corruption."""
+        target = PKG / "__init__.py"
+        original = target.read_bytes()
+        canonical = original.replace(b"\r\n", b"\n")
+        try:
+            target.write_bytes(canonical.replace(b"\n", b"\r\n"))
+            out = subprocess.run(
+                [sys.executable, "scripts/verify_manifest.py"],
+                cwd=ROOT,
+                capture_output=True,
+                text=True,
+            )
+            self.assertEqual(out.returncode, 0, out.stdout + out.stderr)
+            self.assertIn("matches the manifest", out.stdout)
+        finally:
+            target.write_bytes(original)
+
+    def test_gitattributes_keeps_repository_text_on_lf(self):
+        attributes = (ROOT / ".gitattributes").read_text(encoding="utf-8")
+        self.assertIn("* text=auto eol=lf", attributes)
+        for suffix in ("*.bundle binary", "*.docx binary", "*.pptx binary", "*.zip binary"):
+            self.assertIn(suffix, attributes)
+
     def test_verifier_detects_a_tampered_file(self):
         """Proves the guard works by breaking a file and putting it back."""
         target = PKG / "__init__.py"
         original = target.read_bytes()
         try:
-            target.write_text("from .client import Nope\n")
+            target.write_text("from .client import Nope\n", encoding="utf-8", newline="\n")
             out = subprocess.run([sys.executable, "scripts/verify_manifest.py"],
                                  cwd=ROOT, capture_output=True, text=True)
             self.assertEqual(out.returncode, 1)

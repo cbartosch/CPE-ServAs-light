@@ -1,0 +1,21 @@
+# Keep repository text canonical across Windows, macOS and Linux. The integrity
+# manifest is defined over UTF-8 text with LF line endings; binary files retain
+# their exact bytes.
+* text=auto eol=lf
+
+# Explicit binary formats: never subject these to newline conversion.
+*.bundle binary
+*.docx binary
+*.gif binary
+*.ico binary
+*.jpeg binary
+*.jpg binary
+*.pdf binary
+*.png binary
+*.pptx binary
+*.pyc binary
+*.tar binary
+*.tgz binary
+*.webp binary
+*.whl binary
+*.zip binary

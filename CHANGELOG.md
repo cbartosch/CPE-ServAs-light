@@ -21,6 +21,13 @@ explicitly, and an integrity guard rejects future locale-dependent calls. This i
 a packaging/test-portability correction only; CADI behavior and Stage 1 scope are
 unchanged.
 
+A second Windows-only packaging defect was then exposed: Git converted tracked
+UTF-8 text from LF to CRLF, while `MANIFEST.sha256` compared raw checkout bytes.
+That made an otherwise clean tree report hundreds of false mismatches. The
+verifier now hashes UTF-8 text in canonical LF form while continuing to verify
+binary files byte-for-byte, and `.gitattributes` keeps future text checkouts on
+LF. A regression test exercises a CRLF checkout explicitly.
+
 Report: `docs/AUDIT_v1.23.1.md`. Five findings, all against my own work.
 
 ### Retracted: the v1.20.0 confused-deputy finding was wrong

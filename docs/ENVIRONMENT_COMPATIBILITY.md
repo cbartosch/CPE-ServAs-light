@@ -74,3 +74,15 @@ The Compose build forwards host `HTTP_PROXY`, `HTTPS_PROXY` and `NO_PROXY` value
 Change the corresponding variables in `.env` when a port is already occupied.
 
 No GPU is required. External LLM calls are optional and use the provider API configured on the backend only.
+
+## Windows line endings and integrity verification
+
+Git installations with `core.autocrlf=true` may present tracked UTF-8 text with
+CRLF line endings in an existing Windows working tree. The repository manifest is
+defined over canonical UTF-8/LF content, so `scripts/verify_manifest.py` normalizes
+only UTF-8 text line endings before hashing. Binary files remain byte-exact. The
+root `.gitattributes` file also requests LF for future text checkouts.
+
+This means a clean Windows checkout passes integrity verification without disabling
+`core.autocrlf` or rewriting the entire working tree. A genuine text-content change
+still produces a mismatch.

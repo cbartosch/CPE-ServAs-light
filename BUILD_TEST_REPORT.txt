@@ -1,15 +1,19 @@
 LPR CPE SERVICE ASSURANCE DEMO — BUILD AND TEST REPORT
 ======================================================
 
-STAGE 1 CADI WINDOWS-LOCALE CORRECTION — 2026-08-26
+STAGE 1 CADI WINDOWS PORTABILITY CORRECTIONS — 2026-08-26
 ---------------------------------------------------
 PASS  113 focused CADI/API/dashboard/Digital Twin tests
 PASS  same focused suite with UTF-8 mode disabled and the C locale forced
 PASS  repository text-read guard: every Path.read_text call names an encoding
+PASS  manifest verification is invariant to Windows CRLF checkout conversion
+PASS  binary manifest entries remain byte-for-byte verified
+PASS  .gitattributes keeps tracked text on canonical LF for future checkouts
 PASS  Python compileall for source, scripts and tests
 PASS  git diff whitespace validation
-NOTE  This correction changes text decoding and tests only; Stage 2 semantic
-      reconciliation and Stage 3 install assurance remain out of scope.
+NOTE  These corrections change test/packaging portability and integrity
+      verification only; Stage 2 semantic reconciliation and Stage 3 install
+      assurance remain out of scope.
 NOTE  Ruff is pinned for the target environment but was not installed in the
       packaging runtime used for this correction.
 Bundle revision: 1.2 improved comparison build

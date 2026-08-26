@@ -5,7 +5,9 @@
     python3 scripts/verify_manifest.py --show-untracked
 
 Standard library only, so it runs on Windows, macOS and Linux with no install and
-inside a bare python image.
+inside a bare python image. UTF-8 text is hashed in a canonical LF form so Git's
+Windows CRLF checkout conversion does not produce a false integrity failure.
+Binary files are always verified byte-for-byte.
 
 Why this exists
 ---------------
@@ -37,12 +39,33 @@ SKIP_FILES = {"MANIFEST.sha256", "BUNDLE_MANIFEST.sha256", "FILE_MANIFEST.txt",
               ".env", ".coverage"}
 
 
+def _canonical_manifest_bytes(path: pathlib.Path) -> tuple[bytes, bool]:
+    """Return bytes in the cross-platform form used by ``MANIFEST.sha256``.
+
+    Git commonly checks text out with CRLF on Windows when ``core.autocrlf`` is
+    enabled. That is a presentation-layer change, not content corruption. Files
+    that are valid UTF-8 text and contain no NUL byte are therefore normalized to
+    LF before hashing. Non-UTF-8 or NUL-containing files remain byte-exact.
+    """
+    raw = path.read_bytes()
+    if b"\x00" in raw:
+        return raw, False
+    try:
+        text = raw.decode("utf-8")
+    except UnicodeDecodeError:
+        return raw, False
+    canonical = text.replace("\r\n", "\n").encode("utf-8")
+    return canonical, canonical != raw
+
+
 def sha256(path: pathlib.Path) -> str:
-    digest = hashlib.sha256()
-    with path.open("rb") as handle:
-        for chunk in iter(lambda: handle.read(1 << 20), b""):
-            digest.update(chunk)
-    return digest.hexdigest()
+    canonical, _ = _canonical_manifest_bytes(path)
+    return hashlib.sha256(canonical).hexdigest()
+
+
+def raw_sha256(path: pathlib.Path) -> str:
+    """Hash the checkout bytes for diagnostics; not used for pass/fail."""
+    return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
 def main() -> int:
@@ -103,9 +126,14 @@ def main() -> int:
         print(f"untracked        : {len(untracked)}")
 
     for rel in mismatched:
+        path = ROOT / rel
+        canonical, normalized = _canonical_manifest_bytes(path)
+        actual = hashlib.sha256(canonical).hexdigest()
         print(f"\nMISMATCH  {rel}")
-        print(f"  expected {expected[rel]}")
-        print(f"  actual   {sha256(ROOT / rel)}")
+        print(f"  expected  {expected[rel]}")
+        print(f"  canonical {actual}")
+        if normalized:
+            print(f"  checkout  {raw_sha256(path)} (line endings normalized for verification)")
     for rel in missing:
         print(f"\nMISSING   {rel}")
     for rel in untracked:
