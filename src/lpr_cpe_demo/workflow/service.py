@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
-from pathlib import Path
 from typing import Any
 from uuid import uuid4
 
@@ -12,12 +11,8 @@ from lpr_cpe_demo.domain import (
     ApprovalRequest,
     ApprovalStatus,
     CaseStatus,
-    FaultDomain,
     IncidentState,
-    Stage,
-    StartScenarioResponse,
     Technology,
-    stable_id,
     utc_now,
 )
 from lpr_cpe_demo.llm import RCAAssistant, build_rca_assistant

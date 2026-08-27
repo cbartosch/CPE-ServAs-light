@@ -227,7 +227,26 @@ class TestDarkThemeReadability(unittest.TestCase):
         self.assertIn('href="digital-twin?view=predictive"', html)
         self.assertIn('href="digital-twin?view=customer-care"', html)
         self.assertIn('href="digital-twin?view=dalli"', html)
-        self.assertEqual(html.count('target="_self"'), 4)
+        self.assertIn('href="digital-twin?view=external-evidence"', html)
+        self.assertEqual(html.count('target="_self"'), 5)
+
+    def test_all_analytical_panels_use_the_uniform_medium_grey_surface(self):
+        from lpr_cpe_demo.digital_twin import executive_style
+
+        executive_css = executive_style.css()
+        legacy_css = td.css()
+        self.assertEqual(td.PANEL_GREY, "#4B5057")
+        self.assertIn("--lpr-panel: #4B5057", executive_css)
+        self.assertIn("--lpr-panel-radius: 14px", executive_css)
+        self.assertIn(f"background: {td.PANEL_GREY} !important", legacy_css)
+        self.assertGreaterEqual(
+            td.contrast_ratio("#F5F7FA", td.PANEL_GREY),
+            td.WCAG_AA_BODY,
+        )
+        self.assertGreaterEqual(
+            td.contrast_ratio("#D7DCE2", td.PANEL_GREY),
+            td.WCAG_AA_BODY,
+        )
 
     def test_plotly_layout_is_transparent_so_the_gradient_shows(self):
         layout = td.plotly_layout()

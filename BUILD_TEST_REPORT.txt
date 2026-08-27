@@ -1,3 +1,18 @@
+STAGE 4 WINDOWS / RUFF REPAIR CANDIDATE - 2026-08-27
+----------------------------------------------------
+PASS  corrected the theme_dark.py unterminated HTML string
+PASS  External Evidence cross-link count and regression updated
+PASS  Executive, Predictive, Care, Operations and External Evidence panels use
+      one medium-grey surface and uniform 14-pixel layout contract
+PASS  structured OpenAI boundary tests use a local module stub and make no network call
+PASS  Stage 4 new/modified files compile under the audit runtime
+PASS  governed scenario matrix retains all expected outcomes
+PASS  283 focused External Evidence, Install Assurance, semantic, API, dashboard,
+      workflow, MCP, security, telemetry and lint-baseline tests
+PASS  manifest regenerated in canonical LF form for Windows CRLF-safe verification
+NOTE  exact Ruff 0.13.3 execution remains the Windows acceptance command because
+      the isolated packaging runtime has no Ruff binary or network package access
+
 # Stage 3 governed-execution gate repair candidate
 
 - Version: **1.26.0**

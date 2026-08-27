@@ -10,11 +10,7 @@ from lpr_cpe_demo.config import Settings
 from lpr_cpe_demo.domain import ApprovalKind, ApprovalRequest
 from lpr_cpe_demo.mcp_server.security import verify_approval_for
 from lpr_cpe_demo.workflow.engine import build_approval_token
-from scripts.run_scenario_matrix import (
-    EXPECTED_RESULTS,
-    ScenarioResult,
-    validate_results,
-)
+from scripts.run_scenario_matrix import EXPECTED_RESULTS, ScenarioResult, validate_results
 
 ROOT = Path(__file__).resolve().parents[1]
 

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "lpr-cpe-service-assurance-demo"
-version = "1.26.0"
+version = "1.26.1"
 description = "Audit-hardened Docker Desktop demonstration of LPR CPE service assurance with LangGraph, Streamlit, FastAPI, MCP and deterministic controls."
 readme = "README.md"
 requires-python = ">=3.14.2,<3.14.3"
@@ -63,6 +63,9 @@ src = ["src", "tests"]
 [tool.ruff.lint]
 select = ["E", "F", "I", "B", "UP", "RUF"]
 ignore = ["B008"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["lpr_cpe_demo", "scripts"]
 
 [tool.mypy]
 python_version = "3.14"

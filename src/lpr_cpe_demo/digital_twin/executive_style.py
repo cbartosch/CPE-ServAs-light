@@ -317,4 +317,111 @@ def css() -> str:
         .lpr-story-grid { grid-template-columns:1fr; }
         .lpr-exec-hero { padding:1.3rem; border-radius:18px; }
     }
+
+    /* Stage 4 uniform surface contract. Every analytical panel uses the same
+       medium-grey background, border, radius and text hierarchy. */
+    :root {
+        --lpr-panel: #4B5057;
+        --lpr-panel-raised: #555A61;
+        --lpr-panel-border: #737981;
+        --lpr-panel-text: #F5F7FA;
+        --lpr-panel-muted: #D7DCE2;
+        --lpr-panel-radius: 14px;
+        --lpr-panel-gap: .75rem;
+    }
+
+    .stApp,
+    [data-testid="stAppViewContainer"],
+    [data-testid="stMain"] {
+        background: #383C41 !important;
+        color: var(--lpr-panel-text) !important;
+    }
+    [data-testid="stSidebar"] {
+        background: #42464B !important;
+        border-right: 1px solid var(--lpr-panel-border) !important;
+    }
+    .stApp h1, .stApp h2, .stApp h3,
+    .stApp p, .stApp li, .stApp label, .stApp span {
+        color: var(--lpr-panel-text);
+    }
+    .stCaption, [data-testid="stCaptionContainer"],
+    [data-testid="stMetricLabel"] {
+        color: var(--lpr-panel-muted) !important;
+    }
+
+    [data-testid="stMetric"],
+    [data-testid="stDataFrame"], .stDataFrame,
+    [data-testid="stExpander"], [data-testid="stTable"],
+    [data-testid="stForm"], [data-testid="stVerticalBlockBorderWrapper"],
+    [data-baseweb="tab-list"], .lpr-header, .lpr-exec-hero,
+    .lpr-crosslink, .lpr-story-card, .lpr-insight,
+    .lpr-run-chip, .lpr-empty {
+        background: var(--lpr-panel) !important;
+        border: 1px solid var(--lpr-panel-border) !important;
+        border-radius: var(--lpr-panel-radius) !important;
+        box-shadow: none !important;
+        color: var(--lpr-panel-text) !important;
+    }
+    [data-testid="stMetric"] {
+        min-height: 7.25rem;
+        padding: 1rem 1.05rem !important;
+    }
+    [data-testid="stMetricValue"],
+    .lpr-section-title, .lpr-story-card strong,
+    .lpr-crosslink-title, .lpr-empty strong,
+    .lpr-insight strong {
+        color: var(--lpr-panel-text) !important;
+    }
+    .lpr-section-copy, .lpr-story-card span,
+    .lpr-crosslink-copy, .lpr-run-chip {
+        color: var(--lpr-panel-muted) !important;
+    }
+    .lpr-section-label, .lpr-exec-kicker,
+    .lpr-brand-eyebrow {
+        color: #7FE1D8 !important;
+    }
+    .lpr-exec-hero {
+        padding: 1.35rem 1.45rem;
+        margin: .25rem 0 1rem;
+    }
+    .lpr-exec-hero p {
+        color: var(--lpr-panel-muted) !important;
+    }
+    .lpr-story-grid {
+        gap: var(--lpr-panel-gap);
+    }
+    .lpr-story-card, .lpr-crosslink,
+    .lpr-insight, .lpr-empty {
+        padding: 1rem 1.05rem;
+    }
+    .lpr-insight {
+        border-left: 4px solid #7FE1D8 !important;
+    }
+    [data-baseweb="tab"] {
+        color: var(--lpr-panel-muted) !important;
+    }
+    [data-baseweb="tab"][aria-selected="true"] {
+        background: var(--lpr-panel-raised) !important;
+        color: var(--lpr-panel-text) !important;
+        box-shadow: none !important;
+    }
+    .lpr-crosslink-link,
+    .stButton > button:not([kind="primary"]) {
+        background: var(--lpr-panel-raised) !important;
+        border-color: var(--lpr-panel-border) !important;
+        color: var(--lpr-panel-text) !important;
+    }
+    .lpr-crosslink-link:hover {
+        border-color: #7FE1D8 !important;
+        background: #5E646C !important;
+    }
+    [data-baseweb="input"] > div,
+    [data-baseweb="select"] > div,
+    [data-baseweb="textarea"] > div,
+    .stTextInput input, .stNumberInput input,
+    .stTextArea textarea {
+        background: #3F444A !important;
+        border-color: var(--lpr-panel-border) !important;
+        color: var(--lpr-panel-text) !important;
+    }
     </style>"""

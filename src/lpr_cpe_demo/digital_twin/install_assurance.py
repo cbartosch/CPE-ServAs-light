@@ -226,7 +226,7 @@ def _start_offset_hours(scenario: str) -> float:
 
 
 def _observation_offsets(age_hours: float) -> list[int]:
-    limit = max(0, int(math.floor(age_hours * 60)))
+    limit = max(0, math.floor(age_hours * 60))
     offsets = {0}
     offsets.update(range(5, min(limit, 120) + 1, 5))
     if limit > 120:

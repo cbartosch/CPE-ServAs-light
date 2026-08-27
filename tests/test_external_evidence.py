@@ -1,44 +1,142 @@
 from __future__ import annotations
 
 import hashlib
+import sys
 from pathlib import Path
+from types import ModuleType
 
 import pytest
 
 from lpr_cpe_demo.digital_twin.external_evidence import (
     add_csv_content,
     analyze_import_batch,
+    build_external_scenario_projection,
     create_import_batch,
     csv_template,
     external_evidence_contract,
     get_import_batch,
-    build_external_scenario_projection,
     materialize_import_batch,
     safe_batch_path,
     validate_import_batch,
 )
 
-IDENTITY = """service_id,customer_id,service_account_id,premise_id,device_id,serial_number,mac_address,technology,delimiter_type,delimiter_id,access_port_id,node_id,valid_from,valid_to
-SVC-0001234,CUST-0001234,ACCT-0001234,PREM-0001234,CPE-0001234,LPR2400001234,02:4c:00:04:d2:12,HFC,TAP,TAP-000155,HFC-HUB-0003-PORT-0210,NODE-0098,2026-08-01T00:00:00Z,
-"""
-NXT_TELEMETRY = """source_record_id,observed_at,service_id,device_id,technology,delimiter_id,network_element_id,metric_name,metric_value,unit,quality,extract_id
-NXT-TEL-884021,2026-08-27T08:21:00Z,SVC-0001234,CPE-0001234,HFC,TAP-000155,NODE-0098,upstream_tx_dbmv,55.8,dBmV,GOOD,EXT-1
-"""
-NXT_ALARMS = """alarm_event_id,alarm_id,event_at,event_type,severity,service_id,device_id,technology,network_element_id,delimiter_id,alarm_code,alarm_text,affected_services,planned_work,source_record_id
-NXT-AEV-00091,NXT-ALM-0182,2026-08-27T08:22:00Z,RAISED,MAJOR,SVC-0001234,CPE-0001234,HFC,NODE-0098,TAP-000155,UPSTREAM_INSTABILITY,Repeated upstream impairment,18,false,NXT-SRC-91
-"""
-DALLI = """insight_id,generated_at,service_id,interaction_id,incident_id,insight_type,suspected_domain,confidence,recommended_route,recommended_action,underlying_sources,evidence_record_ids,freshness_status,model_or_rule_version,authoritative_status_source
-DALLI-0001,2026-08-27T08:34:00Z,SVC-0001234,,,access_impairment,hfc_tap,0.86,PLANT,attach_to_existing_mr,NXT,NXT-TEL-884021|NXT-AEV-00091,FRESH,DALLI-1,NXT
-"""
-GENESYS = """interaction_id,opened_at,closed_at,customer_id,service_id,channel,queue,contact_reason,wrapup_code,repeat_contact,agent_id,transcript_summary,customer_sentiment,contact_outcome
-GEN-000992,2026-08-27T09:04:00Z,2026-08-27T09:16:00Z,CUST-0001234,SVC-0001234,VOICE,BROADBAND_TECH,INTERMITTENT_SERVICE,NETWORK_TICKET_LINKED,false,AGENT-024,Customer reports repeated drops,negative,ATTACHED_TO_EXISTING_CASE
-"""
-JTRACK = """event_id,mr_id,event_at,status,incident_id,service_id,work_order_id,delimiter_type,delimiter_id,network_element_id,owner,priority,evidence_complete,action_taken,outcome,resolution_code,repeat_sequence,source_record_id
-JTRK-EVT-1231,MR-00077,2026-08-27T08:50:00Z,ACCEPTED,INC-0009,SVC-0001234,WO-001,TAP,TAP-000155,NODE-0098,PLANT,P2,true,Inspect serving tap,,OPEN,0,JTRK-SRC-1231
-"""
-INSTALL = """install_work_order_id,service_id,device_id,install_type,installed_at,technician_id,commissioning_status,baseline_complete,product_profile,source_system
-WO-INSTALL-0088,SVC-0001234,CPE-0001234,NEW_INSTALL,2026-08-27T08:00:00Z,TECH-011,PASSED,true,1G_HFC,WFM
-"""
+
+def _csv_row(*values: str) -> str:
+    return ",".join(values) + "\n"
+
+
+IDENTITY = csv_template("identity_map") + _csv_row(
+    "SVC-0001234",
+    "CUST-0001234",
+    "ACCT-0001234",
+    "PREM-0001234",
+    "CPE-0001234",
+    "LPR2400001234",
+    "02:4c:00:04:d2:12",
+    "HFC",
+    "TAP",
+    "TAP-000155",
+    "HFC-HUB-0003-PORT-0210",
+    "NODE-0098",
+    "2026-08-01T00:00:00Z",
+    "",
+)
+NXT_TELEMETRY = csv_template("nxt_telemetry") + _csv_row(
+    "NXT-TEL-884021",
+    "2026-08-27T08:21:00Z",
+    "SVC-0001234",
+    "CPE-0001234",
+    "HFC",
+    "TAP-000155",
+    "NODE-0098",
+    "upstream_tx_dbmv",
+    "55.8",
+    "dBmV",
+    "GOOD",
+    "EXT-1",
+)
+NXT_ALARMS = csv_template("nxt_alarms") + _csv_row(
+    "NXT-AEV-00091",
+    "NXT-ALM-0182",
+    "2026-08-27T08:22:00Z",
+    "RAISED",
+    "MAJOR",
+    "SVC-0001234",
+    "CPE-0001234",
+    "HFC",
+    "NODE-0098",
+    "TAP-000155",
+    "UPSTREAM_INSTABILITY",
+    "Repeated upstream impairment",
+    "18",
+    "false",
+    "NXT-SRC-91",
+)
+DALLI = csv_template("dvsum_dalli_insights") + _csv_row(
+    "DALLI-0001",
+    "2026-08-27T08:34:00Z",
+    "SVC-0001234",
+    "",
+    "",
+    "access_impairment",
+    "hfc_tap",
+    "0.86",
+    "PLANT",
+    "attach_to_existing_mr",
+    "NXT",
+    "NXT-TEL-884021|NXT-AEV-00091",
+    "FRESH",
+    "DALLI-1",
+    "NXT",
+)
+GENESYS = csv_template("genesys_interactions") + _csv_row(
+    "GEN-000992",
+    "2026-08-27T09:04:00Z",
+    "2026-08-27T09:16:00Z",
+    "CUST-0001234",
+    "SVC-0001234",
+    "VOICE",
+    "BROADBAND_TECH",
+    "INTERMITTENT_SERVICE",
+    "NETWORK_TICKET_LINKED",
+    "false",
+    "AGENT-024",
+    "Customer reports repeated drops",
+    "negative",
+    "ATTACHED_TO_EXISTING_CASE",
+)
+JTRACK = csv_template("jtrack_events") + _csv_row(
+    "JTRK-EVT-1231",
+    "MR-00077",
+    "2026-08-27T08:50:00Z",
+    "ACCEPTED",
+    "INC-0009",
+    "SVC-0001234",
+    "WO-001",
+    "TAP",
+    "TAP-000155",
+    "NODE-0098",
+    "PLANT",
+    "P2",
+    "true",
+    "Inspect serving tap",
+    "",
+    "OPEN",
+    "0",
+    "JTRK-SRC-1231",
+)
+INSTALL = csv_template("install_cohort") + _csv_row(
+    "WO-INSTALL-0088",
+    "SVC-0001234",
+    "CPE-0001234",
+    "NEW_INSTALL",
+    "2026-08-27T08:00:00Z",
+    "TECH-011",
+    "PASSED",
+    "true",
+    "1G_HFC",
+    "WFM",
+)
 
 
 def _complete_batch(
@@ -339,8 +437,6 @@ def test_openai_agent_path_invokes_structured_triangulation_without_network(
     tmp_path,
     monkeypatch,
 ):
-    import langchain_openai
-
     from lpr_cpe_demo.digital_twin.external_evidence import TriangulationAgentResult
 
     batch_id = _complete_batch(tmp_path)
@@ -368,7 +464,9 @@ def test_openai_agent_path_invokes_structured_triangulation_without_network(
             captured["schema"] = schema
             return FakeStructured()
 
-    monkeypatch.setattr(langchain_openai, "ChatOpenAI", FakeClient)
+    fake_module = ModuleType("langchain_openai")
+    fake_module.ChatOpenAI = FakeClient
+    monkeypatch.setitem(sys.modules, "langchain_openai", fake_module)
     monkeypatch.setenv("OPENAI_API_KEY", "test-key")
     analysis = analyze_import_batch(
         tmp_path,
@@ -605,8 +703,6 @@ def test_duplicate_header_aliases_are_reported(tmp_path):
 
 
 def test_invalid_llm_domain_action_and_evidence_fail_closed(tmp_path, monkeypatch):
-    import langchain_openai
-
     from lpr_cpe_demo.digital_twin.external_evidence import TriangulationAgentResult
 
     batch_id = _complete_batch(tmp_path)
@@ -643,7 +739,9 @@ def test_invalid_llm_domain_action_and_evidence_fail_closed(tmp_path, monkeypatc
             assert schema is TriangulationAgentResult
             return FakeStructured()
 
-    monkeypatch.setattr(langchain_openai, "ChatOpenAI", FakeClient)
+    fake_module = ModuleType("langchain_openai")
+    fake_module.ChatOpenAI = FakeClient
+    monkeypatch.setitem(sys.modules, "langchain_openai", fake_module)
     monkeypatch.setenv("OPENAI_API_KEY", "test-key")
     analysis = analyze_import_batch(
         tmp_path,

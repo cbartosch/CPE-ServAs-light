@@ -42,7 +42,11 @@ def parser() -> argparse.ArgumentParser:
     result.add_argument("--name", default="External evidence import")
     result.add_argument("--as-of")
     result.add_argument("--run-id", help="Optional canonical run to receive a child overlay")
-    result.add_argument("--provider", choices=("disabled", "fake", "openai", "anthropic"), default="fake")
+    result.add_argument(
+        "--provider",
+        choices=("disabled", "fake", "openai", "anthropic"),
+        default="fake",
+    )
     result.add_argument("--model", default="")
     result.add_argument("--disable-llm", action="store_true")
     for option in SOURCE_ARGUMENTS.values():

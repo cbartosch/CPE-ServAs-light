@@ -20,7 +20,7 @@ import uuid
 from collections import defaultdict
 from collections.abc import Iterable, Mapping
 from contextlib import contextmanager
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, Literal
 
@@ -838,7 +838,7 @@ def _normalise_row(
                 row_number=row_number,
                 field=field,
             )
-    if "technology" in row and row["technology"]:
+    if row.get("technology"):
         technology = str(row["technology"]).upper().replace("-", "_")
         technology = {"PON": "GPON", "XGSPON": "XGS_PON"}.get(technology, technology)
         if technology not in {"HFC", "GPON", "XGS_PON"}:
@@ -1815,7 +1815,11 @@ def _deterministic_recommendations(
                 action = "optical_diagnostics"
                 confidence = 0.75
                 rationale.append("PON evidence requires optical and peer comparison.")
-        severe_issues = [issue for issue in service_issues if issue.severity in {"ERROR", "WARNING"}]
+        severe_issues = [
+            issue
+            for issue in service_issues
+            if issue.severity in {"ERROR", "WARNING"}
+        ]
         disagreement = _domain_disagreement(sources, domain)
         human_review = bool(severe_issues or disagreement or action != "collect_more_evidence")
         if disagreement:
@@ -1826,7 +1830,10 @@ def _deterministic_recommendations(
                 "recommended_domain": domain,
                 "recommended_action": action,
                 "confidence": round(confidence, 3),
-                "rationale": " ".join(rationale) or "Evidence is insufficient for a stronger conclusion.",
+                "rationale": (
+                    " ".join(rationale)
+                    or "Evidence is insufficient for a stronger conclusion."
+                ),
                 "evidence_refs": sorted(set(evidence_refs)),
                 "existing_incident_id": existing_incident,
                 "existing_mr_ids": sorted(open_mrs),
@@ -1858,7 +1865,11 @@ def _domain_disagreement(
         for row in sources.get("dvsum_dalli_insights", [])
         if str(row.get("suspected_domain", "")).strip()
     }
-    return bool(domains and deterministic_domain != "unknown" and deterministic_domain not in domains)
+    return bool(
+        domains
+        and deterministic_domain != "unknown"
+        and deterministic_domain not in domains
+    )
 
 
 def _sanitised_agent_payload(

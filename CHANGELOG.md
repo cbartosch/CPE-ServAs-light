@@ -1,3 +1,21 @@
+## 1.26.1 — Stage 4 Windows and release-gate repair
+
+- Repair the unterminated Executive Control Tower cross-link string that prevented
+  `theme_dark.py` from importing on every platform.
+- Keep the new External Evidence link and update the dashboard regression to expect
+  all five active-run cross-links.
+- Make the Stage 4 CSV importer, evidence engine, Install Assurance helper and tests
+  pass the repository's 100-character Ruff policy.
+- Remove unused imports and normalize first-party import classification for
+  `lpr_cpe_demo` and `scripts`.
+- Keep the governed scenario matrix, External Evidence behavior, LLM triangulation,
+  read-only action boundary and canonical parent-run immutability unchanged.
+- Apply a shared medium-grey panel surface, border, radius and typography contract
+  across Executive, Predictive, Customer Care, Operations, External Evidence and
+  the legacy Control Tower.
+- Make the structured OpenAI-path tests dependency-independent by injecting a
+  local module stub; no external provider call is made during packaging tests.
+
 # 1.26.0 — External CSV evidence and LLM triangulation
 
 - Adds immutable CSV import batches for NXT telemetry/alarms, DvSum DALLI insights,

@@ -1,34 +1,34 @@
-LPR CPE Service Assurance Demo v1.26.0 File Manifest
+LPR CPE Service Assurance Demo v1.26.1 File Manifest
 Generated: 2026-08-27
-Indexed files: 295
-Indexed bytes: 12916826
+Indexed files: 296
+Indexed bytes: 12926679
 
 .dockerignore	114 bytes
 .env.example	3027 bytes
 .gitattributes	473 bytes
 .gitignore	152 bytes
 .stage3-manifest-exclusions.txt	89 bytes
-BUILD_TEST_REPORT.txt	9873 bytes
-BUNDLE_CONTENTS.txt	12799 bytes
-CHANGELOG.md	93465 bytes
+BUILD_TEST_REPORT.txt	10856 bytes
+BUNDLE_CONTENTS.txt	12841 bytes
+CHANGELOG.md	94529 bytes
 Dockerfile	1688 bytes
-FILE_MANIFEST.txt	12795 bytes
+FILE_MANIFEST.txt	12830 bytes
 LICENSE.txt	297 bytes
 Makefile	1780 bytes
-README.md	15645 bytes
+README.md	15903 bytes
 RUN_TESTS_MAC_LINUX.sh	69 bytes
 RUN_TESTS_WINDOWS.ps1	88 bytes
 START_DEMO_MAC_LINUX.sh	66 bytes
 START_DEMO_WINDOWS.ps1	85 bytes
 START_HERE.md	2500 bytes
 data/.gitkeep	0 bytes
-docker-compose.low-resource.yml	348 bytes
-docker-compose.yml	5619 bytes
 docker/Dockerfile.digital-twin	1424 bytes
 docker/app.Dockerfile	4931 bytes
 docker/certs/.gitkeep	0 bytes
 docker/certs/README.md	1643 bytes
 docker/mcp.Dockerfile	3061 bytes
+docker-compose.low-resource.yml	348 bytes
+docker-compose.yml	5619 bytes
 docs/AB_MEASUREMENT.md	8010 bytes
 docs/AGENT_AUTHORITY.md	3817 bytes
 docs/API.md	3876 bytes
@@ -38,6 +38,7 @@ docs/AUDIT_v1.12.1.md	10679 bytes
 docs/AUDIT_v1.16.1.md	6447 bytes
 docs/AUDIT_v1.23.1.md	6906 bytes
 docs/AUDIT_v1.25.2.md	3176 bytes
+docs/AUDIT_v1.26.1.md	1938 bytes
 docs/CADI_INTEGRATION_CONTRACT.md	248 bytes
 docs/COMPARISON_AND_IMPROVEMENTS.md	7191 bytes
 docs/DEPENDENCY_PINS.md	1882 bytes
@@ -80,7 +81,7 @@ docs/video/slates/09_provenance.png	191147 bytes
 docs/video/slates/10_rigour.png	177716 bytes
 docs/video/slates/11_close.png	144914 bytes
 integration/executive_theme.py	192 bytes
-pyproject.toml	6794 bytes
+pyproject.toml	6866 bytes
 reference/CPE_Service_Assurance_Architecture.docx	22112 bytes
 reference/CPE_demo_spec_audit_and_changes.md	32285 bytes
 reference/LPR_CPE_Service_Assurance_Mockup_Design_Specification_v1_1_Audit_Hardened.docx	971521 bytes
@@ -113,7 +114,7 @@ scripts/generate_control_tower_html.py	22133 bytes
 scripts/generate_footprint_map.py	8715 bytes
 scripts/generate_landmark_band.py	6028 bytes
 scripts/generate_video_slates.py	29463 bytes
-scripts/import_external_evidence.py	3236 bytes
+scripts/import_external_evidence.py	3267 bytes
 scripts/install-host-ca.ps1	1209 bytes
 scripts/install-host-ca.sh	1465 bytes
 scripts/preflight.py	1479 bytes
@@ -170,9 +171,9 @@ src/lpr_cpe_demo/digital_twin/care.py	8359 bytes
 src/lpr_cpe_demo/digital_twin/cli.py	1165 bytes
 src/lpr_cpe_demo/digital_twin/decision.py	7656 bytes
 src/lpr_cpe_demo/digital_twin/executive_projection.py	23398 bytes
-src/lpr_cpe_demo/digital_twin/executive_style.py	9667 bytes
-src/lpr_cpe_demo/digital_twin/external_evidence.py	100173 bytes
-src/lpr_cpe_demo/digital_twin/install_assurance.py	40137 bytes
+src/lpr_cpe_demo/digital_twin/executive_style.py	13245 bytes
+src/lpr_cpe_demo/digital_twin/external_evidence.py	100278 bytes
+src/lpr_cpe_demo/digital_twin/install_assurance.py	40132 bytes
 src/lpr_cpe_demo/digital_twin/models.py	2834 bytes
 src/lpr_cpe_demo/digital_twin/orchestrator.py	81812 bytes
 src/lpr_cpe_demo/digital_twin/predictive_bridge.py	15672 bytes
@@ -254,12 +255,12 @@ src/lpr_cpe_demo/ui/pages/simulator.py	10552 bytes
 src/lpr_cpe_demo/ui/pages/system.py	1096 bytes
 src/lpr_cpe_demo/ui/sidebar.py	5911 bytes
 src/lpr_cpe_demo/ui/theme.py	7207 bytes
-src/lpr_cpe_demo/ui/theme_dark.py	10727 bytes
+src/lpr_cpe_demo/ui/theme_dark.py	11630 bytes
 src/lpr_cpe_demo/workflow/__init__.py	164 bytes
 src/lpr_cpe_demo/workflow/engine.py	42129 bytes
 src/lpr_cpe_demo/workflow/langgraph_runtime.py	5423 bytes
 src/lpr_cpe_demo/workflow/scenarios.py	1432 bytes
-src/lpr_cpe_demo/workflow/service.py	11575 bytes
+src/lpr_cpe_demo/workflow/service.py	11480 bytes
 tests/__init__.py	0 bytes
 tests/conftest.py	2289 bytes
 tests/test_agents.py	30430 bytes
@@ -270,15 +271,15 @@ tests/test_bundle_integrity.py	7364 bytes
 tests/test_cadi.py	7570 bytes
 tests/test_commercial.py	25360 bytes
 tests/test_controls.py	5647 bytes
-tests/test_dashboard.py	11539 bytes
+tests/test_dashboard.py	12343 bytes
 tests/test_digital_twin_p0.py	46538 bytes
-tests/test_external_evidence.py	26632 bytes
+tests/test_external_evidence.py	26532 bytes
 tests/test_fault_generator.py	9896 bytes
 tests/test_geo_layers.py	6478 bytes
 tests/test_geography.py	15815 bytes
 tests/test_html_report.py	9535 bytes
 tests/test_install_assurance.py	16079 bytes
-tests/test_lint_baseline.py	1610 bytes
+tests/test_lint_baseline.py	1867 bytes
 tests/test_llm_boundary.py	1043 bytes
 tests/test_mcp_controls.py	3992 bytes
 tests/test_mcp_http.py	5252 bytes
@@ -288,7 +289,7 @@ tests/test_plant_effort.py	14681 bytes
 tests/test_predictive.py	27924 bytes
 tests/test_reachability.py	9024 bytes
 tests/test_red_team.py	14699 bytes
-tests/test_release_gates.py	2978 bytes
+tests/test_release_gates.py	2961 bytes
 tests/test_retrieval_ab.py	12280 bytes
 tests/test_routing_theme.py	12292 bytes
 tests/test_security_store.py	8623 bytes

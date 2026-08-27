@@ -351,3 +351,8 @@ lifecycle and lineage; quarantines inconsistent rows; and presents deterministic
 optional LLM-assisted triangulation beside advisory action recommendations. Imported
 scenarios are read-only child artifacts and never write to production systems. See
 `docs/EXTERNAL_EVIDENCE_CSV.md` and `reference/external_evidence_examples/`.
+
+All analytical workspaces use one uniform medium-grey panel system (`#4B5057`) with
+consistent borders, 14-pixel radii, padding and text hierarchy. The legacy Control
+Tower retains its dark page canvas while using the same panel surface as the other
+views.

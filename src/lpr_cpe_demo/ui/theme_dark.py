@@ -26,6 +26,12 @@ LEGACY_GREY_950 = "#171717"
 LEGACY_GREY_900 = "#232323"
 LEGACY_GREY_800 = "#303030"
 
+# Shared medium-grey panel surface used across Executive, Predictive, Care,
+# Operations, External Evidence and the legacy Control Tower.
+PANEL_GREY = "#4B5057"
+PANEL_GREY_RAISED = "#555A61"
+PANEL_BORDER = "#737981"
+
 SLATE_950 = "#020617"
 SLATE_900 = "#0F172A"
 INDIGO_950 = "#1E1B4B"  # retained for compatibility with existing chart code
@@ -210,6 +216,22 @@ def css() -> str:
         background: rgba(255,255,255,{CARD_OPACITY}); border-radius: 10px;
         border: 1px solid rgba(255,255,255,0.10);
     }}
+
+    /* Match the uniform medium-grey surface contract used by every other panel. */
+    .ct-hero, .ct-crosslink, .ct-card,
+    [data-testid="stMetric"], [data-testid="stDataFrame"], .stDataFrame,
+    [data-testid="stExpander"], [data-testid="stTable"],
+    [data-testid="stForm"], [data-baseweb="tab-list"] {{
+        background: {PANEL_GREY} !important;
+        border: 1px solid {PANEL_BORDER} !important;
+        border-radius: 14px !important;
+        box-shadow: none !important;
+        backdrop-filter: none !important;
+    }}
+    .ct-crosslink-link {{
+        background: {PANEL_GREY_RAISED} !important;
+        border-color: {PANEL_BORDER} !important;
+    }}
     </style>"""
 
 
@@ -229,8 +251,9 @@ def executive_crosslink() -> str:
         '<a class="ct-crosslink-link primary" target="_self" '
         'href="digital-twin?view=predictive">Predictive health →</a>'
         '<a class="ct-crosslink-link" target="_self" '
-        'href="digital-twin?view=customer-care">Customer Care →</a>
-        <a class="ct-crosslink-link" target="_self" href="digital-twin?view=external-evidence">External Evidence</a>'
+        'href="digital-twin?view=customer-care">Customer Care →</a>'
+        '<a class="ct-crosslink-link" target="_self" '
+        'href="digital-twin?view=external-evidence">External Evidence →</a>'
         '<a class="ct-crosslink-link" target="_self" '
         'href="digital-twin?view=dalli">DvSum DALLI / Genesys →</a>'
         '</div></div>'
