@@ -1,0 +1,2 @@
+event_id,mr_id,event_at,status,incident_id,service_id,work_order_id,delimiter_type,delimiter_id,network_element_id,owner,priority,evidence_complete,action_taken,outcome,resolution_code,repeat_sequence,source_record_id
+JTRK-EVT-1231,MR-00077,2026-08-27T08:50:00Z,ACCEPTED,INC-0009,SVC-0001234,WO-001,TAP,TAP-000155,NODE-0098,PLANT,P2,true,Inspect serving tap,,OPEN,0,JTRK-SRC-1231

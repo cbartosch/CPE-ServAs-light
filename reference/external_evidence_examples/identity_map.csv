@@ -1,0 +1,2 @@
+service_id,customer_id,service_account_id,premise_id,device_id,serial_number,mac_address,technology,delimiter_type,delimiter_id,access_port_id,node_id,valid_from,valid_to
+SVC-0001234,CUST-0001234,ACCT-0001234,PREM-0001234,CPE-0001234,LPR2400001234,02:4c:00:04:d2:12,HFC,TAP,TAP-000155,HFC-HUB-0003-PORT-0210,NODE-0098,2026-08-01T00:00:00Z,

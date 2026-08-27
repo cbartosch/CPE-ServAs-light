@@ -342,3 +342,12 @@ The packaging report in `BUILD_TEST_REPORT.txt` distinguishes tests executed in 
 - Dispatch ranking is fixture-driven; a production build should bind a deterministic scheduling optimizer.
 - The default Docker profile uses a PostgreSQL LangGraph checkpointer and a separate SQL operational read model. The portable workflow engine remains available for deterministic unit tests and environments where LangGraph is intentionally disabled.
 - No production write can be enabled merely by editing the GUI; the backend remains in simulation mode unless both production settings are deliberately changed and real adapters are implemented.
+
+## External CSV evidence and triangulation
+
+The **External Evidence** workspace imports UTF-8 CSV exports from NXT, DvSum DALLI,
+Genesys, JTrack and an installation/identity source. It validates identity, timestamps,
+lifecycle and lineage; quarantines inconsistent rows; and presents deterministic and
+optional LLM-assisted triangulation beside advisory action recommendations. Imported
+scenarios are read-only child artifacts and never write to production systems. See
+`docs/EXTERNAL_EVIDENCE_CSV.md` and `reference/external_evidence_examples/`.

@@ -229,7 +229,8 @@ def executive_crosslink() -> str:
         '<a class="ct-crosslink-link primary" target="_self" '
         'href="digital-twin?view=predictive">Predictive health →</a>'
         '<a class="ct-crosslink-link" target="_self" '
-        'href="digital-twin?view=customer-care">Customer Care →</a>'
+        'href="digital-twin?view=customer-care">Customer Care →</a>
+        <a class="ct-crosslink-link" target="_self" href="digital-twin?view=external-evidence">External Evidence</a>'
         '<a class="ct-crosslink-link" target="_self" '
         'href="digital-twin?view=dalli">DvSum DALLI / Genesys →</a>'
         '</div></div>'

@@ -133,3 +133,13 @@ See `docs/CADI_INTEGRATION_CONTRACT.md` for the capability and discovery contrac
 - Dirty Boots: access network, distribution/feeder, OLT/node and plant-side work
 - Joint: cases where both responsibility domains are implicated
 - Reverse handover: same incident, evidence contract, attempt history and SLA clock
+
+## External evidence scenario layer
+
+External CSV batches are stored beneath the Digital Twin data root as immutable raw
+files with SHA-256 lineage. A deterministic validator normalizes accepted rows and
+correlates service, device, delimiter, interaction, incident, work-order and MR
+identities. An optional structured LLM agent triangulates the accepted evidence and
+adds inconsistency findings. Its response is reconciled against deterministic controls
+and is always advisory. Materialized scenarios are child overlays; canonical runs and
+production systems remain unchanged.

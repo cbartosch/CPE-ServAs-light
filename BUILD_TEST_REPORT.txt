@@ -1,6 +1,6 @@
 # Stage 3 governed-execution gate repair candidate
 
-- Version: **1.25.2**
+- Version: **1.26.0**
 - Application approval tokens now include the stored restart-stable
   `idempotency_key` claim.
 - The deterministic scenario matrix validates exact expected statuses, actions,
@@ -15,7 +15,7 @@
 - Scope is limited to the two requested P0 findings; other Stage 3 audit findings
   remain open.
 
-See `docs/AUDIT_v1.25.2.md`.
+See `docs/AUDIT_v1.26.0.md`.
 
 ---
 

@@ -1,0 +1,3 @@
+source_record_id,observed_at,service_id,device_id,technology,delimiter_id,network_element_id,metric_name,metric_value,unit,quality,extract_id
+NXT-TEL-884021,2026-08-27T08:21:00Z,SVC-0001234,CPE-0001234,HFC,TAP-000155,NODE-0098,upstream_tx_dbmv,55.8,dBmV,GOOD,EXT-20260827-1
+NXT-TEL-884022,2026-08-27T08:26:00Z,SVC-0001234,CPE-0001234,HFC,TAP-000155,NODE-0098,t3_timeout_count,31,count,GOOD,EXT-20260827-1

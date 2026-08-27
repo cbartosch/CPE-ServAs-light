@@ -1,0 +1,2 @@
+alarm_event_id,alarm_id,event_at,event_type,severity,service_id,device_id,technology,network_element_id,delimiter_id,alarm_code,alarm_text,affected_services,planned_work,source_record_id
+NXT-AEV-00091,NXT-ALM-0182,2026-08-27T08:22:00Z,RAISED,MAJOR,SVC-0001234,CPE-0001234,HFC,NODE-0098,TAP-000155,UPSTREAM_INSTABILITY,Repeated upstream impairment,18,false,NXT-SRC-91

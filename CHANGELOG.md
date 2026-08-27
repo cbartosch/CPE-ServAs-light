@@ -1,4 +1,19 @@
-## 1.25.2 — approval scope and scenario-matrix gate repair
+# 1.26.0 — External CSV evidence and LLM triangulation
+
+- Adds immutable CSV import batches for NXT telemetry/alarms, DvSum DALLI insights,
+  Genesys interactions, JTrack events, identity maps and installation cohorts.
+- Adds deterministic schema, identity, chronology, lifecycle and source-lineage validation
+  with accepted/quarantined row reporting.
+- Adds optional structured LLM triangulation through fake/offline, OpenAI or Anthropic
+  providers. The deterministic data-quality and policy branch remains authoritative.
+- Adds reconciled, advisory action recommendations with explicit evidence references,
+  human-review requirements and production action execution disabled.
+- Adds historical, point-in-time, install-watch and shadow scenario materialization as
+  immutable child overlays that do not modify canonical run datasets.
+- Adds the External Evidence Streamlit workspace, CSV templates, example extracts and
+  release regression tests.
+
+## 1.26.0 — approval scope and scenario-matrix gate repair
 
 - Bind every application-generated approval token to the approval's restart-stable
   `idempotency_key`, matching the MCP execution boundary.

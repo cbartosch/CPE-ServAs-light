@@ -1,4 +1,4 @@
-# Audit — v1.25.2 approval scope and scenario-matrix gate repair
+# Audit — v1.26.0 approval scope and scenario-matrix gate repair
 
 ## Scope
 

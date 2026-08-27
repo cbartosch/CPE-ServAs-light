@@ -129,7 +129,7 @@ def health():
         "version": __version__,
         "production_writes": False,
         "release": "Stage 3 install assurance with DvSum DALLI",
-        "predictive_care_integration": True,
+        "predictive_care_integration": True, "external_evidence_csv": True, "llm_triangulation": True,
         "install_assurance": True,
         "dalli_integration": "contract_only",
         "measurement_schema": "1.0",
@@ -475,3 +475,270 @@ def care_ticket_detail(run_id: str, care_ticket_id: str, _: dict = Depends(princ
     except KeyError:
         pass
     return {"ticket": ticket, "review": review, "predictive": predictive, "case": case}
+
+
+# ---------------------------------------------------------------------------
+# External CSV evidence imports. These endpoints accept CSV text in JSON so the
+# demo does not need multipart parsing or a production file-transfer service.
+class ExternalImportBatchRequest(BaseModel):
+    mode: str = Field(
+        default="historical_replay",
+        pattern="^(historical_replay|point_in_time|install_watch|shadow)$",
+    )
+    name: str = Field(default="", max_length=160)
+    as_of: str | None = None
+
+
+class ExternalCSVFileRequest(BaseModel):
+    filename: str = Field(min_length=1, max_length=240)
+    content: str
+    replace: bool = False
+
+
+class ExternalAnalysisRequest(BaseModel):
+    enable_llm: bool = True
+    llm_provider: str = Field(default="fake", pattern="^(disabled|fake|openai|anthropic)$")
+    llm_model: str = Field(default="", max_length=200)
+    max_services: int = Field(default=25, ge=1, le=50)
+
+
+class ExternalMaterializeRequest(BaseModel):
+    run_id: str | None = None
+
+
+@app.get("/api/external-evidence/contract")
+def external_evidence_contract(_: dict = Depends(principal)):
+    from .external_evidence import external_evidence_contract as build_contract
+
+    return build_contract()
+
+
+@app.get("/api/external-evidence/templates/{source_type}")
+def external_evidence_template(source_type: str, _: dict = Depends(principal)):
+    from .external_evidence import canonical_source_type, csv_template
+
+    try:
+        source = canonical_source_type(source_type)
+        return {"source_type": source, "filename": f"{source}.csv", "content": csv_template(source)}
+    except ValueError as exc:
+        raise HTTPException(404, str(exc)) from exc
+
+
+@app.post("/api/import-batches")
+def create_external_import_batch(
+    request: ExternalImportBatchRequest,
+    _: dict = Depends(principal),
+):
+    from .external_evidence import create_import_batch
+
+    try:
+        return create_import_batch(
+            DATA_ROOT,
+            mode=request.mode,
+            name=request.name,
+            as_of=request.as_of,
+        )
+    except ValueError as exc:
+        raise HTTPException(422, str(exc)) from exc
+
+
+@app.get("/api/import-batches")
+def external_import_batches(_: dict = Depends(principal)):
+    from .external_evidence import list_import_batches
+
+    return list_import_batches(DATA_ROOT)
+
+
+@app.get("/api/import-batches/{batch_id}")
+def external_import_batch(batch_id: str, _: dict = Depends(principal)):
+    from .external_evidence import get_import_batch
+
+    try:
+        return get_import_batch(DATA_ROOT, batch_id)
+    except ValueError as exc:
+        raise HTTPException(400, str(exc)) from exc
+    except FileNotFoundError as exc:
+        raise HTTPException(404, "import batch not found") from exc
+
+
+@app.post("/api/import-batches/{batch_id}/files/{source_type}")
+def upload_external_csv(
+    batch_id: str,
+    source_type: str,
+    request: ExternalCSVFileRequest,
+    _: dict = Depends(principal),
+):
+    from .external_evidence import add_csv_content
+
+    try:
+        return add_csv_content(
+            DATA_ROOT,
+            batch_id,
+            source_type=source_type,
+            filename=request.filename,
+            content=request.content,
+            replace=request.replace,
+        )
+    except ValueError as exc:
+        raise HTTPException(422, str(exc)) from exc
+    except FileNotFoundError as exc:
+        raise HTTPException(404, "import batch not found") from exc
+    except FileExistsError as exc:
+        raise HTTPException(409, str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(409, str(exc)) from exc
+
+
+@app.post("/api/import-batches/{batch_id}/validate")
+def validate_external_import_batch(batch_id: str, _: dict = Depends(principal)):
+    from .external_evidence import validate_import_batch
+
+    try:
+        return validate_import_batch(DATA_ROOT, batch_id)
+    except ValueError as exc:
+        raise HTTPException(422, str(exc)) from exc
+    except FileNotFoundError as exc:
+        raise HTTPException(404, "import batch not found") from exc
+    except RuntimeError as exc:
+        raise HTTPException(409, str(exc)) from exc
+
+
+@app.post("/api/import-batches/{batch_id}/analyze")
+def analyze_external_import_batch(
+    batch_id: str,
+    request: ExternalAnalysisRequest,
+    _: dict = Depends(principal),
+):
+    from .external_evidence import analyze_import_batch
+
+    try:
+        return analyze_import_batch(
+            DATA_ROOT,
+            batch_id,
+            enable_llm=request.enable_llm,
+            llm_provider=request.llm_provider,
+            llm_model=request.llm_model,
+            max_services=request.max_services,
+        )
+    except ValueError as exc:
+        raise HTTPException(422, str(exc)) from exc
+    except FileNotFoundError as exc:
+        raise HTTPException(404, "import batch not found") from exc
+    except RuntimeError as exc:
+        raise HTTPException(409, str(exc)) from exc
+
+
+@app.post("/api/import-batches/{batch_id}/materialize")
+def materialize_external_import_batch(
+    batch_id: str,
+    request: ExternalMaterializeRequest,
+    _: dict = Depends(principal),
+):
+    from .external_evidence import materialize_import_batch
+
+    try:
+        return materialize_import_batch(DATA_ROOT, batch_id, run_id=request.run_id)
+    except ValueError as exc:
+        raise HTTPException(422, str(exc)) from exc
+    except FileNotFoundError as exc:
+        raise HTTPException(404, "import batch or run not found") from exc
+
+
+@app.get("/api/runs/{run_id}/external-evidence")
+def run_external_evidence(run_id: str, _: dict = Depends(principal)):
+    from .external_evidence import list_run_external_evidence
+
+    try:
+        return list_run_external_evidence(DATA_ROOT, run_id)
+    except ValueError as exc:
+        raise HTTPException(400, str(exc)) from exc
+
+
+@app.get("/api/import-batches/{batch_id}/quality")
+def external_import_quality(batch_id: str, _: dict = Depends(principal)):
+    from .external_evidence import get_import_batch
+
+    try:
+        result = get_import_batch(DATA_ROOT, batch_id)["quality_report"]
+    except ValueError as exc:
+        raise HTTPException(400, str(exc)) from exc
+    except FileNotFoundError as exc:
+        raise HTTPException(404, "import batch not found") from exc
+    if result is None:
+        raise HTTPException(404, "batch has not been validated")
+    return result
+
+
+@app.get("/api/import-batches/{batch_id}/correlations")
+def external_import_correlations(batch_id: str, _: dict = Depends(principal)):
+    from .external_evidence import get_import_batch
+
+    try:
+        result = get_import_batch(DATA_ROOT, batch_id)["correlation_report"]
+    except ValueError as exc:
+        raise HTTPException(400, str(exc)) from exc
+    except FileNotFoundError as exc:
+        raise HTTPException(404, "import batch not found") from exc
+    if result is None:
+        raise HTTPException(404, "batch has not been validated")
+    return result
+
+
+@app.get("/api/import-batches/{batch_id}/timeline")
+def external_import_timeline(batch_id: str, _: dict = Depends(principal)):
+    from .external_evidence import get_import_batch
+
+    try:
+        result = get_import_batch(DATA_ROOT, batch_id)["timeline"]
+    except ValueError as exc:
+        raise HTTPException(400, str(exc)) from exc
+    except FileNotFoundError as exc:
+        raise HTTPException(404, "import batch not found") from exc
+    if result is None:
+        raise HTTPException(404, "batch has not been validated")
+    return result
+
+
+@app.get("/api/import-batches/{batch_id}/recommendations")
+def external_import_recommendations(batch_id: str, _: dict = Depends(principal)):
+    from .external_evidence import get_import_batch
+
+    try:
+        result = get_import_batch(DATA_ROOT, batch_id)["recommendation_report"]
+    except ValueError as exc:
+        raise HTTPException(400, str(exc)) from exc
+    except FileNotFoundError as exc:
+        raise HTTPException(404, "import batch not found") from exc
+    if result is None:
+        raise HTTPException(404, "batch has not been analyzed")
+    return result
+
+
+@app.get("/api/import-batches/{batch_id}/projection")
+def external_import_projection(batch_id: str, _: dict = Depends(principal)):
+    from .external_evidence import build_external_scenario_projection
+
+    try:
+        return build_external_scenario_projection(DATA_ROOT, batch_id)
+    except ValueError as exc:
+        raise HTTPException(422, str(exc)) from exc
+    except FileNotFoundError as exc:
+        raise HTTPException(404, "import batch not found") from exc
+
+
+@app.get("/api/import-batches/{batch_id}/dispositions")
+def external_import_dispositions(
+    batch_id: str,
+    limit: int = Query(default=500, ge=1, le=5000),
+    _: dict = Depends(principal),
+):
+    from .external_evidence import safe_batch_path
+
+    try:
+        path = safe_batch_path(DATA_ROOT, batch_id) / "normalized" / "row_dispositions.jsonl.gz"
+    except ValueError as exc:
+        raise HTTPException(400, str(exc)) from exc
+    if not path.exists():
+        raise HTTPException(404, "batch has not been validated")
+    rows = load_jsonl_gz(path, limit=limit)
+    return {"returned": len(rows), "limit": limit, "rows": rows}

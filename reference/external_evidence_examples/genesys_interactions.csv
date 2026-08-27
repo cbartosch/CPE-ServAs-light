@@ -1,0 +1,2 @@
+interaction_id,opened_at,closed_at,customer_id,service_id,channel,queue,contact_reason,wrapup_code,repeat_contact,agent_id,transcript_summary,customer_sentiment,contact_outcome
+GEN-000992,2026-08-27T09:04:00Z,2026-08-27T09:16:00Z,CUST-0001234,SVC-0001234,VOICE,BROADBAND_TECH,INTERMITTENT_SERVICE,NETWORK_TICKET_LINKED,false,AGENT-024,Customer reports repeated drops since installation,negative,ATTACHED_TO_EXISTING_CASE

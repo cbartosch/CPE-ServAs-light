@@ -1,7 +1,7 @@
-LPR CPE Service Assurance Demo Stage 3 — governed execution gate repair
+LPR CPE Service Assurance Demo v1.26.0 External Evidence
 Generated: 2026-08-27
-Indexed files: 282
-Indexed bytes: 12734918
+Indexed files: 295
+Indexed bytes: 12916826
 
 .dockerignore	114 bytes
 .env.example	3027 bytes
@@ -9,11 +9,13 @@ Indexed bytes: 12734918
 .gitignore	152 bytes
 .stage3-manifest-exclusions.txt	89 bytes
 BUILD_TEST_REPORT.txt	9873 bytes
-CHANGELOG.md	92510 bytes
+BUNDLE_CONTENTS.txt	12799 bytes
+CHANGELOG.md	93465 bytes
 Dockerfile	1688 bytes
+FILE_MANIFEST.txt	12795 bytes
 LICENSE.txt	297 bytes
 Makefile	1780 bytes
-README.md	15097 bytes
+README.md	15645 bytes
 RUN_TESTS_MAC_LINUX.sh	69 bytes
 RUN_TESTS_WINDOWS.ps1	88 bytes
 START_DEMO_MAC_LINUX.sh	66 bytes
@@ -29,8 +31,8 @@ docker/certs/README.md	1643 bytes
 docker/mcp.Dockerfile	3061 bytes
 docs/AB_MEASUREMENT.md	8010 bytes
 docs/AGENT_AUTHORITY.md	3817 bytes
-docs/API.md	2976 bytes
-docs/ARCHITECTURE.md	6059 bytes
+docs/API.md	3876 bytes
+docs/ARCHITECTURE.md	6638 bytes
 docs/AUDIT_DEEP_v1.13.2.md	9811 bytes
 docs/AUDIT_v1.12.1.md	10679 bytes
 docs/AUDIT_v1.16.1.md	6447 bytes
@@ -43,6 +45,7 @@ docs/DISPATCH_RULE.md	7363 bytes
 docs/DVSUM_CADDI_INTEGRATION_CONTRACT.md	301 bytes
 docs/DVSUM_DALLI_INTEGRATION_CONTRACT.md	9911 bytes
 docs/ENVIRONMENT_COMPATIBILITY.md	3395 bytes
+docs/EXTERNAL_EVIDENCE_CSV.md	6577 bytes
 docs/INSTALL_ASSURANCE_WATCH.md	5051 bytes
 docs/LAPTOP_RESOURCE_GUIDE.md	958 bytes
 docs/LINT_BASELINE.md	1703 bytes
@@ -83,6 +86,14 @@ reference/CPE_demo_spec_audit_and_changes.md	32285 bytes
 reference/LPR_CPE_Service_Assurance_Mockup_Design_Specification_v1_1_Audit_Hardened.docx	971521 bytes
 reference/LPR_CPE_Service_Assurance_Mockup_Implementation_Guideline_v1_1_Audit_Hardened.docx	566647 bytes
 reference/README.md	662 bytes
+reference/external_evidence_examples/README.md	690 bytes
+reference/external_evidence_examples/dvsum_dalli_insights.csv	418 bytes
+reference/external_evidence_examples/genesys_interactions.csv	421 bytes
+reference/external_evidence_examples/identity_map.csv	340 bytes
+reference/external_evidence_examples/install_cohort.csv	257 bytes
+reference/external_evidence_examples/jtrack_events.csv	380 bytes
+reference/external_evidence_examples/nxt_alarms.csv	367 bytes
+reference/external_evidence_examples/nxt_telemetry.csv	405 bytes
 requirements-app.txt	514 bytes
 requirements-dev.txt	80 bytes
 requirements-digital-twin.txt	119 bytes
@@ -102,6 +113,7 @@ scripts/generate_control_tower_html.py	22133 bytes
 scripts/generate_footprint_map.py	8715 bytes
 scripts/generate_landmark_band.py	6028 bytes
 scripts/generate_video_slates.py	29463 bytes
+scripts/import_external_evidence.py	3236 bytes
 scripts/install-host-ca.ps1	1209 bytes
 scripts/install-host-ca.sh	1465 bytes
 scripts/preflight.py	1479 bytes
@@ -153,19 +165,20 @@ src/lpr_cpe_demo/controls.py	5482 bytes
 src/lpr_cpe_demo/dalli.py	18713 bytes
 src/lpr_cpe_demo/dashboard.py	30051 bytes
 src/lpr_cpe_demo/digital_twin/__init__.py	86 bytes
-src/lpr_cpe_demo/digital_twin/api.py	15997 bytes
+src/lpr_cpe_demo/digital_twin/api.py	25219 bytes
 src/lpr_cpe_demo/digital_twin/care.py	8359 bytes
 src/lpr_cpe_demo/digital_twin/cli.py	1165 bytes
 src/lpr_cpe_demo/digital_twin/decision.py	7656 bytes
 src/lpr_cpe_demo/digital_twin/executive_projection.py	23398 bytes
 src/lpr_cpe_demo/digital_twin/executive_style.py	9667 bytes
+src/lpr_cpe_demo/digital_twin/external_evidence.py	100173 bytes
 src/lpr_cpe_demo/digital_twin/install_assurance.py	40137 bytes
 src/lpr_cpe_demo/digital_twin/models.py	2834 bytes
 src/lpr_cpe_demo/digital_twin/orchestrator.py	81812 bytes
 src/lpr_cpe_demo/digital_twin/predictive_bridge.py	15672 bytes
 src/lpr_cpe_demo/digital_twin/providers.py	1204 bytes
 src/lpr_cpe_demo/digital_twin/storage.py	6606 bytes
-src/lpr_cpe_demo/digital_twin/streamlit_app.py	59155 bytes
+src/lpr_cpe_demo/digital_twin/streamlit_app.py	75287 bytes
 src/lpr_cpe_demo/digital_twin/workflow.py	6823 bytes
 src/lpr_cpe_demo/domain.py	12190 bytes
 src/lpr_cpe_demo/effort.py	13880 bytes
@@ -241,7 +254,7 @@ src/lpr_cpe_demo/ui/pages/simulator.py	10552 bytes
 src/lpr_cpe_demo/ui/pages/system.py	1096 bytes
 src/lpr_cpe_demo/ui/sidebar.py	5911 bytes
 src/lpr_cpe_demo/ui/theme.py	7207 bytes
-src/lpr_cpe_demo/ui/theme_dark.py	10610 bytes
+src/lpr_cpe_demo/ui/theme_dark.py	10727 bytes
 src/lpr_cpe_demo/workflow/__init__.py	164 bytes
 src/lpr_cpe_demo/workflow/engine.py	42129 bytes
 src/lpr_cpe_demo/workflow/langgraph_runtime.py	5423 bytes
@@ -259,6 +272,7 @@ tests/test_commercial.py	25360 bytes
 tests/test_controls.py	5647 bytes
 tests/test_dashboard.py	11539 bytes
 tests/test_digital_twin_p0.py	46538 bytes
+tests/test_external_evidence.py	26632 bytes
 tests/test_fault_generator.py	9896 bytes
 tests/test_geo_layers.py	6478 bytes
 tests/test_geography.py	15815 bytes

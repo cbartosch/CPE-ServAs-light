@@ -1,0 +1,2 @@
+install_work_order_id,service_id,device_id,install_type,installed_at,technician_id,commissioning_status,baseline_complete,product_profile,source_system
+WO-INSTALL-0088,SVC-0001234,CPE-0001234,NEW_INSTALL,2026-08-27T08:00:00Z,TECH-011,PASSED,true,1G_HFC,WFM

@@ -96,6 +96,9 @@ RUN_STATE_KEYS = (
 )
 
 VIEW_ALIASES = {
+    "external": "external",
+    "external-evidence": "external",
+    "csv-evidence": "external",
     "install": "install",
     "install-assurance": "install",
     "24-hour-install-watch": "install",
@@ -322,6 +325,7 @@ def _executive_crosslink(requested_view: str) -> None:
             <a class="lpr-crosslink-link" target="_self" href="digital-twin?view=predictive">Predictive Health</a>
             <a class="lpr-crosslink-link" target="_self" href="digital-twin?view=install-assurance">Install Assurance</a>
             <a class="lpr-crosslink-link" target="_self" href="digital-twin?view=customer-care">Customer Care</a>
+            <a class="lpr-crosslink-link" target="_self" href="digital-twin?view=external-evidence">External Evidence</a>
           </div>
         </div>''',
         unsafe_allow_html=True,
@@ -1448,6 +1452,363 @@ def _install_assurance() -> None:
         st.json(selected)
 
 
+
+def _external_evidence() -> None:
+    _section(
+        "Import & triangulate",
+        "External CSV evidence",
+        "Load NXT, DvSum DALLI, Genesys and JTrack exports into an immutable, "
+        "read-only scenario. Deterministic controls validate every row; an optional "
+        "LLM agent triangulates the accepted evidence and flags inconsistencies.",
+    )
+    st.warning(
+        "Simulation and analysis only. Imported files never write back to NXT, "
+        "DvSum DALLI, Genesys, JTrack or production incident systems."
+    )
+    try:
+        contract = _request("/api/external-evidence/contract")
+        batches = _request("/api/import-batches")
+    except Exception as exc:
+        st.error(f"External evidence service unavailable: {exc}")
+        return
+
+    source_order = [
+        "identity_map",
+        "nxt_telemetry",
+        "nxt_alarms",
+        "dvsum_dalli_insights",
+        "genesys_interactions",
+        "jtrack_events",
+        "install_cohort",
+    ]
+    source_labels = {
+        source: contract["sources"][source]["label"] for source in source_order
+    }
+
+    create_tab, upload_tab, review_tab = st.tabs(
+        ["1 · Create / select", "2 · Upload & validate", "3 · Analyze & recommend"]
+    )
+    with create_tab:
+        cols = st.columns([1, 1, 1])
+        mode = cols[0].selectbox(
+            "Replay mode",
+            ["historical_replay", "point_in_time", "install_watch", "shadow"],
+            format_func=lambda value: _friendly(value),
+            key="external_mode",
+        )
+        name = cols[1].text_input(
+            "Batch name",
+            value="External evidence replay",
+            key="external_batch_name",
+        )
+        as_of = cols[2].text_input(
+            "As-of time (ISO-8601, optional)",
+            placeholder="2026-08-27T09:12:00Z",
+            key="external_as_of",
+        )
+        if st.button("Create immutable import batch", type="primary", use_container_width=True):
+            try:
+                result = _request(
+                    "/api/import-batches",
+                    "POST",
+                    {"mode": mode, "name": name, "as_of": as_of or None},
+                )
+                st.session_state["external_batch_id"] = result["batch_id"]
+                st.session_state.pop("external_quality", None)
+                st.session_state.pop("external_analysis", None)
+                st.success(f"Created {result['batch_id']}")
+                st.rerun()
+            except Exception as exc:
+                st.error(str(exc))
+        choices = [str(item.get("batch_id", "")) for item in batches if item.get("batch_id")]
+        current = str(st.session_state.get("external_batch_id", ""))
+        if choices:
+            selected = st.selectbox(
+                "Existing import batch",
+                choices,
+                index=choices.index(current) if current in choices else 0,
+                format_func=lambda value: next(
+                    (
+                        f"{value} · {_friendly(item.get('mode'))} · "
+                        f"{_friendly(item.get('status'))}"
+                        for item in batches
+                        if item.get("batch_id") == value
+                    ),
+                    value,
+                ),
+            )
+            if selected != current:
+                st.session_state["external_batch_id"] = selected
+                st.session_state.pop("external_quality", None)
+                st.session_state.pop("external_analysis", None)
+        st.caption(
+            "Identity resolution is deterministic: exact service, device, MAC, serial, "
+            "tap/ODP and timestamp relationships take precedence over analytical text."
+        )
+
+    batch_id = str(st.session_state.get("external_batch_id", "")).strip()
+    with upload_tab:
+        if not batch_id:
+            st.info("Create or select an import batch first.")
+        else:
+            st.markdown(f"**Active import batch:** `{batch_id}`")
+            st.caption(
+                "Use UTF-8 CSV with ISO-8601 timestamps including a timezone. Raw files "
+                "are retained unchanged with SHA-256 lineage."
+            )
+            for source in source_order:
+                left, middle, right = st.columns([1.2, 2.2, 1])
+                with left:
+                    st.markdown(f"**{source_labels[source]}**")
+                    st.caption(contract["sources"][source]["grain"])
+                with middle:
+                    uploaded = st.file_uploader(
+                        f"Upload {source_labels[source]}",
+                        type=["csv"],
+                        key=f"external_upload_{source}",
+                        label_visibility="collapsed",
+                    )
+                with right:
+                    try:
+                        template = _request(f"/api/external-evidence/templates/{source}")
+                        st.download_button(
+                            "CSV template",
+                            template["content"],
+                            file_name=template["filename"],
+                            mime="text/csv",
+                            key=f"external_template_{source}",
+                            use_container_width=True,
+                        )
+                    except Exception:
+                        pass
+                if uploaded is not None and st.button(
+                    f"Store {source_labels[source]}",
+                    key=f"external_store_{source}",
+                    use_container_width=True,
+                ):
+                    try:
+                        content = uploaded.getvalue().decode("utf-8-sig")
+                        result = _request(
+                            f"/api/import-batches/{urllib.parse.quote(batch_id)}/files/{source}",
+                            "POST",
+                            {
+                                "filename": uploaded.name,
+                                "content": content,
+                                "replace": True,
+                            },
+                        )
+                        st.session_state.pop("external_quality", None)
+                        st.session_state.pop("external_analysis", None)
+                        st.success(
+                            f"Stored {result['original_filename']} · "
+                            f"SHA-256 {result['sha256'][:12]}…"
+                        )
+                    except UnicodeDecodeError:
+                        st.error("The file is not UTF-8 encoded.")
+                    except Exception as exc:
+                        st.error(str(exc))
+            if st.button("Validate, normalize and correlate", type="primary", use_container_width=True):
+                try:
+                    with st.spinner("Validating schemas, identity, chronology and lineage…"):
+                        quality = _request(
+                            f"/api/import-batches/{urllib.parse.quote(batch_id)}/validate",
+                            "POST",
+                            {},
+                        )
+                    st.session_state["external_quality"] = quality
+                    st.session_state.pop("external_analysis", None)
+                    st.success(f"Validation status: {_friendly(quality['status'])}")
+                except Exception as exc:
+                    st.error(str(exc))
+            quality = st.session_state.get("external_quality")
+            if quality:
+                counts = quality.get("issue_counts", {})
+                metrics = st.columns(5)
+                metrics[0].metric("Rows read", quality.get("total_rows", 0))
+                metrics[1].metric("Accepted", quality.get("accepted_rows", 0))
+                metrics[2].metric("Quarantined", quality.get("quarantined_rows", 0))
+                metrics[3].metric("Warnings", counts.get("WARNING", 0))
+                metrics[4].metric("Errors", counts.get("ERROR", 0))
+                if quality.get("issues"):
+                    st.dataframe(
+                        quality["issues"],
+                        hide_index=True,
+                        use_container_width=True,
+                    )
+
+    with review_tab:
+        if not batch_id:
+            st.info("Create or select an import batch first.")
+            return
+        provider_cols = st.columns([1, 1, 1, 1])
+        enable_llm = provider_cols[0].checkbox(
+            "Run triangulation agent",
+            value=True,
+            help="Deterministic validation always runs first and remains authoritative.",
+        )
+        provider = provider_cols[1].selectbox(
+            "Agent provider",
+            ["fake", "disabled", "openai", "anthropic"],
+            help="Fake is the deterministic offline agent used for a no-network demo.",
+        )
+        model = provider_cols[2].text_input(
+            "Model",
+            disabled=provider not in {"openai", "anthropic"},
+            placeholder="Provider model name",
+        )
+        max_services = provider_cols[3].number_input(
+            "Services sent to agent",
+            min_value=1,
+            max_value=50,
+            value=25,
+        )
+        if st.button("Analyze and triangulate evidence", type="primary", use_container_width=True):
+            try:
+                with st.spinner(
+                    "Running deterministic RCA, DvSum comparison and LLM triangulation…"
+                ):
+                    analysis = _request(
+                        f"/api/import-batches/{urllib.parse.quote(batch_id)}/analyze",
+                        "POST",
+                        {
+                            "enable_llm": enable_llm,
+                            "llm_provider": provider,
+                            "llm_model": model,
+                            "max_services": int(max_services),
+                        },
+                    )
+                st.session_state["external_analysis"] = analysis
+            except Exception as exc:
+                st.error(str(exc))
+        analysis = st.session_state.get("external_analysis")
+        if not analysis:
+            st.info("Validate the batch, then run the analysis.")
+            return
+        invocation = analysis.get("agent_invocation", {})
+        status_cols = st.columns(4)
+        status_cols[0].metric("Provider", _friendly(invocation.get("provider")))
+        status_cols[1].metric("Provider status", _friendly(invocation.get("provider_status")))
+        status_cols[2].metric(
+            "External call attempted",
+            "Yes" if invocation.get("attempted_external_call") else "No",
+        )
+        status_cols[3].metric(
+            "Human review",
+            "Required" if analysis.get("human_review_required") else "Not required",
+        )
+        if invocation.get("error"):
+            st.warning(f"Provider fallback: {invocation['error']}")
+        st.info(
+            "The deterministic quality and policy branch remains authoritative. "
+            "The agent can add inconsistencies or explanations but cannot approve or execute an action."
+        )
+        recommendations = analysis.get("reconciled_recommendations", [])
+        if recommendations:
+            st.subheader("Reconciled action recommendations")
+            st.dataframe(
+                [
+                    {
+                        "Service": item.get("service_id"),
+                        "Agent agreement": _friendly(item.get("agreement")),
+                        "DvSum DALLI": _friendly(
+                            (item.get("deterministic") or {}).get(
+                                "dvsum_dalli_domain_agreement"
+                            )
+                        ),
+                        "DvSum domain": _friendly(
+                            (item.get("deterministic") or {}).get("dvsum_dalli_domain")
+                        ),
+                        "Domain": _friendly(
+                            (item.get("authoritative_recommendation") or {}).get("domain")
+                        ),
+                        "Recommended action": _friendly(
+                            (item.get("authoritative_recommendation") or {}).get("action")
+                        ),
+                        "Human review": "Required" if item.get("human_review_required") else "No",
+                        "Execution": "Blocked — advisory only",
+                    }
+                    for item in recommendations
+                ],
+                hide_index=True,
+                use_container_width=True,
+            )
+        llm = analysis.get("llm_triangulation", {})
+        detail_tabs = st.tabs(
+            [
+                "Agent summary",
+                "Inconsistencies",
+                "Scenario projection",
+                "Evidence timeline",
+                "Raw report",
+            ]
+        )
+        with detail_tabs[0]:
+            st.write(llm.get("summary", "No agent summary."))
+            st.metric("Agent confidence", f"{100 * float(llm.get('overall_confidence', 0)):.0f}%")
+            for fact in llm.get("validated_facts", []):
+                st.write(f"✓ {fact}")
+            for missing in llm.get("missing_evidence", []):
+                st.write(f"△ {missing}")
+        with detail_tabs[1]:
+            inconsistencies = llm.get("inconsistencies", [])
+            if inconsistencies:
+                st.dataframe(inconsistencies, hide_index=True, use_container_width=True)
+            else:
+                st.success("The agent did not add an inconsistency beyond deterministic validation.")
+        with detail_tabs[2]:
+            try:
+                projection = _request(
+                    f"/api/import-batches/{urllib.parse.quote(batch_id)}/projection"
+                )
+                metrics = projection.get("metrics", {})
+                projection_cols = st.columns(5)
+                projection_cols[0].metric("Services", metrics.get("services", 0))
+                projection_cols[1].metric(
+                    "Evidence records", metrics.get("evidence_records", 0)
+                )
+                projection_cols[2].metric(
+                    "Care contacts", metrics.get("genesys_contacts", 0)
+                )
+                projection_cols[3].metric(
+                    "Human review", metrics.get("human_review_required", 0)
+                )
+                projection_cols[4].metric(
+                    "Promoted installs", metrics.get("install_watch_promoted", 0)
+                )
+                st.dataframe(
+                    projection.get("services", []),
+                    hide_index=True,
+                    use_container_width=True,
+                )
+            except Exception as exc:
+                st.error(str(exc))
+        with detail_tabs[3]:
+            try:
+                batch = _request(f"/api/import-batches/{urllib.parse.quote(batch_id)}")
+                timeline = (batch.get("timeline") or {}).get("events", [])
+                st.dataframe(timeline, hide_index=True, use_container_width=True)
+            except Exception as exc:
+                st.error(str(exc))
+        with detail_tabs[4]:
+            st.json(analysis)
+        run_id = _active_run_id()
+        if st.button(
+            "Materialize read-only scenario overlay",
+            use_container_width=True,
+            help="Creates a child scenario reference; canonical run datasets remain unchanged.",
+        ):
+            try:
+                scenario = _request(
+                    f"/api/import-batches/{urllib.parse.quote(batch_id)}/materialize",
+                    "POST",
+                    {"run_id": run_id or None},
+                )
+                st.success(
+                    f"Materialized {scenario['scenario_id']} · canonical run unchanged"
+                )
+            except Exception as exc:
+                st.error(str(exc))
+
 def render() -> None:
     st.markdown(executive_style.css(), unsafe_allow_html=True)
     _hero()
@@ -1462,6 +1823,7 @@ def render() -> None:
         ("create", "Create Demo", _create_demo),
         ("predictive", "Predictive Health", _predictive_health),
         ("install", "Install Assurance", _install_assurance),
+        ("external", "External Evidence", _external_evidence),
         ("care", "Customer Experience", _customer_experience),
         ("dalli", "DvSum DALLI & Genesys", _dalli_layer),
         ("subscriber", "Subscriber Story", _subscriber_story),

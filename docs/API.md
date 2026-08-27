@@ -56,3 +56,27 @@ lengths. See `docs/SHARED_MEASUREMENT_CONTRACT.md`.
 Canonical DvSum DALLI contract: `GET /api/integrations/dalli`. The former
 `/api/integrations/caddi` and `/api/integrations/cadi` spellings remain deprecated
 compatibility aliases.
+
+## External evidence import and analysis
+
+```text
+GET  /api/external-evidence/contract
+GET  /api/external-evidence/templates/{source_type}
+POST /api/import-batches
+GET  /api/import-batches
+GET  /api/import-batches/{batch_id}
+POST /api/import-batches/{batch_id}/files/{source_type}
+POST /api/import-batches/{batch_id}/validate
+POST /api/import-batches/{batch_id}/analyze
+GET  /api/import-batches/{batch_id}/quality
+GET  /api/import-batches/{batch_id}/dispositions
+GET  /api/import-batches/{batch_id}/correlations
+GET  /api/import-batches/{batch_id}/timeline
+GET  /api/import-batches/{batch_id}/recommendations
+GET  /api/import-batches/{batch_id}/projection
+POST /api/import-batches/{batch_id}/materialize
+GET  /api/runs/{run_id}/external-evidence
+```
+
+CSV payloads are UTF-8 text in JSON. Analysis is read-only; deterministic validation
+remains authoritative and LLM output cannot execute an action.

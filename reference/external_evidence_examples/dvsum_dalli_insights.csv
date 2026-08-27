@@ -1,0 +1,2 @@
+insight_id,generated_at,service_id,interaction_id,incident_id,insight_type,suspected_domain,confidence,recommended_route,recommended_action,underlying_sources,evidence_record_ids,freshness_status,model_or_rule_version,authoritative_status_source
+DALLI-0001,2026-08-27T08:34:00Z,SVC-0001234,,,provisioning_or_access,provisioning,0.64,PROVISIONING,reprovision,NXT|Intraway,NXT-TEL-884021|NXT-AEV-00091,FRESH,DALLI-1,NXT
