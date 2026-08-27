@@ -326,6 +326,8 @@ def _executive_crosslink(requested_view: str) -> None:
             <a class="lpr-crosslink-link" target="_self" href="digital-twin?view=install-assurance">Install Assurance</a>
             <a class="lpr-crosslink-link" target="_self" href="digital-twin?view=customer-care">Customer Care</a>
             <a class="lpr-crosslink-link" target="_self" href="digital-twin?view=external-evidence">External Evidence</a>
+            <a class="lpr-crosslink-link" target="_self" href="footprint">Footprint & Dispatch</a>
+            <a class="lpr-crosslink-link" target="_self" href="simulator">Cost Simulator</a>
           </div>
         </div>''',
         unsafe_allow_html=True,

@@ -1,3 +1,26 @@
+STAGE 5 DEMO-DERIVED COST / DISPATCH CANDIDATE - 2026-08-27
+----------------------------------------------------------------
+PASS  Cost Simulator defaults to the persisted active Digital Twin run
+PASS  Footprint & Dispatch defaults to a generated case from that same run
+PASS  complete non-paginated projection joins case, incident, service, device,
+      RCA, action, human decision, work order, MR, validation and resolution
+PASS  generated work-order timestamps drive executed travel/on-site durations
+PASS  generated skill and parts readiness maps explicitly into planning hub
+      skill/stock inputs; unmapped geography/economics remain labelled
+PASS  generated-execution and governed-forecast costs remain separate
+PASS  same generated delimiter maps deterministically to one planning site
+PASS  active-run switching changes both linked pages through the persisted pointer
+PASS  projection is deterministic, read-only and leaves canonical run files unchanged
+PASS  20,000-home preview: 100 cases projected in 0.262 seconds in audit runtime
+PASS  all source work-order and MR identifiers reconcile to the projection
+PASS  293 focused regression tests across Digital Twin, dashboards, external
+      evidence, Install Assurance, workflow, MCP, security and telemetry
+PASS  governed nine-scenario matrix retains exact expected outcomes
+PASS  Python parse/compile and git diff whitespace checks
+NOTE  exact Ruff 0.13.3 execution remains the target Windows acceptance gate
+NOTE  inherited failures remain in .env/trusted-host asset policy, the static
+      FastAPI reachability heuristic and the stale Python 3.12 UI assertion
+
 STAGE 4 WINDOWS / RUFF REPAIR CANDIDATE - 2026-08-27
 ----------------------------------------------------
 PASS  corrected the theme_dark.py unterminated HTML string

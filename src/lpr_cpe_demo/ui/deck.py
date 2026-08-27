@@ -91,7 +91,12 @@ def fault_layers(pdk, faults, *, show_routes: bool = True,
     return out
 
 
-def footprint_layers(pdk, *, route_path: dict[str, Any] | None = None) -> list[Any]:
+def footprint_layers(
+    pdk,
+    *,
+    route_path: dict[str, Any] | None = None,
+    selected_case: dict[str, Any] | None = None,
+) -> list[Any]:
     out: list[Any] = []
     if route_path is not None:
         route = _try(lambda: pdk.Layer(
@@ -117,6 +122,25 @@ def footprint_layers(pdk, *, route_path: dict[str, Any] | None = None) -> list[A
         out.append(markers)
 
     out.extend(hub_layers(pdk))
+
+    # Draw the selected generated intervention last so hubs and site markers do
+    # not obscure the case the operator is reviewing.
+    if selected_case is not None:
+        selected = _try(lambda: pdk.Layer(
+            "ScatterplotLayer",
+            data=[selected_case],
+            get_position="position",
+            get_fill_color="colour",
+            get_radius="radius",
+            radius_min_pixels=8,
+            radius_max_pixels=22,
+            stroked=True,
+            line_width_min_pixels=2,
+            get_line_color=[252, 251, 250, 255],
+            pickable=True,
+        ))
+        if selected:
+            out.append(selected)
     return out
 
 

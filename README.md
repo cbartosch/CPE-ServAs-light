@@ -356,3 +356,15 @@ All analytical workspaces use one uniform medium-grey panel system (`#4B5057`) w
 consistent borders, 14-pixel radii, padding and text hierarchy. The legacy Control
 Tower retains its dark page canvas while using the same panel surface as the other
 views.
+## Demo-derived cost and dispatch
+
+The **Cost Simulator** and **Footprint & Dispatch** pages now default to the
+persisted active Digital Twin run. Generated service/case/incident identity, RCA,
+action status, work-order skill/parts/timestamps, JTrack MR and validation records
+feed one complete dispatch/cost projection. Generated readiness codes are mapped
+explicitly to the planning hub skill/stock vocabulary. Geography and hub selection remain a
+deterministic planning mapping because the synthetic subscriber master contains no
+surveyed coordinates; economic rates remain explicit assumptions. Generated
+execution and governed forecast costs are shown separately. The former seeded
+fault simulator and manual site check remain available as planning-only modes. See
+`docs/DEMO_DERIVED_COST_DISPATCH.md`.

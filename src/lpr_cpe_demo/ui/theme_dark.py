@@ -256,6 +256,10 @@ def executive_crosslink() -> str:
         'href="digital-twin?view=external-evidence">External Evidence →</a>'
         '<a class="ct-crosslink-link" target="_self" '
         'href="digital-twin?view=dalli">DvSum DALLI / Genesys →</a>'
+        '<a class="ct-crosslink-link" target="_self" '
+        'href="footprint">Footprint & Dispatch →</a>'
+        '<a class="ct-crosslink-link" target="_self" '
+        'href="simulator">Cost Simulator →</a>'
         '</div></div>'
     )
 

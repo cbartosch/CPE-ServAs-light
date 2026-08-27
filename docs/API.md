@@ -35,11 +35,16 @@ The Digital Twin API on port 8001 requires Basic Auth and additionally exposes:
 | PUT | `/api/active-run` | select the canonical active run |
 | GET | `/api/executive-projection` | complete active-run semantic projection |
 | GET | `/api/runs/{run_id}/executive-projection` | projection for one explicit run |
+| GET | `/api/dispatch-cost-contract` | run/model/assumption provenance contract for linked cost and dispatch views |
+| GET | `/api/dispatch-cost-projection` | complete cost/dispatch projection for the active run |
+| GET | `/api/active-run/dispatch-cost-projection` | active-run compatibility alias for the complete projection |
+| GET | `/api/runs/{run_id}/dispatch-cost-projection` | complete projection for one explicit run |
 | GET | `/api/runs/{run_id}/datasets/{dataset}` | paginated display rows with total/truncation metadata |
 | GET | `/api/runs/{run_id}/care/tickets` | full filtered aggregates plus paginated contact rows |
 
 Headline dashboard metrics come from the projection endpoints, not dataset page
-lengths. See `docs/SHARED_MEASUREMENT_CONTRACT.md`.
+lengths. See `docs/SHARED_MEASUREMENT_CONTRACT.md` and
+`docs/DEMO_DERIVED_COST_DISPATCH.md`.
 
 ## Install Assurance
 

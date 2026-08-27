@@ -228,7 +228,9 @@ class TestDarkThemeReadability(unittest.TestCase):
         self.assertIn('href="digital-twin?view=customer-care"', html)
         self.assertIn('href="digital-twin?view=dalli"', html)
         self.assertIn('href="digital-twin?view=external-evidence"', html)
-        self.assertEqual(html.count('target="_self"'), 5)
+        self.assertIn('href="footprint"', html)
+        self.assertIn('href="simulator"', html)
+        self.assertEqual(html.count('target="_self"'), 7)
 
     def test_all_analytical_panels_use_the_uniform_medium_grey_surface(self):
         from lpr_cpe_demo.digital_twin import executive_style

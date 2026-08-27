@@ -12,6 +12,7 @@ from pydantic import BaseModel, Field
 from ..dalli import dalli_contract
 from ..measurement import measurement_contract
 from . import __version__
+from .dispatch_projection import build_dispatch_cost_projection, dispatch_cost_contract
 from .executive_projection import build_executive_projection
 from .install_assurance import (
     create_install_assurance_watch,
@@ -115,6 +116,17 @@ def _build_projection(run_id: str) -> dict:
         raise HTTPException(409, f"executive projection unavailable: {exc}") from exc
 
 
+def _build_dispatch_projection(run_id: str) -> dict:
+    try:
+        return build_dispatch_cost_projection(DATA_ROOT, run_id)
+    except FileNotFoundError as exc:
+        raise HTTPException(404, "run not found") from exc
+    except (OSError, json.JSONDecodeError, ValueError, LookupError) as exc:
+        raise HTTPException(
+            409, f"dispatch/cost projection unavailable: {exc}"
+        ) from exc
+
+
 @app.get("/api/integrations/dalli")
 @app.get("/api/integrations/caddi", deprecated=True)
 @app.get("/api/integrations/cadi", deprecated=True)
@@ -128,11 +140,12 @@ def health():
         "status": "ok",
         "version": __version__,
         "production_writes": False,
-        "release": "Stage 3 install assurance with DvSum DALLI",
+        "release": "Stage 5 demo-derived cost and dispatch",
         "predictive_care_integration": True, "external_evidence_csv": True, "llm_triangulation": True,
         "install_assurance": True,
         "dalli_integration": "contract_only",
         "measurement_schema": "1.0",
+        "dispatch_cost_projection": True,
     }
 
 
@@ -204,6 +217,22 @@ def active_executive_projection(_: dict = Depends(principal)):
 @app.get("/api/runs/{run_id}/executive-projection")
 def run_executive_projection(run_id: str, _: dict = Depends(principal)):
     return _build_projection(run_id)
+
+
+@app.get("/api/dispatch-cost-contract")
+def dispatch_cost_projection_contract(_: dict = Depends(principal)):
+    return dispatch_cost_contract()
+
+
+@app.get("/api/dispatch-cost-projection")
+@app.get("/api/active-run/dispatch-cost-projection")
+def active_dispatch_cost_projection(_: dict = Depends(principal)):
+    return _build_dispatch_projection(_active_run_id())
+
+
+@app.get("/api/runs/{run_id}/dispatch-cost-projection")
+def run_dispatch_cost_projection(run_id: str, _: dict = Depends(principal)):
+    return _build_dispatch_projection(run_id)
 
 
 @app.get("/api/runs/{run_id}")

@@ -134,6 +134,19 @@ class DigitalTwinAPI:
     def projection(self, run_id: str) -> dict[str, Any]:
         return dict(self.get(f"/api/runs/{run_id}/executive-projection"))
 
+    def dispatch_cost_projection(
+        self, run_id: str | None = None
+    ) -> dict[str, Any]:
+        path = (
+            f"/api/runs/{run_id}/dispatch-cost-projection"
+            if run_id
+            else "/api/dispatch-cost-projection"
+        )
+        return dict(self.get(path))
+
+    def dispatch_cost_contract(self) -> dict[str, Any]:
+        return dict(self.get("/api/dispatch-cost-contract"))
+
     def activate(self, run_id: str) -> dict[str, Any]:
         return dict(self.put("/api/active-run", {"run_id": run_id}))
 

@@ -1,3 +1,22 @@
+## 1.27.0 — demo-derived cost and dispatch integration
+
+- Make the Cost Simulator default to the persisted active Digital Twin run rather
+  than generating an unrelated seeded fault population.
+- Project every generated case, incident, service, RCA decision, action, work
+  order, MR and validation record into one complete cost/dispatch read model.
+- Separate generated-execution cost from governed-forecast cost and expose line
+  item duration/rate provenance.
+- Use generated work-order travel and on-site timestamps when available while
+  retaining explicit assumed labour, vehicle, ferry, overnight and parts rates.
+- Make Footprint & Dispatch default to a generated demo case and use its
+  technology, delimiter, action, skill, parts, work order and MR as staging inputs.
+- Map generated delimiter groups deterministically to the Puerto Rico planning
+  geography because the synthetic subscriber master has no surveyed coordinates.
+- Retain the legacy seeded simulator and manual dispatch check as clearly
+  separated planning modes.
+- Add active-run API endpoints, cross-navigation, read-only integrity checks and
+  regression coverage.
+
 ## 1.26.1 — Stage 4 Windows and release-gate repair
 
 - Repair the unterminated Executive Control Tower cross-link string that prevented
