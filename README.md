@@ -364,7 +364,10 @@ action status, work-order skill/parts/timestamps, JTrack MR and validation recor
 feed one complete dispatch/cost projection. Generated readiness codes are mapped
 explicitly to the planning hub skill/stock vocabulary. Geography and hub selection remain a
 deterministic planning mapping because the synthetic subscriber master contains no
-surveyed coordinates; economic rates remain explicit assumptions. Generated
+surveyed coordinates. The generated planning region is now a serving-delimiter
+property: every service behind one TAP or ODP shares one region, and legacy
+mixed-region runs are rejected by the cost/dispatch projection until regenerated.
+Economic rates remain explicit assumptions. Generated
 execution and governed forecast costs are shown separately. The former seeded
 fault simulator and manual site check remain available as planning-only modes. See
 `docs/DEMO_DERIVED_COST_DISPATCH.md`.

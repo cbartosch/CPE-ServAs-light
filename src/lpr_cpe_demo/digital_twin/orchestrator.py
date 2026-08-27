@@ -29,6 +29,7 @@ from .models import AgentDecision, GenerationConfig, HumanDecision
 from .predictive_bridge import build_snapshot
 from .providers import build_structured_client, invoke_structured
 from .storage import (
+    RUN_SCHEMA_VERSION,
     atomic_write_jsonl_gz,
     canonical_config,
     derive_run_id,
@@ -100,6 +101,7 @@ def _subscriber(i: int, homes: int) -> dict:
     tech = _technology(i, homes)
     sid = f"SVC-{i+1:07d}"
     delimiter = "TAP" if tech == "HFC" else "ODP"
+    delimiter_group = i // 8
     return {
         "customer_id": f"CUST-{i+1:07d}",
         "service_account_id": f"ACCT-{i+1:07d}",
@@ -109,11 +111,34 @@ def _subscriber(i: int, homes: int) -> dict:
         "serial_number": f"LPR{2400000000+i:010d}",
         "mac_address": f"02:4c:{(i>>16)&255:02x}:{(i>>8)&255:02x}:{i&255:02x}:{(i*17)&255:02x}",
         "technology": tech,
-        "region": REGIONS[i % len(REGIONS)],
+        # Geography is a serving-delimiter property.  Every service behind one
+        # TAP/ODP must therefore inherit the same planning region.
+        "region": REGIONS[delimiter_group % len(REGIONS)],
         "delimiter_type": delimiter,
-        "delimiter_id": f"{delimiter}-{(i//8)+1:06d}",
+        "delimiter_id": f"{delimiter}-{delimiter_group+1:06d}",
         "access_port_id": f"{tech}-HUB-{(i//512)+1:04d}-PORT-{(i%512)+1:04d}",
     }
+
+
+def _subscriber_master_rows(homes: int):
+    """Yield the full subscriber master while enforcing topology geography.
+
+    The check is streaming and keeps only one region per delimiter, so it is
+    safe for the 500,000-home demonstration footprint.
+    """
+
+    region_by_delimiter: dict[str, str] = {}
+    for index in range(homes):
+        row = _subscriber(index, homes)
+        delimiter_id = str(row["delimiter_id"])
+        region = str(row["region"])
+        previous = region_by_delimiter.setdefault(delimiter_id, region)
+        if previous != region:
+            raise ValueError(
+                "subscriber topology assigns multiple regions to "
+                f"{delimiter_id}: {previous!r} and {region!r}"
+            )
+        yield row
 
 
 def _agent_decision(config: GenerationConfig, deterministic: dict, evidence_packet: dict):
@@ -834,7 +859,10 @@ def _generate_into(config: GenerationConfig, run_path: Path, run_id: str, config
 
     files: list[dict] = []
     master_path = run_path / "subscriber_master.jsonl.gz"
-    master_count = write_jsonl_gz(master_path, (_subscriber(i, config.homes) for i in range(config.homes)))
+    master_count = write_jsonl_gz(
+        master_path,
+        _subscriber_master_rows(config.homes),
+    )
     files.append({"dataset": "subscriber_master", "path": master_path.name, "row_count": master_count, "sha256": sha256_file(master_path)})
 
     telemetry_path = run_path / "telemetry_tr181.jsonl.gz"
@@ -864,13 +892,17 @@ def _generate_into(config: GenerationConfig, run_path: Path, run_id: str, config
     if len(rows["incidents"]) != total_cases - repeat_count:
         quality["errors"].append("root-incident volume disagrees with repeat consolidation")
     quality["passed"] = not quality["errors"]
-    quality["scope"] = "canonical case graph, hard operating controls, causal invariants, repeat governance and volume contracts"
+    quality["scope"] = (
+        "canonical case graph, delimiter-region topology, hard operating "
+        "controls, causal invariants, repeat governance and volume contracts"
+    )
     if not quality["passed"]:
         raise ValueError("generated data failed quality gate: " + "; ".join(quality["errors"][:10]))
 
     catalog = {
         "version": "2.4.0",
         "release": "P0 Fixed R3 Hotfix5.5",
+        "run_schema_version": RUN_SCHEMA_VERSION,
         "run_id": run_id,
         "config": config.model_dump(mode="json"),
         "config_sha256": config_digest,
@@ -1094,6 +1126,23 @@ def quality_check(rows: dict[str, list[dict]]) -> dict:
         errors.extend(_unique_errors(rows.get(dataset, []), field, label))
 
     master = {r["service_id"]: r for r in rows.get("subscriber_master", [])}
+    regions_by_delimiter: dict[str, set[str]] = defaultdict(set)
+    for subscriber in rows.get("subscriber_master", []):
+        delimiter_id = str(subscriber.get("delimiter_id") or "")
+        region = str(subscriber.get("region") or "")
+        if region not in REGIONS:
+            errors.append(
+                f"subscriber has unsupported planning region for {delimiter_id or 'unknown delimiter'}"
+            )
+        if delimiter_id and region:
+            regions_by_delimiter[delimiter_id].add(region)
+    for delimiter_id, regions in regions_by_delimiter.items():
+        if len(regions) != 1:
+            errors.append(
+                "delimiter spans multiple planning regions: "
+                f"{delimiter_id} -> {sorted(regions)}"
+            )
+
     manifests = {r["case_id"]: r for r in rows.get("scenario_manifests", [])}
     incidents_by_id = {r["incident_id"]: r for r in rows.get("incidents", [])}
     incidents_by_root = {r["case_id"]: r for r in rows.get("incidents", [])}

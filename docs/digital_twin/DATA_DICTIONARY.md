@@ -23,6 +23,20 @@ The canonical release writes 20 gzip-compressed JSON Lines datasets:
 19. `care_tickets`
 20. `care_ticket_reviews`
 
+## Subscriber-master topology fields
+
+- `service_id`, `device_id`, serial/MAC and account/premise fields: canonical
+  service and CPE identity.
+- `technology`: `HFC`, `GPON` or `XGS-PON`.
+- `delimiter_type`, `delimiter_id`: serving HFC TAP or PON ODP.
+- `region`: planning geography inherited from the serving delimiter. One
+  `delimiter_id` may not span multiple regions.
+- `access_port_id`: generated CMTS/CCAP or OLT/port context.
+
+Run IDs include a generation-schema marker. Runs created before the
+delimiter-region topology correction remain immutable but must be regenerated
+before they can feed the Stage 5 cost/dispatch projection.
+
 ## Predictive modem fields
 
 - `predictive_modem_pulls.pull_id`: unique evidence record for one modem in one scan.

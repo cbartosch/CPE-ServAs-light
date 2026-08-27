@@ -23,7 +23,7 @@ from __future__ import annotations
 import hashlib
 import json
 import math
-from collections import Counter, defaultdict
+from collections import defaultdict
 from collections.abc import Iterable, Mapping
 from datetime import UTC, datetime
 from pathlib import Path
@@ -76,6 +76,10 @@ GENERATED_SKILL_TO_PLANNING: dict[str, tuple[str, ...]] = {
 }
 
 
+class MixedRegionDelimiterError(ValueError):
+    """Raised when one serving TAP/ODP spans multiple planning regions."""
+
+
 def _generated_parts_to_planning(
     parts: Iterable[Any],
     *,
@@ -116,7 +120,7 @@ def dispatch_cost_contract() -> dict[str, Any]:
             "validation and closure state",
         ],
         "modelled_inputs": [
-            "municipio assignment within the generated region",
+            "municipio assignment within the delimiter's generated region",
             "premise, delimiter and intervention coordinates",
             "dispatch hub selection and road/ferry route",
             "blast radius where not directly observed",
@@ -138,6 +142,11 @@ def dispatch_cost_contract() -> dict[str, Any]:
                 "the deterministic next action and the same assumed rates."
             ),
         },
+        "topology_controls": [
+            "one delimiter_id must map to exactly one planning region",
+            "mixed-region delimiter groups are rejected; no majority or tie-break is used",
+            "runs generated before the delimiter-region fix must be regenerated",
+        ],
         "production_writes": False,
     }
 
@@ -298,14 +307,23 @@ def _site_assignments(
 
     assignments: dict[str, Site] = {}
     for group_id, rows in grouped.items():
-        regions = Counter(str(row.get("region") or "coastal") for row in rows)
-        largest_group = max(regions.values())
-        candidate_regions = sorted(
-            region for region, count in regions.items() if count == largest_group
-        )
-        archetype = candidate_regions[
-            _stable_index(group_id, len(candidate_regions))
-        ]
+        regions = {str(row.get("region") or "") for row in rows}
+        if "" in regions:
+            raise MixedRegionDelimiterError(
+                f"delimiter {group_id} has a subscriber without a planning region; "
+                "regenerate the run"
+            )
+        if len(regions) != 1:
+            raise MixedRegionDelimiterError(
+                f"mixed-region delimiter {group_id}: {sorted(regions)}; "
+                "regenerate the run with the delimiter-region topology fix"
+            )
+        archetype = next(iter(regions))
+        if archetype not in JITTER_KM:
+            raise MixedRegionDelimiterError(
+                f"delimiter {group_id} has unsupported planning region "
+                f"{archetype!r}; regenerate the run"
+            )
         technology = str(rows[0].get("technology") or "HFC")
         candidates = _site_candidates(archetype, technology)
         assignments[group_id] = candidates[_stable_index(group_id, len(candidates))]
@@ -1028,11 +1046,12 @@ def build_dispatch_cost_projection(
                 "municipio": site.municipio,
                 "archetype": site.archetype,
                 "location_provenance": (
-                    "Generated delimiter and majority generated region mapped "
+                    "Generated delimiter and its single generated region mapped "
                     "deterministically to the planning geography."
                 ),
                 "location_warning": (
-                    "Subscriber region differs from the delimiter group's mapped region."
+                    "No technology-compatible planning site exists in the generated "
+                    "region; a fallback planning site was used."
                     if region != site.archetype
                     else ""
                 ),

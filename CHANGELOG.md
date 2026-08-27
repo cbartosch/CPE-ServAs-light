@@ -1,3 +1,16 @@
+## 1.27.1 — delimiter-region topology P0 repair
+
+- Generate planning geography at serving-delimiter grain so every subscriber
+  behind one HFC TAP or PON ODP inherits the same region.
+- Enforce the one-delimiter-to-one-region invariant while streaming the complete
+  subscriber master and in the canonical data-quality gate.
+- Make the cost/dispatch projection reject legacy mixed-region delimiter groups
+  instead of selecting a majority region or deterministic tie-break.
+- Include the generation-schema version in new run identifiers so the same user
+  configuration creates a corrected run rather than reusing an older topology.
+- Preserve the Stage 5 cost model and all P1/P2 findings outside this focused P0
+  repair.
+
 ## 1.27.0 — demo-derived cost and dispatch integration
 
 - Make the Cost Simulator default to the persisted active Digital Twin run rather

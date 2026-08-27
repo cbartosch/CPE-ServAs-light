@@ -1,17 +1,27 @@
 from __future__ import annotations
 
 import hashlib
+from collections import defaultdict
 from pathlib import Path
 
+import pytest
 from fastapi.testclient import TestClient
 
 from lpr_cpe_demo.digital_twin.dispatch_projection import (
+    MixedRegionDelimiterError,
     build_dispatch_cost_projection,
     dispatch_cost_contract,
 )
 from lpr_cpe_demo.digital_twin.models import GenerationConfig
-from lpr_cpe_demo.digital_twin.orchestrator import generate
-from lpr_cpe_demo.digital_twin.storage import iter_jsonl_gz, safe_run_path
+from lpr_cpe_demo.digital_twin.orchestrator import REGIONS, _subscriber, generate
+from lpr_cpe_demo.digital_twin.storage import (
+    RUN_SCHEMA_VERSION,
+    canonical_config,
+    derive_run_id,
+    iter_jsonl_gz,
+    safe_run_path,
+    write_jsonl_gz,
+)
 
 
 def _run(tmp_path: Path) -> dict:
@@ -39,7 +49,35 @@ def test_dispatch_contract_separates_generated_modelled_and_assumed_inputs() -> 
     assert "work-order skill, parts and timestamps" in contract["run_derived_inputs"]
     assert "dispatch hub selection and road/ferry route" in contract["modelled_inputs"]
     assert "labour rates" in contract["assumed_inputs"]
+    assert "one delimiter_id must map to exactly one planning region" in contract[
+        "topology_controls"
+    ]
     assert contract["production_writes"] is False
+
+
+def test_subscriber_region_is_assigned_at_serving_delimiter_grain() -> None:
+    regions_by_delimiter: dict[str, set[str]] = defaultdict(set)
+    observed_regions: set[str] = set()
+    for index in range(257):
+        subscriber = _subscriber(index, 257)
+        regions_by_delimiter[subscriber["delimiter_id"]].add(subscriber["region"])
+        observed_regions.add(subscriber["region"])
+
+    assert observed_regions == set(REGIONS)
+    assert all(len(regions) == 1 for regions in regions_by_delimiter.values())
+
+
+def test_run_id_changes_when_the_generation_schema_changes() -> None:
+    config = GenerationConfig(
+        homes=200,
+        seed=42,
+        scenarios=["fiber_cut", "slow_wifi"],
+    )
+    legacy_digest = hashlib.sha256(canonical_config(config)).hexdigest().upper()[:20]
+    legacy_run_id = f"RUN-{config.run_date:%Y%m%d}-{legacy_digest}"
+
+    assert RUN_SCHEMA_VERSION == "lpr-digital-twin-run-v2-delimiter-region"
+    assert derive_run_id(config) != legacy_run_id
 
 
 def test_projection_links_every_generated_case_to_cost_and_dispatch(tmp_path: Path) -> None:
@@ -161,6 +199,58 @@ def test_same_generated_delimiter_maps_to_one_dispatch_site(tmp_path: Path) -> N
     for case in projection["cases"]:
         by_delimiter.setdefault(case["delimiter_id"], set()).add(case["site_id"])
     assert all(len(site_ids) == 1 for site_ids in by_delimiter.values())
+
+
+def _introduce_mixed_region_delimiter(run_path: Path) -> str:
+    manifests = list(iter_jsonl_gz(run_path / "scenario_manifests.jsonl.gz"))
+    case_services = {str(row["service_id"]) for row in manifests}
+    subscribers = list(iter_jsonl_gz(run_path / "subscriber_master.jsonl.gz"))
+    by_delimiter: dict[str, list[dict]] = defaultdict(list)
+    for row in subscribers:
+        by_delimiter[str(row["delimiter_id"])].append(row)
+
+    delimiter_id = next(
+        str(row["delimiter_id"])
+        for row in subscribers
+        if str(row["service_id"]) in case_services
+        and len(by_delimiter[str(row["delimiter_id"])]) > 1
+    )
+    group = by_delimiter[delimiter_id]
+    original_region = str(group[0]["region"])
+    group[1]["region"] = next(region for region in REGIONS if region != original_region)
+    write_jsonl_gz(run_path / "subscriber_master.jsonl.gz", subscribers)
+    return delimiter_id
+
+
+def test_projection_rejects_a_legacy_mixed_region_delimiter(tmp_path: Path) -> None:
+    catalog = _run(tmp_path)
+    run_path = safe_run_path(tmp_path, catalog["run_id"])
+    delimiter_id = _introduce_mixed_region_delimiter(run_path)
+
+    with pytest.raises(MixedRegionDelimiterError, match=delimiter_id):
+        build_dispatch_cost_projection(tmp_path, catalog["run_id"])
+
+
+def test_api_returns_conflict_for_a_mixed_region_legacy_run(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    from lpr_cpe_demo.digital_twin import api
+
+    catalog = _run(tmp_path)
+    run_path = safe_run_path(tmp_path, catalog["run_id"])
+    delimiter_id = _introduce_mixed_region_delimiter(run_path)
+    monkeypatch.setattr(api, "DATA_ROOT", tmp_path)
+    client = TestClient(api.app)
+
+    response = client.get(
+        f"/api/runs/{catalog['run_id']}/dispatch-cost-projection",
+        auth=("demo", "CHANGE_ME"),
+    )
+
+    assert response.status_code == 409
+    assert delimiter_id in response.json()["detail"]
+    assert "regenerate" in response.json()["detail"].lower()
 
 
 def test_projection_is_read_only_and_deterministic(tmp_path: Path) -> None:

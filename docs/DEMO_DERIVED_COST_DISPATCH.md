@@ -56,14 +56,18 @@ The calculation deliberately separates three input classes.
 
 The synthetic subscriber master has no surveyed latitude/longitude. The
 projection therefore maps each generated delimiter deterministically to one
-Puerto Rico planning site. The delimiter group's most frequent generated region
-is used; a stable delimiter-based tie-break is applied when the synthetic group
-contains equally frequent regions. The same delimiter always maps to the same
-site.
+Puerto Rico planning site. Geography is generated at serving-delimiter grain:
+every service behind one TAP or ODP inherits the same planning region, and the
+same delimiter always maps to the same site.
 
 Premise, delimiter and intervention coordinates, dispatch-hub selection, route
-and blast radius remain modelled. A mismatch between an individual subscriber's
-generated region and its delimiter-group mapping is shown as a warning.
+and blast radius remain modelled. A mixed-region delimiter is invalid topology;
+the projection rejects that run and asks the operator to regenerate it rather
+than selecting a majority region or applying a tie-break.
+
+Run identifiers include the generation-schema version. Re-running the same user
+configuration after this topology correction therefore creates a new immutable
+run instead of silently reusing an older mixed-region artifact.
 
 ### Assumed
 

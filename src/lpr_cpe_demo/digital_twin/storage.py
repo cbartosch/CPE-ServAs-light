@@ -16,6 +16,11 @@ from .models import GenerationConfig
 _RUN_RE = re.compile(r"^RUN-[0-9]{8}-[A-F0-9]{20}$")
 _ACTIVE_RUN_FILE = "active_run.json"
 
+# Run identifiers include the immutable generation schema as well as the user
+# configuration.  This prevents an older run generated with a superseded
+# topology algorithm from being silently reused after the code is upgraded.
+RUN_SCHEMA_VERSION = "lpr-digital-twin-run-v2-delimiter-region"
+
 
 def canonical_config(config: GenerationConfig) -> bytes:
     data = config.model_dump(mode="json")
@@ -23,7 +28,8 @@ def canonical_config(config: GenerationConfig) -> bytes:
 
 
 def derive_run_id(config: GenerationConfig) -> str:
-    digest = hashlib.sha256(canonical_config(config)).hexdigest().upper()[:20]
+    material = RUN_SCHEMA_VERSION.encode("utf-8") + b"\0" + canonical_config(config)
+    digest = hashlib.sha256(material).hexdigest().upper()[:20]
     return f"RUN-{config.run_date:%Y%m%d}-{digest}"
 
 
