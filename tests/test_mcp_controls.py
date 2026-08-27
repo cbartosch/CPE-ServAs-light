@@ -11,12 +11,20 @@ from lpr_cpe_demo.mcp_server.tools import ToolRegistry, ToolRejection
 from lpr_cpe_demo.workflow.scenarios import ScenarioCatalog
 
 
-def _token(settings: Settings, *, approval_id: str, incident_id: str, action_type: str) -> str:
+def _token(
+    settings: Settings,
+    *,
+    approval_id: str,
+    incident_id: str,
+    action_type: str,
+    idempotency_key: str,
+) -> str:
     return create_approval_token(
         {
             "approval_id": approval_id,
             "incident_id": incident_id,
             "action_type": action_type,
+            "idempotency_key": idempotency_key,
             "status": "approved",
             "exp": (datetime.now(UTC) + timedelta(minutes=10)).timestamp(),
         },
@@ -38,6 +46,7 @@ def test_replaying_same_idempotency_key_returns_same_effect(settings: Settings, 
             approval_id="APR-001",
             incident_id="INC-IDEMPOTENT",
             action_type="remote_reprovision",
+            idempotency_key="idem-001",
         ),
     }
 
@@ -57,6 +66,7 @@ def test_consumed_approval_cannot_authorize_a_different_effect(settings: Setting
         approval_id="APR-USED",
         incident_id="INC-USED",
         action_type="remote_reprovision",
+        idempotency_key="idem-first",
     )
     base = {
         "incident_id": "INC-USED",
@@ -67,8 +77,22 @@ def test_consumed_approval_cannot_authorize_a_different_effect(settings: Setting
     }
     registry.call("simulate_remote_action", {**base, "idempotency_key": "idem-first"})
 
+    second_token = _token(
+        settings,
+        approval_id="APR-USED",
+        incident_id="INC-USED",
+        action_type="remote_reprovision",
+        idempotency_key="idem-second",
+    )
     with pytest.raises(ToolRejection) as exc:
-        registry.call("simulate_remote_action", {**base, "idempotency_key": "idem-second"})
+        registry.call(
+            "simulate_remote_action",
+            {
+                **base,
+                "idempotency_key": "idem-second",
+                "approval_token": second_token,
+            },
+        )
 
     assert exc.value.code == "APPROVAL_ALREADY_CONSUMED"
 
@@ -90,6 +114,7 @@ def test_wrong_action_type_is_rejected_before_effect(settings: Settings, tmp_pat
             approval_id="APR-WRONG",
             incident_id="INC-WRONG",
             action_type="plant_action",
+            idempotency_key="idem-wrong",
         ),
     }
 

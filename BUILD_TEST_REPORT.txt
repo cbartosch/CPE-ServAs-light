@@ -1,3 +1,24 @@
+# Stage 3 governed-execution gate repair candidate
+
+- Version: **1.25.2**
+- Application approval tokens now include the stored restart-stable
+  `idempotency_key` claim.
+- The deterministic scenario matrix validates exact expected statuses, actions,
+  counters, diagnostic cycles, incident identity, work-order results and MR
+  identity/outcomes before printing PASS.
+- A wrong terminal result or empty nominal action history now returns a non-zero
+  exit code.
+- Focused governed-execution gate: **69 passed**.
+- Complete per-file audit: **833 passed, 4 inherited failures, 2 skipped** across
+  839 collected tests. The remaining failures are the pre-existing `.env`,
+  trusted-host policy, route-reachability heuristic and stale Python 3.12 test.
+- Scope is limited to the two requested P0 findings; other Stage 3 audit findings
+  remain open.
+
+See `docs/AUDIT_v1.25.2.md`.
+
+---
+
 # Stage 3 DvSum DALLI naming repair candidate
 
 - Canonical display name: **DvSum DALLI**

@@ -1,14 +1,15 @@
-LPR CPE Service Assurance Demo Stage 3 DvSum DALLI File Manifest
-Generated: 2026-08-26
-Files: 279
+LPR CPE Service Assurance Demo Stage 3 Governed Execution Gate File Manifest
+Generated: 2026-08-27
+Files: 282
 
 .dockerignore	114 bytes
 .env.example	3027 bytes
 .gitattributes	473 bytes
 .gitignore	152 bytes
-BUILD_TEST_REPORT.txt	8992 bytes
-BUNDLE_CONTENTS.txt	11916 bytes
-CHANGELOG.md	91701 bytes
+.stage3-manifest-exclusions.txt	89 bytes
+BUILD_TEST_REPORT.txt	9873 bytes
+BUNDLE_CONTENTS.txt	12035 bytes
+CHANGELOG.md	92510 bytes
 Dockerfile	1688 bytes
 LICENSE.txt	297 bytes
 Makefile	1780 bytes
@@ -34,6 +35,7 @@ docs/AUDIT_DEEP_v1.13.2.md	9811 bytes
 docs/AUDIT_v1.12.1.md	10679 bytes
 docs/AUDIT_v1.16.1.md	6447 bytes
 docs/AUDIT_v1.23.1.md	6906 bytes
+docs/AUDIT_v1.25.2.md	3176 bytes
 docs/CADI_INTEGRATION_CONTRACT.md	248 bytes
 docs/COMPARISON_AND_IMPROVEMENTS.md	7191 bytes
 docs/DEPENDENCY_PINS.md	1882 bytes
@@ -109,7 +111,7 @@ scripts/run_ab_matrix.py	11095 bytes
 scripts/run_commercial_priority.py	9885 bytes
 scripts/run_dispatch_simulation.py	8174 bytes
 scripts/run_predictive_scan.py	7247 bytes
-scripts/run_scenario_matrix.py	2912 bytes
+scripts/run_scenario_matrix.py	10850 bytes
 scripts/show_northbound_messages.py	5270 bytes
 scripts/smoke_test.py	754 bytes
 scripts/stage-ca.ps1	1483 bytes
@@ -241,7 +243,7 @@ src/lpr_cpe_demo/ui/sidebar.py	5911 bytes
 src/lpr_cpe_demo/ui/theme.py	7207 bytes
 src/lpr_cpe_demo/ui/theme_dark.py	10610 bytes
 src/lpr_cpe_demo/workflow/__init__.py	164 bytes
-src/lpr_cpe_demo/workflow/engine.py	42076 bytes
+src/lpr_cpe_demo/workflow/engine.py	42129 bytes
 src/lpr_cpe_demo/workflow/langgraph_runtime.py	5423 bytes
 src/lpr_cpe_demo/workflow/scenarios.py	1432 bytes
 src/lpr_cpe_demo/workflow/service.py	11575 bytes
@@ -262,9 +264,9 @@ tests/test_geo_layers.py	6478 bytes
 tests/test_geography.py	15815 bytes
 tests/test_html_report.py	9535 bytes
 tests/test_install_assurance.py	16079 bytes
-tests/test_lint_baseline.py	1571 bytes
+tests/test_lint_baseline.py	1610 bytes
 tests/test_llm_boundary.py	1043 bytes
-tests/test_mcp_controls.py	3449 bytes
+tests/test_mcp_controls.py	3992 bytes
 tests/test_mcp_http.py	5252 bytes
 tests/test_measurement_semantics.py	12137 bytes
 tests/test_northbound.py	13854 bytes
@@ -272,6 +274,7 @@ tests/test_plant_effort.py	14681 bytes
 tests/test_predictive.py	27924 bytes
 tests/test_reachability.py	9024 bytes
 tests/test_red_team.py	14699 bytes
+tests/test_release_gates.py	2978 bytes
 tests/test_retrieval_ab.py	12280 bytes
 tests/test_routing_theme.py	12292 bytes
 tests/test_security_store.py	8623 bytes

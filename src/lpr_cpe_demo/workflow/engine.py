@@ -914,6 +914,7 @@ def build_approval_token(
         "approval_id": approval.approval_id,
         "incident_id": approval.incident_id,
         "action_type": approval.action_type,
+        "idempotency_key": approval.idempotency_key,
         "status": "approved",
         "exp": (datetime.now(UTC) + timedelta(minutes=30)).timestamp(),
     }

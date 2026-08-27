@@ -31,6 +31,7 @@ def test_stage1_and_future_feature_files_are_not_baselined() -> None:
         "tests/test_cadi.py",
         "tests/test_install_assurance.py",
         "tests/test_measurement_semantics.py",
+        "tests/test_release_gates.py",
         "tests/test_lint_baseline.py",
     }
     assert protected.isdisjoint(baseline)

@@ -1,3 +1,16 @@
+## 1.25.2 — approval scope and scenario-matrix gate repair
+
+- Bind every application-generated approval token to the approval's restart-stable
+  `idempotency_key`, matching the MCP execution boundary.
+- Update MCP token fixtures so replay, scope-mismatch and consumed-approval tests
+  exercise the same signed claim contract as the application.
+- Replace the scenario matrix's terminal-state-only check with explicit expected
+  status, action sequence, counters, diagnostic cycles, verification state,
+  incident identity, work-order outcomes and MR identity/outcome checks.
+- Make the matrix return a non-zero exit code on any mismatch and add a regression
+  proving that an escalated/empty-action nominal scenario cannot report PASS.
+- Leave the remaining Stage 3 deep-audit findings unchanged and open.
+
 ## 1.25.1 — DvSum DALLI naming and compatibility repair
 
 - Use the full project-facing label **DvSum DALLI** in Executive, Predictive/Care,
