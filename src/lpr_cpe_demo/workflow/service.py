@@ -16,10 +16,10 @@ from lpr_cpe_demo.domain import (
     utc_now,
 )
 from lpr_cpe_demo.llm import RCAAssistant, build_rca_assistant
-from lpr_cpe_demo.measurement import build_operations_projection
 from lpr_cpe_demo.mcp_client import HTTPMCPClient, InProcessMCPClient, MCPClient
 from lpr_cpe_demo.mcp_server.store import EffectStore
 from lpr_cpe_demo.mcp_server.tools import ToolRegistry
+from lpr_cpe_demo.measurement import build_operations_projection
 from lpr_cpe_demo.persistence import Repository
 from lpr_cpe_demo.workflow.engine import PortableWorkflowEngine, build_approval_token
 from lpr_cpe_demo.workflow.scenarios import ScenarioCatalog
