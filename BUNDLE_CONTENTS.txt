@@ -1,21 +1,21 @@
-LPR CPE Service Assurance Demo v1.27.1 Delimiter-region Topology P0 Repair
-Generated: 2026-08-27
-Indexed files: 301
-Indexed bytes: 13022782
+LPR CPE Service Assurance Demo v1.27.2 Wave 1 Cost and Data Integrity
+Generated: 2026-08-28
+Indexed files: 304
+Indexed bytes: 13067507
 
 .dockerignore	114 bytes
 .env.example	3027 bytes
 .gitattributes	473 bytes
 .gitignore	152 bytes
 .stage3-manifest-exclusions.txt	89 bytes
-BUILD_TEST_REPORT.txt	12486 bytes
-BUNDLE_CONTENTS.txt	13081 bytes
-CHANGELOG.md	96403 bytes
+BUILD_TEST_REPORT.txt	4065 bytes
+BUNDLE_CONTENTS.txt	13197 bytes
+CHANGELOG.md	97705 bytes
 Dockerfile	1688 bytes
-FILE_MANIFEST.txt	13059 bytes
+FILE_MANIFEST.txt	13180 bytes
 LICENSE.txt	297 bytes
 Makefile	1780 bytes
-README.md	16926 bytes
+README.md	17335 bytes
 RUN_TESTS_MAC_LINUX.sh	69 bytes
 RUN_TESTS_WINDOWS.ps1	88 bytes
 START_DEMO_MAC_LINUX.sh	66 bytes
@@ -31,7 +31,7 @@ docker/certs/README.md	1643 bytes
 docker/mcp.Dockerfile	3061 bytes
 docs/AB_MEASUREMENT.md	8010 bytes
 docs/AGENT_AUTHORITY.md	3817 bytes
-docs/API.md	4345 bytes
+docs/API.md	4535 bytes
 docs/ARCHITECTURE.md	6638 bytes
 docs/AUDIT_DEEP_v1.13.2.md	9811 bytes
 docs/AUDIT_v1.12.1.md	10679 bytes
@@ -41,9 +41,10 @@ docs/AUDIT_v1.25.2.md	3176 bytes
 docs/AUDIT_v1.26.1.md	1938 bytes
 docs/AUDIT_v1.27.0.md	3173 bytes
 docs/AUDIT_v1.27.1.md	2221 bytes
+docs/AUDIT_v1.27.2.md	5291 bytes
 docs/CADI_INTEGRATION_CONTRACT.md	248 bytes
 docs/COMPARISON_AND_IMPROVEMENTS.md	7191 bytes
-docs/DEMO_DERIVED_COST_DISPATCH.md	4626 bytes
+docs/DEMO_DERIVED_COST_DISPATCH.md	5033 bytes
 docs/DEPENDENCY_PINS.md	1882 bytes
 docs/DISPATCH_RULE.md	7363 bytes
 docs/DVSUM_CADDI_INTEGRATION_CONTRACT.md	301 bytes
@@ -54,6 +55,7 @@ docs/INSTALL_ASSURANCE_WATCH.md	5051 bytes
 docs/LAPTOP_RESOURCE_GUIDE.md	958 bytes
 docs/LINT_BASELINE.md	1703 bytes
 docs/OFFLINE_AND_LOW_RESOURCE.md	1748 bytes
+docs/OPEN_ISSUES_THREE_WAVES.md	3142 bytes
 docs/PACKAGE_VERSIONS.md	1604 bytes
 docs/RED_TEAM_v1.20.0.md	8368 bytes
 docs/RUNBOOK.md	7019 bytes
@@ -62,6 +64,7 @@ docs/SECURITY_CONTROLS.md	3254 bytes
 docs/SHARED_MEASUREMENT_CONTRACT.md	7078 bytes
 docs/STAGE3_DVSUM_DALLI_AUDIT.md	2644 bytes
 docs/TEST_REPORT.md	8502 bytes
+docs/WAVE_1_COST_DATA_INTEGRITY.md	2447 bytes
 docs/WORKFLOW.md	5876 bytes
 docs/control_tower.html	231328 bytes
 docs/digital_twin/ARCHITECTURE.md	5681 bytes
@@ -168,21 +171,21 @@ src/lpr_cpe_demo/config.py	3919 bytes
 src/lpr_cpe_demo/controls.py	5482 bytes
 src/lpr_cpe_demo/dalli.py	18713 bytes
 src/lpr_cpe_demo/dashboard.py	30051 bytes
-src/lpr_cpe_demo/digital_twin/__init__.py	86 bytes
-src/lpr_cpe_demo/digital_twin/api.py	26306 bytes
+src/lpr_cpe_demo/digital_twin/__init__.py	77 bytes
+src/lpr_cpe_demo/digital_twin/api.py	26638 bytes
 src/lpr_cpe_demo/digital_twin/care.py	8359 bytes
 src/lpr_cpe_demo/digital_twin/cli.py	1165 bytes
 src/lpr_cpe_demo/digital_twin/decision.py	7656 bytes
-src/lpr_cpe_demo/digital_twin/dispatch_projection.py	44286 bytes
+src/lpr_cpe_demo/digital_twin/dispatch_projection.py	71189 bytes
 src/lpr_cpe_demo/digital_twin/executive_projection.py	23398 bytes
 src/lpr_cpe_demo/digital_twin/executive_style.py	13245 bytes
 src/lpr_cpe_demo/digital_twin/external_evidence.py	100278 bytes
 src/lpr_cpe_demo/digital_twin/install_assurance.py	40132 bytes
-src/lpr_cpe_demo/digital_twin/models.py	2834 bytes
-src/lpr_cpe_demo/digital_twin/orchestrator.py	83661 bytes
+src/lpr_cpe_demo/digital_twin/models.py	2839 bytes
+src/lpr_cpe_demo/digital_twin/orchestrator.py	85299 bytes
 src/lpr_cpe_demo/digital_twin/predictive_bridge.py	15672 bytes
 src/lpr_cpe_demo/digital_twin/providers.py	1204 bytes
-src/lpr_cpe_demo/digital_twin/storage.py	6967 bytes
+src/lpr_cpe_demo/digital_twin/storage.py	6970 bytes
 src/lpr_cpe_demo/digital_twin/streamlit_app.py	75479 bytes
 src/lpr_cpe_demo/digital_twin/workflow.py	6823 bytes
 src/lpr_cpe_demo/domain.py	12190 bytes
@@ -251,11 +254,11 @@ src/lpr_cpe_demo/ui/pages/cockpit.py	8334 bytes
 src/lpr_cpe_demo/ui/pages/control_tower.py	18605 bytes
 src/lpr_cpe_demo/ui/pages/decisions.py	4311 bytes
 src/lpr_cpe_demo/ui/pages/digital_twin.py	323 bytes
-src/lpr_cpe_demo/ui/pages/footprint.py	18068 bytes
+src/lpr_cpe_demo/ui/pages/footprint.py	18986 bytes
 src/lpr_cpe_demo/ui/pages/incident.py	5538 bytes
 src/lpr_cpe_demo/ui/pages/model_monitor.py	4272 bytes
 src/lpr_cpe_demo/ui/pages/scenarios.py	1423 bytes
-src/lpr_cpe_demo/ui/pages/simulator.py	18258 bytes
+src/lpr_cpe_demo/ui/pages/simulator.py	19706 bytes
 src/lpr_cpe_demo/ui/pages/system.py	1096 bytes
 src/lpr_cpe_demo/ui/sidebar.py	5911 bytes
 src/lpr_cpe_demo/ui/theme.py	7207 bytes
@@ -276,7 +279,7 @@ tests/test_cadi.py	7570 bytes
 tests/test_commercial.py	25360 bytes
 tests/test_controls.py	5647 bytes
 tests/test_dashboard.py	12439 bytes
-tests/test_demo_dispatch_projection.py	13527 bytes
+tests/test_demo_dispatch_projection.py	22010 bytes
 tests/test_digital_twin_p0.py	46538 bytes
 tests/test_external_evidence.py	26532 bytes
 tests/test_fault_generator.py	9896 bytes

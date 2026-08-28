@@ -12,7 +12,11 @@ from pydantic import BaseModel, Field
 from ..dalli import dalli_contract
 from ..measurement import measurement_contract
 from . import __version__
-from .dispatch_projection import build_dispatch_cost_projection, dispatch_cost_contract
+from .dispatch_projection import (
+    DispatchProjectionIntegrityError,
+    build_dispatch_cost_projection,
+    dispatch_cost_contract,
+)
 from .executive_projection import build_executive_projection
 from .install_assurance import (
     create_install_assurance_watch,
@@ -121,6 +125,15 @@ def _build_dispatch_projection(run_id: str) -> dict:
         return build_dispatch_cost_projection(DATA_ROOT, run_id)
     except FileNotFoundError as exc:
         raise HTTPException(404, "run not found") from exc
+    except DispatchProjectionIntegrityError as exc:
+        raise HTTPException(
+            409,
+            {
+                "error": "dispatch_projection_integrity_failed",
+                "issues": list(exc.issues),
+                "run_id": run_id,
+            },
+        ) from exc
     except (OSError, json.JSONDecodeError, ValueError, LookupError) as exc:
         raise HTTPException(
             409, f"dispatch/cost projection unavailable: {exc}"
@@ -140,7 +153,7 @@ def health():
         "status": "ok",
         "version": __version__,
         "production_writes": False,
-        "release": "Stage 5 demo-derived cost and dispatch",
+        "release": "Wave 1 Cost and Data Integrity",
         "predictive_care_integration": True, "external_evidence_csv": True, "llm_triangulation": True,
         "install_assurance": True,
         "dalli_integration": "contract_only",

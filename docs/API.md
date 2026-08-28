@@ -43,7 +43,10 @@ The Digital Twin API on port 8001 requires Basic Auth and additionally exposes:
 | GET | `/api/runs/{run_id}/care/tickets` | full filtered aggregates plus paginated contact rows |
 
 Headline dashboard metrics come from the projection endpoints, not dataset page
-lengths. See `docs/SHARED_MEASUREMENT_CONTRACT.md` and
+lengths. The dispatch/cost endpoints fail with HTTP 409 and a structured
+`dispatch_projection_integrity_failed` detail when the run schema, catalog hashes,
+row counts or mandatory joins are invalid. See
+`docs/SHARED_MEASUREMENT_CONTRACT.md` and
 `docs/DEMO_DERIVED_COST_DISPATCH.md`.
 
 ## Install Assurance

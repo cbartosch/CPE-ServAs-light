@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import json
 from collections import defaultdict
 from pathlib import Path
 
@@ -8,6 +9,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from lpr_cpe_demo.digital_twin.dispatch_projection import (
+    DispatchProjectionIntegrityError,
     MixedRegionDelimiterError,
     build_dispatch_cost_projection,
     dispatch_cost_contract,
@@ -20,6 +22,7 @@ from lpr_cpe_demo.digital_twin.storage import (
     derive_run_id,
     iter_jsonl_gz,
     safe_run_path,
+    sha256_file,
     write_jsonl_gz,
 )
 
@@ -43,6 +46,24 @@ def _hashes(run_path: Path) -> dict[str, str]:
     }
 
 
+def _rewrite_dataset(
+    run_path: Path,
+    dataset: str,
+    rows: list[dict],
+) -> None:
+    path = run_path / f"{dataset}.jsonl.gz"
+    row_count = write_jsonl_gz(path, rows)
+    catalog_path = run_path / "catalog.json"
+    catalog = json.loads(catalog_path.read_text(encoding="utf-8"))
+    entry = next(item for item in catalog["datasets"] if item["dataset"] == dataset)
+    entry["row_count"] = row_count
+    entry["sha256"] = sha256_file(path)
+    catalog_path.write_text(
+        json.dumps(catalog, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+
+
 def test_dispatch_contract_separates_generated_modelled_and_assumed_inputs() -> None:
     contract = dispatch_cost_contract()
     assert contract["primary_grain"] == "case_id"
@@ -52,6 +73,10 @@ def test_dispatch_contract_separates_generated_modelled_and_assumed_inputs() -> 
     assert "one delimiter_id must map to exactly one planning region" in contract[
         "topology_controls"
     ]
+    assert "every catalog dataset hash and row count is verified before costing" in (
+        contract["integrity_controls"]
+    )
+    assert "comparison-only" in contract["cost_bases"]["generated_execution"]
     assert contract["production_writes"] is False
 
 
@@ -76,8 +101,23 @@ def test_run_id_changes_when_the_generation_schema_changes() -> None:
     legacy_digest = hashlib.sha256(canonical_config(config)).hexdigest().upper()[:20]
     legacy_run_id = f"RUN-{config.run_date:%Y%m%d}-{legacy_digest}"
 
-    assert RUN_SCHEMA_VERSION == "lpr-digital-twin-run-v2-delimiter-region"
+    assert RUN_SCHEMA_VERSION == "lpr-digital-twin-run-v3-execution-economics"
     assert derive_run_id(config) != legacy_run_id
+
+
+def test_legacy_run_schema_is_rejected_before_costing(tmp_path: Path) -> None:
+    catalog = _run(tmp_path)
+    run_path = safe_run_path(tmp_path, catalog["run_id"])
+    catalog_path = run_path / "catalog.json"
+    stored = json.loads(catalog_path.read_text(encoding="utf-8"))
+    stored["run_schema_version"] = "lpr-digital-twin-run-v2-delimiter-region"
+    catalog_path.write_text(
+        json.dumps(stored, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(DispatchProjectionIntegrityError, match="regenerate the run"):
+        build_dispatch_cost_projection(tmp_path, catalog["run_id"])
 
 
 def test_projection_links_every_generated_case_to_cost_and_dispatch(tmp_path: Path) -> None:
@@ -90,7 +130,11 @@ def test_projection_links_every_generated_case_to_cost_and_dispatch(tmp_path: Pa
     assert len(projection["cases"]) == len(manifests)
     assert projection["summary"]["case_attempts"] == len(manifests)
     assert projection["reconciliation"]["case_attempts_equal_manifest_rows"] is True
-    assert projection["measurement_context"]["completeness"].startswith("complete")
+    assert projection["reconciliation"]["all_identifier_sets_match"] is True
+    assert projection["data_integrity"]["passed"] is True
+    assert projection["data_integrity"]["catalog_hashes_verified"] is True
+    assert projection["data_integrity"]["case_graph_verified"] is True
+    assert projection["measurement_context"]["completeness"].startswith("catalog")
 
     required = {
         "case_id",
@@ -100,6 +144,7 @@ def test_projection_links_every_generated_case_to_cost_and_dispatch(tmp_path: Pa
         "scenario",
         "technology",
         "delimiter_id",
+        "actual_domain",
         "recommended_domain",
         "executed_or_forecast_action",
         "action_status",
@@ -113,9 +158,13 @@ def test_projection_links_every_generated_case_to_cost_and_dispatch(tmp_path: Pa
     for case in projection["cases"]:
         assert required.issubset(case)
         assert case["total_cost_usd"] > 0
+        assert case["actual_domain_source"] in {
+            "immutable_scenario_truth",
+            "validated_resolution",
+        }
         assert case["production_write"] is False
         assert "mapped" in case["location_provenance"].lower()
-        assert case["cost_provenance"].startswith("Demo-generated")
+        assert case["cost_provenance"]
 
 
 def test_generated_execution_and_governed_forecast_are_kept_separate(
@@ -136,6 +185,20 @@ def test_generated_execution_and_governed_forecast_are_kept_separate(
         + summary["governed_forecast_cost_usd"],
         2,
     ) == summary["combined_modelled_cost_usd"]
+    assert summary["truck_rolls"] == (
+        summary["executed_truck_rolls"]
+        + summary["forecast_truck_roll_equivalents"]
+    )
+    assert summary["dirty_boots_case_denominator"] == summary["case_attempts"]
+    assert summary["dirty_boots_field_denominator"] == summary["field_dispatched_cases"]
+    assert summary["ferry_jobs"] == (
+        summary["executed_ferry_uses"]
+        + summary["forecast_ferry_equivalents"]
+    )
+    assert summary["overnight_jobs"] == (
+        summary["executed_overnight_uses"]
+        + summary["forecast_overnight_equivalents"]
+    )
 
     executed = [
         case
@@ -164,8 +227,154 @@ def test_generated_work_order_timestamps_drive_executed_travel_cost(
     one_way = int(case["generated_route_minutes"])
     travel_line = next(line for line in case["ledger_rows"] if line["step"] == "travel")
     assert travel_line["minutes"] == 2 * one_way
-    assert travel_line["duration_provenance"] == "generated_work_order_timestamps"
+    assert travel_line["duration_provenance"] == "generated_work_order_economics"
+    assert "generated road km" in travel_line["note"]
     assert case["modelled_route_minutes"] > 0
+    assert case["execution_economics_complete"] is True
+    assert "comparison-only" in case["cost_provenance"]
+
+
+def test_executed_cost_does_not_import_modelled_route_premiums(tmp_path: Path) -> None:
+    catalog = _run(tmp_path)
+    run_path = safe_run_path(tmp_path, catalog["run_id"])
+    initial = build_dispatch_cost_projection(tmp_path, catalog["run_id"])
+    target = next(
+        case
+        for case in initial["cases"]
+        if case["cost_basis"] == "generated_execution"
+        and case["work_order_ids"]
+        and case["modelled_requires_ferry"]
+    )
+    work_orders = list(iter_jsonl_gz(run_path / "work_orders.jsonl.gz"))
+    for work_order in work_orders:
+        if work_order["case_id"] == target["case_id"]:
+            work_order["ferry_used"] = False
+            work_order["overnight_used"] = False
+    _rewrite_dataset(run_path, "work_orders", work_orders)
+
+    projection = build_dispatch_cost_projection(tmp_path, catalog["run_id"])
+    case = next(
+        row for row in projection["cases"] if row["case_id"] == target["case_id"]
+    )
+    steps = [line["step"] for line in case["ledger_rows"]]
+    assert case["modelled_requires_ferry"] is True
+    assert case["requires_ferry"] is False
+    assert "ferry" not in steps
+    assert "overnight" not in steps
+
+
+def test_catalog_hash_mismatch_fails_closed(tmp_path: Path) -> None:
+    catalog = _run(tmp_path)
+    run_path = safe_run_path(tmp_path, catalog["run_id"])
+    path = run_path / "deterministic_decisions.jsonl.gz"
+    rows = list(iter_jsonl_gz(path))
+    rows[0]["recommended_domain"] = "provisioning"
+    write_jsonl_gz(path, rows)
+
+    with pytest.raises(DispatchProjectionIntegrityError, match="hash mismatch"):
+        build_dispatch_cost_projection(tmp_path, catalog["run_id"])
+
+
+def test_api_returns_structured_integrity_report_for_catalog_mismatch(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    from lpr_cpe_demo.digital_twin import api
+
+    catalog = _run(tmp_path)
+    run_path = safe_run_path(tmp_path, catalog["run_id"])
+    path = run_path / "deterministic_decisions.jsonl.gz"
+    rows = list(iter_jsonl_gz(path))
+    rows[0]["recommended_domain"] = "provisioning"
+    write_jsonl_gz(path, rows)
+    monkeypatch.setattr(api, "DATA_ROOT", tmp_path)
+    response = TestClient(api.app).get(
+        f"/api/runs/{catalog['run_id']}/dispatch-cost-projection",
+        auth=("demo", "CHANGE_ME"),
+    )
+
+    assert response.status_code == 409
+    detail = response.json()["detail"]
+    assert detail["error"] == "dispatch_projection_integrity_failed"
+    assert detail["run_id"] == catalog["run_id"]
+    assert any("hash mismatch" in issue for issue in detail["issues"])
+
+
+def test_missing_subscriber_join_fails_closed_even_with_updated_catalog(
+    tmp_path: Path,
+) -> None:
+    catalog = _run(tmp_path)
+    run_path = safe_run_path(tmp_path, catalog["run_id"])
+    manifests = list(iter_jsonl_gz(run_path / "scenario_manifests.jsonl.gz"))
+    missing_service = str(manifests[0]["service_id"])
+    subscribers = [
+        row
+        for row in iter_jsonl_gz(run_path / "subscriber_master.jsonl.gz")
+        if str(row["service_id"]) != missing_service
+    ]
+    _rewrite_dataset(run_path, "subscriber_master", subscribers)
+
+    with pytest.raises(DispatchProjectionIntegrityError, match="no subscriber row"):
+        build_dispatch_cost_projection(tmp_path, catalog["run_id"])
+
+
+def test_missing_root_incident_join_fails_closed_even_with_updated_catalog(
+    tmp_path: Path,
+) -> None:
+    catalog = _run(tmp_path)
+    run_path = safe_run_path(tmp_path, catalog["run_id"])
+    manifests = list(iter_jsonl_gz(run_path / "scenario_manifests.jsonl.gz"))
+    missing_incident = str(manifests[0]["root_incident_id"])
+    incidents = [
+        row
+        for row in iter_jsonl_gz(run_path / "incidents.jsonl.gz")
+        if str(row["incident_id"]) != missing_incident
+    ]
+    _rewrite_dataset(run_path, "incidents", incidents)
+
+    with pytest.raises(DispatchProjectionIntegrityError, match="no root incident"):
+        build_dispatch_cost_projection(tmp_path, catalog["run_id"])
+
+
+def test_missing_immutable_scenario_truth_fails_closed(tmp_path: Path) -> None:
+    catalog = _run(tmp_path)
+    run_path = safe_run_path(tmp_path, catalog["run_id"])
+    manifests = list(iter_jsonl_gz(run_path / "scenario_manifests.jsonl.gz"))
+    manifests[0].pop("scenario_truth_domain", None)
+    _rewrite_dataset(run_path, "scenario_manifests", manifests)
+
+    with pytest.raises(DispatchProjectionIntegrityError, match="scenario truth domain"):
+        build_dispatch_cost_projection(tmp_path, catalog["run_id"])
+
+
+def test_actual_domain_is_independent_from_the_recommendation(tmp_path: Path) -> None:
+    catalog = _run(tmp_path)
+    run_path = safe_run_path(tmp_path, catalog["run_id"])
+    decisions = list(iter_jsonl_gz(run_path / "deterministic_decisions.jsonl.gz"))
+    target = decisions[0]
+    target["recommended_domain"] = "provisioning"
+    _rewrite_dataset(run_path, "deterministic_decisions", decisions)
+
+    projection = build_dispatch_cost_projection(tmp_path, catalog["run_id"])
+    case = next(row for row in projection["cases"] if row["case_id"] == target["case_id"])
+    assert case["recommended_domain"] == "provisioning"
+    assert case["actual_domain"] != case["recommended_domain"]
+    assert case["domain_match"] is False
+    assert case["misdispatch_premium_usd"] > 0
+
+
+def test_non_passing_validation_cannot_support_resolution_costing(
+    tmp_path: Path,
+) -> None:
+    catalog = _run(tmp_path)
+    run_path = safe_run_path(tmp_path, catalog["run_id"])
+    validations = list(iter_jsonl_gz(run_path / "validation_events.jsonl.gz"))
+    validations[0]["service_test"] = "FAIL"
+    validations[0]["stable"] = False
+    _rewrite_dataset(run_path, "validation_events", validations)
+
+    with pytest.raises(DispatchProjectionIntegrityError, match="non-passing validation"):
+        build_dispatch_cost_projection(tmp_path, catalog["run_id"])
 
 
 def test_generated_work_order_readiness_drives_hub_staging(tmp_path: Path) -> None:
@@ -218,7 +427,7 @@ def _introduce_mixed_region_delimiter(run_path: Path) -> str:
     group = by_delimiter[delimiter_id]
     original_region = str(group[0]["region"])
     group[1]["region"] = next(region for region in REGIONS if region != original_region)
-    write_jsonl_gz(run_path / "subscriber_master.jsonl.gz", subscribers)
+    _rewrite_dataset(run_path, "subscriber_master", subscribers)
     return delimiter_id
 
 

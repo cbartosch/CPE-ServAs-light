@@ -43,7 +43,7 @@ def _dt(value: str) -> datetime:
 
 
 def test_01_version():
-    assert __version__ == "2.4.0"
+    assert __version__ == "2.5.0"
 
 
 def test_02_run_id_stable():

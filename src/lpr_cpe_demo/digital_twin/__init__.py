@@ -1,3 +1,3 @@
-"""LPR CPE Digital Twin v2.4.0 P0-fixed simulation package."""
+"""LPR CPE Digital Twin v2.5.0 simulation package."""
 
-__version__ = "2.4.0"
+__version__ = "2.5.0"

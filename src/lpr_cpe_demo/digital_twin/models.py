@@ -32,8 +32,8 @@ class GenerationConfig(BaseModel):
     scenarios: tuple[str, ...] = ("slow_wifi", "fiber_cut", "power_outage")
     seed: int = 2400
     output_format: Literal["jsonl_gz", "parquet"] = "jsonl_gz"
-    schema_version: str = "2.4.0"
-    generator_version: str = "2.4.0-r3-py314-hotfix5"
+    schema_version: str = "2.5.0"
+    generator_version: str = "1.27.2-wave1-cost-integrity"
     batch_size: int = Field(default=10_000, ge=1, le=100_000)
     enable_llm: bool = False
     llm_provider: Literal["fake", "openai", "anthropic", "disabled"] = "fake"

@@ -19,7 +19,7 @@ _ACTIVE_RUN_FILE = "active_run.json"
 # Run identifiers include the immutable generation schema as well as the user
 # configuration.  This prevents an older run generated with a superseded
 # topology algorithm from being silently reused after the code is upgraded.
-RUN_SCHEMA_VERSION = "lpr-digital-twin-run-v2-delimiter-region"
+RUN_SCHEMA_VERSION = "lpr-digital-twin-run-v3-execution-economics"
 
 
 def canonical_config(config: GenerationConfig) -> bytes:

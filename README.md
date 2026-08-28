@@ -15,6 +15,14 @@ A Docker Desktop demonstration of an HFC/PON customer-premises-equipment service
 
 > **Simulation only.** No production system is connected and production writes are disabled by default.
 
+## Three-wave remediation
+
+Wave 1 now protects cost and dispatch output with catalog-hash, row-count and
+canonical-join verification and separates generated execution economics from
+planning-route forecasts. Waves 2 and 3 remain blocked pending sign-off. See
+[`docs/OPEN_ISSUES_THREE_WAVES.md`](docs/OPEN_ISSUES_THREE_WAVES.md) and
+[`docs/WAVE_1_COST_DATA_INTEGRITY.md`](docs/WAVE_1_COST_DATA_INTEGRITY.md).
+
 ## 24-Hour Install Assurance Watch
 
 Stage 3 adds supervised new-install assurance as an **assurance episode**, not a

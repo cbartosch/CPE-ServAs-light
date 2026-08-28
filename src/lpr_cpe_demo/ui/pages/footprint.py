@@ -260,8 +260,15 @@ def _render_active_dispatch(available: list[str]) -> None:
         "**Location boundary.** The run provides region and network identities but "
         "not surveyed coordinates. The selected municipio and intervention point are "
         "therefore deterministic planning mappings. Hub locations and travel remain "
-        "assumptions; generated work-order travel is shown beside the route model."
+        "assumptions; generated work-order travel is shown beside the route model. "
+        "The planning route contributes to forecast cost only, never to executed cost."
     )
+    integrity = projection.get("data_integrity", {})
+    if integrity.get("passed"):
+        st.caption(
+            f"Integrity gate passed: {integrity.get('datasets_verified', 0)} datasets, "
+            f"{integrity.get('manifest_cases_verified', 0)} case graphs."
+        )
 
     filters = st.columns([1, 1, 2])
     technologies = ["All", *sorted({str(case["technology"]) for case in cases})]
@@ -340,7 +347,8 @@ def _render_active_dispatch(available: list[str]) -> None:
         st.write(f"**Service / device** {case['service_id']} / {case['device_id']}")
         st.write(f"**Technology** {case['technology']}")
         st.write(f"**Delimiter** {case['delimiter_id']} ({case['delimiter_kind']})")
-        st.write(f"**RCA domain** {case['recommended_domain']}")
+        st.write(f"**Actual domain** {case['actual_domain']}")
+        st.write(f"**Recommended domain** {case['recommended_domain']}")
         st.write(
             f"**Action** {case['executed_or_forecast_action']} "
             f"({case['action_status']})"
@@ -373,6 +381,13 @@ def _render_active_dispatch(available: list[str]) -> None:
             + (", ".join(case["work_order_ids"]) or "Forecast only")
         )
         st.write("**MR(s)** " + (", ".join(case["mr_ids"]) or "None"))
+        st.write(f"**Cost basis** {case['cost_basis'].replace('_', ' ')}")
+        if not case.get("execution_economics_complete", True):
+            st.warning(
+                "Executed cost is incomplete because source work-order economics are "
+                "missing: "
+                + ", ".join(case.get("execution_economics_missing", []))
+            )
         for leg in route.get("legs", []):
             st.caption(
                 f"**{leg['kind']}** {leg['minutes']} modelled min — "
@@ -408,13 +423,15 @@ def _render_active_dispatch(available: list[str]) -> None:
                 "scenario": row["scenario"],
                 "technology": row["technology"],
                 "municipio": row["municipio"],
-                "domain": row["recommended_domain"],
+                "actual domain": row["actual_domain"],
+                "recommended domain": row["recommended_domain"],
                 "action": row["executed_or_forecast_action"],
                 "status": row["action_status"],
                 "crew": row["crew_type"],
                 "base": row["base_id"].replace("BASE-", ""),
                 "model route min": row["modelled_route_minutes"],
                 "generated travel min": row["generated_route_minutes"],
+                "cost basis": row["cost_basis"],
                 "work order": row["work_order_id"],
                 "MR": row["mr_id"],
             }

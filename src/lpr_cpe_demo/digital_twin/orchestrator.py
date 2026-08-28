@@ -66,6 +66,12 @@ DATASETS = (
 )
 
 REGIONS = ("metro", "coastal", "mountain", "remote_island")
+GENERATED_ROAD_KM_PER_MINUTE = {
+    "metro": 0.55,
+    "coastal": 0.70,
+    "mountain": 0.48,
+    "remote_island": 0.30,
+}
 PROFILE_CASE_RATE = {"smoke": 0.0, "preview": 0.005, "board": 0.005, "full": 0.005}
 PROFILE_TELEMETRY_RATE = {"smoke": 1.0, "preview": 0.25, "board": 0.10, "full": 0.10}
 REPEAT_WINDOW = timedelta(days=30)
@@ -261,6 +267,7 @@ def _base_case(
     contact = f"CON-{case_id}"
     manifest = {
         "scenario": scenario,
+        "scenario_truth_domain": SCENARIO_POLICIES[scenario]["domain"],
         "case_id": case_id,
         "root_case_id": root_case_id,
         "root_incident_id": root_incident_id,
@@ -370,6 +377,19 @@ def _work_order(
     readiness = max(diagnosis + timedelta(minutes=1), action_time + timedelta(seconds=30))
     assigned = readiness + timedelta(seconds=30)
     required_skill = _required_skill(action, sub)
+    one_way_minutes = max(
+        0,
+        round((arrived_at - dispatched_at).total_seconds() / 60.0),
+    )
+    on_site_minutes = max(
+        0,
+        round((completed_at - arrived_at).total_seconds() / 60.0),
+    )
+    region = str(sub.get("region") or "coastal")
+    distance_factor = GENERATED_ROAD_KM_PER_MINUTE.get(
+        region,
+        GENERATED_ROAD_KM_PER_MINUTE["coastal"],
+    )
     return {
         "work_order_id": work_order_id,
         "incident_id": manifest["root_incident_id"],
@@ -383,6 +403,10 @@ def _work_order(
         "dispatched_at": _iso(dispatched_at),
         "arrived_at": _iso(arrived_at),
         "completed_at": _iso(completed_at),
+        "road_distance_km_one_way": round(one_way_minutes * distance_factor, 2),
+        "ferry_used": region == "remote_island",
+        "overnight_used": (2 * one_way_minutes + on_site_minutes) > 480,
+        "travel_economics_source": "synthetic_work_order",
         "crew_domain": crew_domain,
         "required_skill": required_skill,
         "technician_skill": required_skill,
@@ -900,8 +924,8 @@ def _generate_into(config: GenerationConfig, run_path: Path, run_id: str, config
         raise ValueError("generated data failed quality gate: " + "; ".join(quality["errors"][:10]))
 
     catalog = {
-        "version": "2.4.0",
-        "release": "P0 Fixed R3 Hotfix5.5",
+        "version": "2.5.0",
+        "release": "Wave 1 Cost and Data Integrity",
         "run_schema_version": RUN_SCHEMA_VERSION,
         "run_id": run_id,
         "config": config.model_dump(mode="json"),
@@ -1316,6 +1340,20 @@ def quality_check(rows: dict[str, list[dict]]) -> dict:
             errors.append("work order parts not confirmed")
         if wo.get("work_order_type") == "CPE_SWAP" and wo.get("cpe_available") is not True:
             errors.append("CPE swap assigned without replacement CPE")
+        one_way_minutes = (
+            round((arrive - dispatch).total_seconds() / 60.0)
+            if arrive is not None and dispatch is not None
+            else None
+        )
+        distance = wo.get("road_distance_km_one_way")
+        if one_way_minutes is None or distance is None or float(distance) < 0:
+            errors.append("work order lacks generated travel economics")
+        if not isinstance(wo.get("ferry_used"), bool):
+            errors.append("work order ferry use is not explicit")
+        if not isinstance(wo.get("overnight_used"), bool):
+            errors.append("work order overnight use is not explicit")
+        if wo.get("travel_economics_source") != "synthetic_work_order":
+            errors.append("work order travel economics source is missing")
         manifest = manifests.get(wo.get("case_id"), {})
         if manifest.get("repeat_sequence", 0) > 0:
             if wo.get("supervisor_escalation_confirmed") is not True or not wo.get("supervisor_actor"):
@@ -1436,7 +1474,7 @@ def quality_check(rows: dict[str, list[dict]]) -> dict:
         if resolved_at is None or validated_at is None or resolved_at < validated_at:
             errors.append("resolution precedes validation")
         manifest = manifests.get(res.get("case_id"))
-        if manifest and res.get("fault_domain") != SCENARIO_POLICIES[manifest["scenario"]]["domain"]:
+        if manifest and res.get("fault_domain") != manifest.get("scenario_truth_domain"):
             errors.append("resolution fault domain contradicts scenario truth")
 
     # 11. Root incident final state must agree with the latest attempt on that root.

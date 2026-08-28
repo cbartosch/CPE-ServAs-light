@@ -1,223 +1,74 @@
-STAGE 5 DEMO-DERIVED COST / DISPATCH CANDIDATE - 2026-08-27
+WAVE 1 COST AND CANONICAL-DATA INTEGRITY CANDIDATE - 2026-08-28
 ----------------------------------------------------------------
-PASS  Cost Simulator defaults to the persisted active Digital Twin run
-PASS  Footprint & Dispatch defaults to a generated case from that same run
-PASS  complete non-paginated projection joins case, incident, service, device,
-      RCA, action, human decision, work order, MR, validation and resolution
-PASS  generated work-order timestamps drive executed travel/on-site durations
-PASS  generated skill and parts readiness maps explicitly into planning hub
-      skill/stock inputs; unmapped geography/economics remain labelled
-PASS  generated-execution and governed-forecast costs remain separate
-PASS  same generated delimiter maps deterministically to one planning site
-PASS  active-run switching changes both linked pages through the persisted pointer
-PASS  projection is deterministic, read-only and leaves canonical run files unchanged
-PASS  20,000-home preview: 100 cases projected in 0.262 seconds in audit runtime
-PASS  all source work-order and MR identifiers reconcile to the projection
-PASS  293 focused regression tests across Digital Twin, dashboards, external
-      evidence, Install Assurance, workflow, MCP, security and telemetry
+PASS  current run schema required before generated-execution costing
+PASS  every catalog dataset SHA-256 and row count verified before projection
+PASS  case -> subscriber -> root incident -> decision -> action graph verified
+PASS  work-order, MR, validation and resolution records remain case-local
+PASS  duplicate work-order identities rejected; MR revisions reported
+PASS  immutable scenario truth is separate from deterministic recommendation
+PASS  resolution requires PASS, stable telemetry and full closure checklist
+PASS  generated execution uses generated timestamps, road distance, ferry and
+      overnight facts; planning route contributes no executed premiums
+PASS  governed forecast uses the planning route and remains separately labelled
+PASS  executed/forecast truck-roll, ferry and overnight exposure are separated
+PASS  case/root household-impact grains and Dirty Boots denominators are explicit
+PASS  exact work-order and MR identifier-set reconciliation
+PASS  structured HTTP 409 data-integrity response
+PASS  500,000-home run: 2,500 cases, 20 datasets / 612,675 rows verified,
+      zero incomplete execution-economics cases and zero executed cases importing
+      model-route premiums
 PASS  governed nine-scenario matrix retains exact expected outcomes
-PASS  Python parse/compile and git diff whitespace checks
-NOTE  exact Ruff 0.13.3 execution remains the target Windows acceptance gate
-NOTE  inherited failures remain in .env/trusted-host asset policy, the static
-      FastAPI reachability heuristic and the stale Python 3.12 UI assertion
-
-STAGE 4 WINDOWS / RUFF REPAIR CANDIDATE - 2026-08-27
-----------------------------------------------------
-PASS  corrected the theme_dark.py unterminated HTML string
-PASS  External Evidence cross-link count and regression updated
-PASS  Executive, Predictive, Care, Operations and External Evidence panels use
-      one medium-grey surface and uniform 14-pixel layout contract
-PASS  structured OpenAI boundary tests use a local module stub and make no network call
-PASS  Stage 4 new/modified files compile under the audit runtime
-PASS  governed scenario matrix retains all expected outcomes
-PASS  283 focused External Evidence, Install Assurance, semantic, API, dashboard,
-      workflow, MCP, security, telemetry and lint-baseline tests
-PASS  manifest regenerated in canonical LF form for Windows CRLF-safe verification
-NOTE  exact Ruff 0.13.3 execution remains the Windows acceptance command because
-      the isolated packaging runtime has no Ruff binary or network package access
-
-# Stage 3 governed-execution gate repair candidate
-
-- Version: **1.26.0**
-- Application approval tokens now include the stored restart-stable
-  `idempotency_key` claim.
-- The deterministic scenario matrix validates exact expected statuses, actions,
-  counters, diagnostic cycles, incident identity, work-order results and MR
-  identity/outcomes before printing PASS.
-- A wrong terminal result or empty nominal action history now returns a non-zero
-  exit code.
-- Focused governed-execution gate: **69 passed**.
-- Complete per-file audit: **833 passed, 4 inherited failures, 2 skipped** across
-  839 collected tests. The remaining failures are the pre-existing `.env`,
-  trusted-host policy, route-reachability heuristic and stale Python 3.12 test.
-- Scope is limited to the two requested P0 findings; other Stage 3 audit findings
-  remain open.
-
-See `docs/AUDIT_v1.26.0.md`.
-
----
-
-# Stage 3 DvSum DALLI naming repair candidate
-
-- Canonical display name: **DvSum DALLI**
-- Canonical API: `GET /api/integrations/dalli`
-- Canonical navigation: `digital-twin?view=dalli`
-- Compatibility aliases: CADDI/CADI imports, routes, and query values retained
-- Focused regression gate: **214 passed**
-- Stage 2 semantic projection: unchanged
-- Stage 3 install-watch behavior: unchanged
-- Standalone Control Tower HTML: regenerated with DvSum DALLI labels
-- Python compileall: pass
-- Ruff: target-laptop gate required because the executable was unavailable in the packaging runtime
-
-See `docs/STAGE3_DVSUM_DALLI_AUDIT.md`.
-
----
-
-LPR CPE SERVICE ASSURANCE DEMO - BUILD AND TEST REPORT
-======================================================
-
-STAGE 2 SEMANTIC RECONCILIATION CANDIDATE - 2026-08-26
--------------------------------------------------------
-PASS  shared measurement contract defines entity grain, formula, denominator,
-      provenance, status partition and reconciliation invariants
-PASS  Digital Twin executive projection aggregates complete canonical datasets
-      and never derives headline values from paginated display rows
-PASS  Care queue returns total, filtered_total, returned and truncated metadata
-PASS  5,101-contact regression proves headline totals exceed the 5,000-row
-      display cap and the 200-row Care page cap
-PASS  live Operations projects its full repository into the same semantic schema
-      while explicitly remaining unlinked to the active Digital Twin population
-PASS  common-cause operational cases collapse to one durable root incident
-PASS  legacy Control Tower defaults to active-run evidence; seeded outputs remain
-      isolated in Planning model mode and shape-only curves default off
-PASS  predictive child scans are labelled exploratory and cannot mutate canonical
-      Executive or Care totals implicitly
-PASS  former duplicate-incidents-avoided claim replaced by auditable canonical
-      root attachments; actual interception remains unavailable without an event
-PASS  CADI remains the explicit Genesys-facing context layer from Stage 1
-PASS  201 focused Stage 2/API/dashboard/CADI/telemetry/integrity tests
+PASS  318 focused API, Digital Twin, dashboard, External Evidence, Install
+      Assurance, DvSum DALLI, workflow, MCP, security, telemetry, lint-baseline
+      and bundle-integrity tests
+PASS  Wave 1 dispatch/cost module statement coverage: 88%
+PASS  complete 888-test collection audited per module: 882 passed, 4 inherited
+      failures, 2 skipped
 PASS  Python compileall for source, scripts and tests
-PASS  generated standalone Control Tower HTML regression
-PASS  git diff whitespace validation
-NOTE  Ruff 0.13.3 was not available in the packaging runtime. The target laptop
-      must run `python -m ruff check src scripts tests`; all new Stage 2 files are
-      deliberately outside the legacy per-file lint baseline.
-NOTE  An expanded repository audit reproduced eight failures that already exist
-      at the signed-off Stage 1 base: seven workflow tests reject approval tokens
-      whose fixtures omit the idempotency key, and one UI test expects Python
-      3.12 while the committed Dockerfiles use Python 3.14.2. Separate inherited
-      failures also remain for trusted-host policy, two MCP-control fixtures and
-      the Digital Twin reachability heuristic. Stage 2 does not modify those areas.
-NOTE  Stage 3 24-Hour Install Assurance Watch is not included. It remains gated
-      on explicit Stage 2 sign-off.
+PASS  docker-compose.yml structural validation
+PASS  git diff whitespace checks
 
-HISTORICAL STAGE 1 CADI WINDOWS PORTABILITY CORRECTIONS - 2026-08-26
---------------------------------------------------------------------
-PASS  113 focused CADI/API/dashboard/Digital Twin tests
-PASS  same focused suite with UTF-8 mode disabled and the C locale forced
-PASS  repository text-read guard: every Path.read_text call names an encoding
-PASS  manifest verification is invariant to Windows CRLF checkout conversion
-PASS  binary manifest entries remain byte-for-byte verified
-PASS  .gitattributes keeps tracked text on canonical LF for future checkouts
-PASS  Python compileall for source, scripts and tests
-PASS  git diff whitespace validation
-PASS  172 focused CADI/API/dashboard/Digital Twin/telemetry/integrity/lint-baseline tests
-PASS  lint-baseline audit: all 325 reported findings are fixed or exact-path scoped
-PASS  no wildcard, ALL or F821 suppression in the Ruff baseline
-PASS  telemetry projection retains action-history classification after lint cleanup
-NOTE  These corrections change test/packaging portability and integrity
-      verification only; Stage 2 semantic reconciliation and Stage 3 install
-      assurance remain out of scope.
-NOTE  Ruff 0.13.3 was not available in the packaging runtime. The target
-      laptop must execute `python -m ruff check src scripts tests`; the candidate
-      contains an exact rule-scoped baseline for the 325 findings reported there.
-Bundle revision: 1.2 improved comparison build
-Assembly date: 2026-08-17
-Build environment: Linux x86_64, Python 3.13.5
-Available host resources observed during assembly: 9 logical CPUs, about 5.9 GB RAM
-Docker availability in assembly environment: NOT AVAILABLE
-
-EXECUTED IN THE ASSEMBLY ENVIRONMENT
--------------------------------------
-PASS  docker-compose.yml duplicate-key and structural validation
-PASS  Bash script syntax validation
-PASS  Python compileall for src, tests and scripts
-PASS  35 automated tests
-PASS  84.63% measured Python coverage (80% threshold)
-PASS  FastAPI TestClient scenario, role and approval tests
-PASS  strict HTTP MCP compatibility/profile/header tests
-PASS  live FastAPI-to-HTTP-MCP workflows: remote close and failed-plant re-RCA/same-MR update
-PASS  MCP same-key replay and consumed-approval rejection tests
-PASS  stable action/approval key and replay-safe history tests
-PASS  next-best-action override requires fresh policy and approval
-PASS  parent/child SLA authority tests
-PASS  fake/provider fallback and fail-closed configuration tests
-PASS  all 9 deterministic scenario-matrix workflows
-PASS  no embedded OpenAI or Anthropic API key found
-
-SCENARIO MATRIX
----------------
-PASS  bounded_remote_failure -> escalated after 2 remote attempts
-PASS  hfc_common_cause -> closed via plant action, no CPE field visit
-PASS  hfc_failed_plant_action_rerca -> failed plant action, re-RCA, same MR updated, then closed
-PASS  hfc_remote_fail_clean_success -> remote failure, re-RCA, Clean Boots close
-PASS  hfc_remote_success -> remote close, no field visit
-PASS  hfc_self_help_success -> self-help close
-PASS  pon_odp_handover -> Clean Boots then one jTrack MR
-PASS  pon_reverse_handover -> Dirty Boots/MR then reverse Clean Boots handover
-PASS  rca_disagreement_gate -> human RCA gate despite high confidence
-
-CONTROLS EXERCISED
-------------------
-PASS  deterministic-vs-assisted responsibility-domain disagreement gate
-PASS  conservative confidence fusion
-PASS  named human role authorization
-PASS  restart-stable action and approval identities
-PASS  stable idempotency-key replay returns the stored effect
-PASS  consumed approval cannot authorize a different effect
-PASS  action/approval/incident claim matching
-PASS  safe alternative-action override with a fresh approval
-PASS  bounded diagnostic, remote, field and MR loops
-PASS  common-cause parent/SLA authority behavior
-PASS  HFC tap, PON ODP, failed-MR and reverse-handover behavior
-PASS  replay-safe evidence, timeline, action, work-order and MR histories
-PASS  verification remains separate from action acknowledgement
-PASS  model-provider failure either fails closed or uses the explicitly configured fake fallback
-PASS  corporate CA support keeps TLS verification enabled
+DEFERRED BY THE THREE-WAVE GATE
+-------------------------------
+WAVE 2  projection materialization/cache and paginated summary/page/detail APIs
+WAVE 2  root-incident consolidated and repeat-work incremental economics
+WAVE 2  common-cause work/MR reuse and configurable footprint distributions
+WAVE 3  inherited Install Assurance semantic/concurrency defects
+WAVE 3  strict TLS, clean-clone environment, startup retry/readiness and
+        production-like network/auth hardening
 
 NOT EXECUTED IN THE ASSEMBLY ENVIRONMENT
 -----------------------------------------
-Docker Engine/Desktop was unavailable. The exact pinned Streamlit, LangGraph,
-LangChain and MCP packages were not installed locally, and package installation
-from the network was unavailable. Therefore the following were not run here:
+NOT RUN  exact Ruff 0.13.3 executable
+NOT RUN  Python 3.14.2 Windows runtime
+NOT RUN  Docker Engine/Desktop build and browser-rendered Streamlit UAT
+NOT RUN  live OpenAI/Anthropic or production NXT/DvSum DALLI/Genesys/JTrack calls
 
-NOT RUN  docker compose build/up/healthchecks
-NOT RUN  browser-rendered Streamlit session
-NOT RUN  exact pinned LangGraph 1.2.11 interrupt/resume runtime
-NOT RUN  PostgreSQL-backed LangGraph checkpointer and process recreation
-NOT RUN  live FastAPI-to-network-MCP path inside the Docker network
-NOT RUN  external OpenAI or Anthropic API calls
-
-MANDATORY TARGET-LAPTOP VERIFICATION
-------------------------------------
-Windows PowerShell:
-  .\scripts\verify_docker.ps1
-
-macOS/Linux/WSL:
-  ./scripts/verify_docker.sh
-
-The verification scripts build and start PostgreSQL, the MCP simulator, FastAPI
-and Streamlit; wait for health; validate exact installed application and MCP-image dependency versions;
-run a live FastAPI-to-MCP workflow; execute LangGraph interrupt/resume; recreate
-the workflow service against the same PostgreSQL database and resume the case;
-start Streamlit; execute all nine scenarios; compile the source; and rerun the
-full test suite with coverage.
+MANDATORY TARGET-WINDOWS GATE
+-----------------------------
+  python -m ruff check src scripts tests
+  python scripts/run_scenario_matrix.py
+  python -m pytest -q tests/test_demo_dispatch_projection.py \
+      tests/test_digital_twin_p0.py tests/test_api.py \
+      tests/test_measurement_semantics.py tests/test_external_evidence.py \
+      tests/test_install_assurance.py tests/test_dashboard.py tests/test_cadi.py \
+      tests/test_release_gates.py tests/test_workflow.py \
+      tests/test_mcp_controls.py tests/test_security_store.py \
+      tests/test_red_team.py tests/test_mcp_http.py tests/test_telemetry.py \
+      tests/test_lint_baseline.py tests/test_bundle_integrity.py
+  python scripts/verify_manifest.py
+  docker compose up -d --build
+  Invoke-RestMethod http://127.0.0.1:8000/ready
+  Invoke-RestMethod http://127.0.0.1:8001/health
 
 SAFETY POSTURE
 --------------
-Simulation mode is the default. Production writes are disabled. The included
-.env contains placeholder/demo secrets and no provider API key. Side-effecting
-MCP tools require a signed human approval, matching incident/action claims and a
-restart-stable idempotency key. A failed action must add evidence and return to
-RCA; restoration must be verified before closure.
+Simulation mode remains the default. Production writes remain disabled. Wave 1
+fails closed when the immutable cost source graph is incomplete or inconsistent.
+
+INHERITED FULL-SUITE FAILURES (DEFERRED TO WAVE 3 OR TEST MAINTENANCE)
+------------------------------------------------------------------
+FAIL  clean-clone .env expectation
+FAIL  automatic Docker --trusted-host fallback
+FAIL  static FastAPI route-reachability heuristic
+FAIL  stale Python 3.12 Docker assertion; runtime targets Python 3.14.2

@@ -166,7 +166,8 @@ def _active_table(rows: list[dict[str, Any]]) -> None:
                 "scenario": row["scenario"],
                 "technology": row["technology"],
                 "municipio": row["municipio"],
-                "domain": row["recommended_domain"],
+                "actual domain": row["actual_domain"],
+                "recommended domain": row["recommended_domain"],
                 "action": row["executed_or_forecast_action"],
                 "action status": row["action_status"],
                 "cost basis": row["cost_basis"],
@@ -174,7 +175,11 @@ def _active_table(rows: list[dict[str, Any]]) -> None:
                 "MR": row["mr_id"],
                 "crew": row["crew_type"],
                 "base": row["base_id"].replace("BASE-", ""),
-                "travel min": row["travel_minutes"],
+                "cost travel min": row["travel_minutes"],
+                "planning route min": row["modelled_route_minutes"],
+                "execution economics complete": row.get(
+                    "execution_economics_complete", True
+                ),
                 "cost USD": row["total_cost_usd"],
             }
             for row in ordered
@@ -209,6 +214,10 @@ def _active_ledger(rows: list[dict[str, Any]], *, run_id: str) -> None:
         st.write(f"**Service / device** {row['service_id']} / {row['device_id']}")
         st.write(f"**Scenario** {row['scenario']}")
         st.write(
+            f"**Actual / recommended domain** {row['actual_domain']} / "
+            f"{row['recommended_domain']}"
+        )
+        st.write(
             f"**Generated action** {row['executed_or_forecast_action']} "
             f"({row['action_status']})"
         )
@@ -222,12 +231,19 @@ def _active_ledger(rows: list[dict[str, Any]], *, run_id: str) -> None:
         generated = row.get("generated_route_minutes")
         if generated is not None:
             st.write(
-                f"**Travel input** {generated} generated min one way; "
-                f"{row['modelled_route_minutes']} modelled route min"
+                f"**Executed travel input** {generated} generated min one way. "
+                f"Planning-route comparison: {row['modelled_route_minutes']} min."
             )
         else:
-            st.write(f"**Travel input** {row['modelled_route_minutes']} modelled min")
-        st.metric("Modelled cost", usd_plain(float(row["total_cost_usd"]), decimals=2))
+            st.write(
+                f"**Forecast travel input** {row['modelled_route_minutes']} modelled min"
+            )
+        cost_label = (
+            "Generated execution cost"
+            if row["cost_basis"] == "generated_execution"
+            else "Governed forecast cost"
+        )
+        st.metric(cost_label, usd_plain(float(row["total_cost_usd"]), decimals=2))
         st.metric(
             "If misdispatched",
             usd_plain(float(row["misdispatch_cost_usd"]), decimals=2),
@@ -235,6 +251,11 @@ def _active_ledger(rows: list[dict[str, Any]], *, run_id: str) -> None:
             delta_color="inverse",
         )
         st.caption(row["cost_provenance"])
+        if not row.get("execution_economics_complete", True):
+            st.warning(
+                "Executed cost is incomplete because source work-order economics are "
+                "missing: " + ", ".join(row.get("execution_economics_missing", []))
+            )
         st.caption(row["location_provenance"])
         if row.get("location_warning"):
             st.warning(row["location_warning"])
@@ -267,9 +288,9 @@ def _render_active_run() -> None:
     st.info(
         "**Mixed-provenance calculation.** Service, case, incident, RCA, action, "
         "work-order, MR, skill, parts and generated timestamps come from the demo "
-        "run. Municipio coordinates and dispatch hubs are deterministic planning "
-        "mappings, while labour, vehicle, ferry, overnight and parts prices remain "
-        "assumed demonstration rates."
+        "run. Executed costs use generated work-order travel economics; planning "
+        "routes are comparison-only. Forecast costs use the route model. All rates "
+        "remain assumed demonstration rates."
     )
     st.caption(
         f"As of {context.get('as_of') or 'run snapshot'} · grain "
@@ -342,7 +363,7 @@ def _render_active_run() -> None:
         for row in filtered
         if row["cost_basis"] == "governed_forecast"
     )
-    split = st.columns(4)
+    split = st.columns(6)
     split[0].metric("Generated execution cost", usd_plain(generated_cost))
     split[1].metric("Governed forecast cost", usd_plain(forecast_cost))
     split[2].metric(
@@ -353,6 +374,17 @@ def _render_active_run() -> None:
         "Generated MRs",
         len({item for row in filtered for item in row["mr_ids"]}),
     )
+    split[4].metric(
+        "Executed truck rolls",
+        sum(int(row.get("executed_truck_rolls", 0)) for row in filtered),
+    )
+    split[5].metric(
+        "Forecast roll equivalents",
+        sum(
+            int(row.get("forecast_truck_roll_equivalents", 0))
+            for row in filtered
+        ),
+    )
 
     _benchmark_cards(stats)
     _map_and_routes(faults, show_routes=show_routes, router=router)
@@ -360,6 +392,10 @@ def _render_active_run() -> None:
     _active_ledger(filtered, run_id=run_id)
 
     with st.expander("Input lineage, assumptions and benchmark source"):
+        st.write("**Data-integrity gate**")
+        st.json(projection.get("data_integrity", {}))
+        st.write("**Exact identifier reconciliation**")
+        st.json(projection.get("reconciliation", {}))
         st.write("**Run-derived inputs**")
         st.json(projection.get("provenance", {}).get("run_derived", []))
         st.write("**Modelled geography and dispatch inputs**")

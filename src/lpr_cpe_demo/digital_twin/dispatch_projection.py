@@ -47,9 +47,42 @@ from lpr_cpe_demo.plant import DOMAIN_TO_KIND, blast_radius
 
 from .care import PRIORITY
 from .decision import SCENARIO_POLICIES
-from .storage import get_active_run, iter_jsonl_gz, safe_run_path
+from .storage import (
+    RUN_SCHEMA_VERSION,
+    get_active_run,
+    iter_jsonl_gz,
+    safe_run_path,
+    sha256_file,
+)
 
-DISPATCH_PROJECTION_SCHEMA_VERSION = "1.0"
+DISPATCH_PROJECTION_SCHEMA_VERSION = "1.1"
+
+PROJECTION_REQUIRED_DATASETS = frozenset(
+    {
+        "subscriber_master",
+        "scenario_manifests",
+        "incidents",
+        "deterministic_decisions",
+        "action_events",
+        "human_decisions",
+        "work_orders",
+        "mrs",
+        "validation_events",
+        "resolution_events",
+        "care_tickets",
+        "predictive_tickets",
+    }
+)
+
+REQUIRED_CLOSURE_CHECKS = frozenset(
+    {
+        "original_symptom_absent",
+        "service_test_passed",
+        "telemetry_stable",
+        "repair_actions_documented",
+        "required_measurements_captured",
+    }
+)
 
 JITTER_KM: dict[str, float] = {
     "metro": 3.0,
@@ -78,6 +111,15 @@ GENERATED_SKILL_TO_PLANNING: dict[str, tuple[str, ...]] = {
 
 class MixedRegionDelimiterError(ValueError):
     """Raised when one serving TAP/ODP spans multiple planning regions."""
+
+
+class DispatchProjectionIntegrityError(ValueError):
+    """Raised when an immutable run fails catalog or identity integrity checks."""
+
+    def __init__(self, issues: Iterable[str]):
+        unique = tuple(dict.fromkeys(str(issue) for issue in issues if str(issue)))
+        self.issues = unique
+        super().__init__("; ".join(unique) or "dispatch projection integrity check failed")
 
 
 def _generated_parts_to_planning(
@@ -134,20 +176,119 @@ def dispatch_cost_contract() -> dict[str, Any]:
         ],
         "cost_bases": {
             "generated_execution": (
-                "The demo executed the action. Generated work-order timestamps are used "
-                "when available; rates remain assumed."
+                "The demo executed the action. Generated work-order timestamps, road "
+                "distance, ferry use and overnight use are used when present. The "
+                "planning route is comparison-only; rates remain assumed."
             ),
             "governed_forecast": (
                 "The action is pending or recommended. The cost is a forecast based on "
-                "the deterministic next action and the same assumed rates."
+                "the deterministic next action, modelled route and the same assumed rates."
             ),
         },
+        "integrity_controls": [
+            "every catalog dataset hash and row count is verified before costing",
+            "every case must join to its subscriber, root incident and deterministic decision",
+            "work orders, MRs, validation and resolution records must remain case-local",
+            (
+                "executed cost never imports ferry, overnight or vehicle charges "
+                "from the planning route"
+            ),
+            "validation requires PASS, stable telemetry and a complete closure checklist",
+            "reconciliation compares exact identifier sets rather than counts alone",
+        ],
         "topology_controls": [
             "one delimiter_id must map to exactly one planning region",
             "mixed-region delimiter groups are rejected; no majority or tie-break is used",
             "runs generated before the delimiter-region fix must be regenerated",
         ],
         "production_writes": False,
+    }
+
+
+def _catalog_entries(catalog: Mapping[str, Any]) -> dict[str, dict[str, Any]]:
+    issues: list[str] = []
+    entries: dict[str, dict[str, Any]] = {}
+    raw_entries = catalog.get("datasets")
+    if not isinstance(raw_entries, list):
+        raise DispatchProjectionIntegrityError(["catalog datasets must be a list"])
+    for position, raw in enumerate(raw_entries, start=1):
+        if not isinstance(raw, dict):
+            issues.append(f"catalog dataset entry {position} is not an object")
+            continue
+        dataset = str(raw.get("dataset") or "")
+        if not dataset:
+            issues.append(f"catalog dataset entry {position} has no dataset name")
+            continue
+        if dataset in entries:
+            issues.append(f"catalog contains duplicate dataset entry {dataset}")
+            continue
+        entries[dataset] = raw
+    missing = sorted(PROJECTION_REQUIRED_DATASETS - set(entries))
+    issues.extend(f"catalog is missing required dataset {dataset}" for dataset in missing)
+    if issues:
+        raise DispatchProjectionIntegrityError(issues)
+    return entries
+
+
+def _verify_catalog_datasets(
+    run_path: Path,
+    catalog: Mapping[str, Any],
+) -> dict[str, Any]:
+    """Verify every catalogued immutable file before producing financial output."""
+
+    issues: list[str] = []
+    checks: list[dict[str, Any]] = []
+    entries = _catalog_entries(catalog)
+    root = run_path.resolve()
+    for dataset, entry in sorted(entries.items()):
+        relative_path = str(entry.get("path") or f"{dataset}.jsonl.gz")
+        path = (root / relative_path).resolve()
+        if path.parent != root:
+            issues.append(f"dataset path escapes run directory: {dataset}")
+            continue
+        if not path.is_file():
+            issues.append(f"catalogued dataset file is missing: {dataset}")
+            continue
+        expected_hash = str(entry.get("sha256") or "")
+        actual_hash = sha256_file(path)
+        expected_rows = entry.get("row_count")
+        try:
+            actual_rows = sum(1 for _ in iter_jsonl_gz(path))
+        except (OSError, ValueError, json.JSONDecodeError) as exc:
+            issues.append(f"dataset {dataset} cannot be read: {exc}")
+            continue
+        if expected_hash != actual_hash:
+            issues.append(
+                f"dataset hash mismatch for {dataset}: expected {expected_hash}, "
+                f"actual {actual_hash}"
+            )
+        try:
+            expected_rows_int = int(expected_rows)
+        except (TypeError, ValueError):
+            issues.append(f"catalog row count is invalid for {dataset}: {expected_rows!r}")
+            expected_rows_int = -1
+        if expected_rows_int != actual_rows:
+            issues.append(
+                f"dataset row-count mismatch for {dataset}: expected "
+                f"{expected_rows_int}, actual {actual_rows}"
+            )
+        checks.append(
+            {
+                "dataset": dataset,
+                "row_count": actual_rows,
+                "sha256": actual_hash,
+                "hash_matches": expected_hash == actual_hash,
+                "row_count_matches": expected_rows_int == actual_rows,
+            }
+        )
+    if issues:
+        raise DispatchProjectionIntegrityError(issues)
+    return {
+        "catalog_hashes_verified": True,
+        "catalog_row_counts_verified": True,
+        "datasets_verified": len(checks),
+        "rows_verified": sum(int(check["row_count"]) for check in checks),
+        "dataset_checks": checks,
     }
 
 
@@ -225,6 +366,149 @@ def _records_by_case(
     for values in grouped.values():
         values.sort(key=_record_time)
     return dict(grouped)
+
+
+def _duplicate_values(rows: Iterable[dict[str, Any]], key: str) -> list[str]:
+    counts: dict[str, int] = defaultdict(int)
+    for row in rows:
+        value = str(row.get(key) or "")
+        if value:
+            counts[value] += 1
+    return sorted(value for value, count in counts.items() if count > 1)
+
+
+def _validate_case_graph(
+    *,
+    manifests: list[dict[str, Any]],
+    subscribers: Mapping[str, dict[str, Any]],
+    incidents: list[dict[str, Any]],
+    decisions: list[dict[str, Any]],
+    actions: list[dict[str, Any]],
+    work_orders: list[dict[str, Any]],
+    mrs: list[dict[str, Any]],
+    validations: list[dict[str, Any]],
+    resolutions: list[dict[str, Any]],
+) -> dict[str, Any]:
+    """Require all economic records to remain on one canonical case graph."""
+
+    issues: list[str] = []
+    duplicate_cases = _duplicate_values(manifests, "case_id")
+    issues.extend(f"duplicate scenario manifest case_id {value}" for value in duplicate_cases)
+    duplicate_work_orders = _duplicate_values(work_orders, "work_order_id")
+    issues.extend(
+        f"duplicate work_order_id {value}" for value in duplicate_work_orders
+    )
+    manifest_by_case = _index(manifests, "case_id")
+    incident_by_id = _index(incidents, "incident_id")
+    decision_by_case = _index(decisions, "case_id")
+    action_by_case = _index(actions, "case_id")
+    work_by_id = _index(work_orders, "work_order_id")
+    validation_by_id = _index(validations, "validation_id")
+
+    for case_id, manifest in manifest_by_case.items():
+        service_id = str(manifest.get("service_id") or "")
+        incident_id = str(manifest.get("root_incident_id") or "")
+        if not service_id:
+            issues.append(f"case {case_id} has no service_id")
+            continue
+        if not str(manifest.get("scenario_truth_domain") or ""):
+            issues.append(f"case {case_id} has no immutable scenario truth domain")
+        subscriber = subscribers.get(service_id)
+        if subscriber is None:
+            issues.append(f"case {case_id} has no subscriber row for {service_id}")
+        else:
+            if str(subscriber.get("delimiter_id") or "") != str(
+                manifest.get("delimiter_id") or ""
+            ):
+                issues.append(f"case {case_id} delimiter disagrees with subscriber")
+            if str(subscriber.get("technology") or "") != str(
+                manifest.get("technology") or ""
+            ):
+                issues.append(f"case {case_id} technology disagrees with subscriber")
+        incident = incident_by_id.get(incident_id)
+        if incident is None:
+            issues.append(f"case {case_id} has no root incident {incident_id}")
+        else:
+            if str(incident.get("service_id") or "") != service_id:
+                issues.append(f"case {case_id} root incident service mismatch")
+            if str(incident.get("case_id") or "") != str(
+                manifest.get("root_case_id") or ""
+            ):
+                issues.append(f"case {case_id} root incident case mismatch")
+        if case_id not in decision_by_case:
+            issues.append(f"case {case_id} has no deterministic decision")
+        if case_id not in action_by_case:
+            issues.append(f"case {case_id} has no action event")
+
+    def check_case_local(dataset: str, rows: Iterable[dict[str, Any]]) -> None:
+        for row in rows:
+            case_id = str(row.get("case_id") or "")
+            manifest = manifest_by_case.get(case_id)
+            if manifest is None:
+                issues.append(f"{dataset} contains orphan case {case_id or '<missing>'}")
+                continue
+            expected_service = str(manifest.get("service_id") or "")
+            expected_incident = str(manifest.get("root_incident_id") or "")
+            service_id = row.get("service_id")
+            incident_id = row.get("incident_id")
+            if service_id not in {None, ""} and str(service_id) != expected_service:
+                issues.append(f"{dataset} case {case_id} has a cross-case service")
+            if incident_id not in {None, ""} and str(incident_id) != expected_incident:
+                issues.append(f"{dataset} case {case_id} has a cross-case incident")
+
+    check_case_local("work_orders", work_orders)
+    check_case_local("mrs", mrs)
+    check_case_local("validation_events", validations)
+    check_case_local("resolution_events", resolutions)
+
+    for mr in mrs:
+        work_order_id = str(mr.get("work_order_id") or "")
+        if work_order_id and work_order_id not in work_by_id:
+            issues.append(f"MR {mr.get('mr_id')} cites missing work order {work_order_id}")
+    for resolution in resolutions:
+        validation_id = str(resolution.get("validation_ref") or "")
+        validation = validation_by_id.get(validation_id)
+        if validation is None:
+            issues.append(
+                f"resolution {resolution.get('resolution_id')} cites missing validation "
+                f"{validation_id}"
+            )
+        elif str(validation.get("case_id") or "") != str(
+            resolution.get("case_id") or ""
+        ):
+            issues.append(
+                f"resolution {resolution.get('resolution_id')} cites cross-case validation"
+            )
+        else:
+            passed, validation_issues = _validation_result(validation)
+            if not passed:
+                issues.append(
+                    f"resolution {resolution.get('resolution_id')} cites non-passing "
+                    f"validation {validation_id}: {','.join(validation_issues)}"
+                )
+
+    resolution_by_incident = {
+        str(row.get("incident_id") or ""): row
+        for row in resolutions
+        if row.get("incident_id")
+    }
+    for incident_id, incident in incident_by_id.items():
+        if str(incident.get("status") or "").upper() != "CLOSED":
+            continue
+        resolution = resolution_by_incident.get(incident_id)
+        if resolution is None:
+            issues.append(f"closed incident {incident_id} has no resolution record")
+
+    if issues:
+        raise DispatchProjectionIntegrityError(issues)
+    return {
+        "case_graph_verified": True,
+        "manifest_cases_verified": len(manifest_by_case),
+        "subscriber_joins_verified": len(manifest_by_case),
+        "root_incident_joins_verified": len(manifest_by_case),
+        "deterministic_decision_joins_verified": len(manifest_by_case),
+        "action_event_joins_verified": len(manifest_by_case),
+    }
 
 
 def _record_time(row: Mapping[str, Any]) -> str:
@@ -566,6 +850,74 @@ def _parts_cost_key(action: str, domain: str, family: str) -> str | None:
     return None
 
 
+def _validation_result(
+    validation: Mapping[str, Any] | None,
+) -> tuple[bool, list[str]]:
+    if validation is None:
+        return False, ["validation_record_missing"]
+    issues: list[str] = []
+    if str(validation.get("service_test") or "").upper() != "PASS":
+        issues.append("service_test_not_passed")
+    if validation.get("stable") is not True:
+        issues.append("telemetry_not_stable")
+    checklist = validation.get("closure_checklist")
+    if not isinstance(checklist, Mapping):
+        issues.append("closure_checklist_missing")
+    else:
+        missing = sorted(REQUIRED_CLOSURE_CHECKS - set(checklist))
+        failed = sorted(
+            key
+            for key in REQUIRED_CLOSURE_CHECKS
+            if key in checklist and checklist.get(key) is not True
+        )
+        issues.extend(f"closure_check_missing:{key}" for key in missing)
+        issues.extend(f"closure_check_failed:{key}" for key in failed)
+    return not issues, issues
+
+
+def _work_order_execution_economics(
+    work_order: Mapping[str, Any],
+) -> dict[str, Any]:
+    """Read generated execution economics without importing the planning route."""
+
+    generated_one_way = _duration_minutes(work_order, "dispatched_at", "arrived_at")
+    generated_on_site = _duration_minutes(work_order, "arrived_at", "completed_at")
+    distance_raw = work_order.get("road_distance_km_one_way")
+    try:
+        road_distance = float(distance_raw) if distance_raw not in {None, ""} else None
+    except (TypeError, ValueError):
+        road_distance = None
+    complete = (
+        generated_one_way is not None
+        and generated_on_site is not None
+        and road_distance is not None
+        and road_distance >= 0
+        and isinstance(work_order.get("ferry_used"), bool)
+        and isinstance(work_order.get("overnight_used"), bool)
+    )
+    missing: list[str] = []
+    if generated_one_way is None:
+        missing.append("generated_one_way_minutes")
+    if generated_on_site is None:
+        missing.append("generated_on_site_minutes")
+    if road_distance is None or road_distance < 0:
+        missing.append("road_distance_km_one_way")
+    if not isinstance(work_order.get("ferry_used"), bool):
+        missing.append("ferry_used")
+    if not isinstance(work_order.get("overnight_used"), bool):
+        missing.append("overnight_used")
+    return {
+        "complete": complete,
+        "missing": missing,
+        "one_way_minutes": generated_one_way,
+        "on_site_minutes": generated_on_site,
+        "road_distance_km_one_way": road_distance,
+        "ferry_used": work_order.get("ferry_used") is True,
+        "overnight_used": work_order.get("overnight_used") is True,
+        "source": str(work_order.get("travel_economics_source") or "unavailable"),
+    }
+
+
 def _cost_projection(
     *,
     case_id: str,
@@ -611,8 +963,16 @@ def _cost_projection(
         )
 
     truck_rolls = 0
+    executed_truck_rolls = 0
+    forecast_truck_roll_equivalents = 0
+    executed_ferry_uses = 0
+    forecast_ferry_equivalents = 0
+    executed_overnight_uses = 0
+    forecast_overnight_equivalents = 0
     generated_travel_minutes: list[int] = []
     generated_on_site_minutes: list[int] = []
+    execution_economics_complete = True
+    execution_economics_missing: set[str] = set()
 
     if action in REMOTE_ACTIONS:
         _append_line(
@@ -636,6 +996,10 @@ def _cost_projection(
     elif action in DISPATCH_ACTIONS:
         visits = work_orders if executed and work_orders else [{}]
         truck_rolls = len(visits)
+        if executed:
+            executed_truck_rolls = truck_rolls
+        else:
+            forecast_truck_roll_equivalents = truck_rolls
         crew = "clean" if action in {"dispatch_clean", "cpe_swap"} else "dirty"
         if work_orders:
             crew = (
@@ -673,52 +1037,99 @@ def _cost_projection(
                 duration_provenance="assumed_standard_duration",
                 note=f"visit {position}",
             )
-            generated_one_way = _duration_minutes(work_order, "dispatched_at", "arrived_at")
-            generated_on_site = _duration_minutes(work_order, "arrived_at", "completed_at")
-            if generated_one_way is not None:
-                generated_travel_minutes.append(generated_one_way)
-            if generated_on_site is not None:
-                generated_on_site_minutes.append(generated_on_site)
-
-            one_way = generated_one_way
-            duration_source = "generated_work_order_timestamps"
-            if one_way is None:
-                one_way = int(route.get("modelled_one_way_minutes", 0) or 0)
-                duration_source = "modelled_dispatch_route"
-            round_trip = 2 * one_way
-            road_minutes = sum(
-                int(leg.get("minutes", 0))
-                for leg in route.get("legs", [])
-                if leg.get("kind") == "road"
-            )
-            vehicle_cost = 2 * road_minutes * ROAD_KM_PER_MINUTE * RATES["vehicle_km"]
-            _append_line(
-                lines,
-                step="travel",
-                role=f"{crew} boots",
-                minutes=round_trip,
-                cost_usd=_labour(rate_key, round_trip) + vehicle_cost,
-                duration_provenance=duration_source,
-                note=f"{one_way} min each way; vehicle distance remains modelled.",
-            )
-            if route.get("requires_ferry"):
+            if executed:
+                economics = _work_order_execution_economics(work_order)
+                execution_economics_complete &= bool(economics["complete"])
+                execution_economics_missing.update(economics["missing"])
+                generated_one_way = economics["one_way_minutes"]
+                generated_on_site = economics["on_site_minutes"]
+                if generated_one_way is not None:
+                    generated_travel_minutes.append(int(generated_one_way))
+                if generated_on_site is not None:
+                    generated_on_site_minutes.append(int(generated_on_site))
+                one_way = int(generated_one_way or 0)
+                round_trip = 2 * one_way
+                road_distance = economics["road_distance_km_one_way"]
+                vehicle_cost = (
+                    2 * float(road_distance) * RATES["vehicle_km"]
+                    if road_distance is not None and road_distance >= 0
+                    else 0.0
+                )
+                note = (
+                    f"{one_way} generated min each way; "
+                    f"{road_distance:.1f} generated road km each way."
+                    if road_distance is not None
+                    else (
+                        f"{one_way} generated min each way; source road distance is "
+                        "missing, so vehicle cost is excluded."
+                    )
+                )
                 _append_line(
                     lines,
-                    step="ferry",
+                    step="travel",
                     role=f"{crew} boots",
-                    minutes=0,
-                    cost_usd=RATES["ferry_round_trip"],
-                    duration_provenance="modelled_route_condition",
+                    minutes=round_trip,
+                    cost_usd=_labour(rate_key, round_trip) + vehicle_cost,
+                    duration_provenance="generated_work_order_economics",
+                    note=note,
                 )
-            on_site = generated_on_site
-            on_site_source = "generated_work_order_timestamps"
-            if on_site is None:
+                if economics["ferry_used"]:
+                    executed_ferry_uses += 1
+                    _append_line(
+                        lines,
+                        step="ferry",
+                        role=f"{crew} boots",
+                        minutes=0,
+                        cost_usd=RATES["ferry_round_trip"],
+                        duration_provenance="generated_work_order_economics",
+                    )
+                on_site = generated_on_site
+                on_site_source = "generated_work_order_timestamps"
+                if on_site is None:
+                    on_site = DURATIONS[
+                        "clean_boots_on_site"
+                        if crew == "clean"
+                        else "dirty_boots_on_site"
+                    ]
+                    on_site_source = "assumed_missing_execution_duration"
+                overnight_required = bool(economics["overnight_used"])
+            else:
+                one_way = int(route.get("modelled_one_way_minutes", 0) or 0)
+                round_trip = 2 * one_way
+                road_minutes = sum(
+                    int(leg.get("minutes", 0))
+                    for leg in route.get("legs", [])
+                    if leg.get("kind") == "road"
+                )
+                vehicle_cost = (
+                    2 * road_minutes * ROAD_KM_PER_MINUTE * RATES["vehicle_km"]
+                )
+                _append_line(
+                    lines,
+                    step="travel",
+                    role=f"{crew} boots",
+                    minutes=round_trip,
+                    cost_usd=_labour(rate_key, round_trip) + vehicle_cost,
+                    duration_provenance="modelled_dispatch_route",
+                    note=f"{one_way} modelled min each way.",
+                )
+                if route.get("requires_ferry"):
+                    forecast_ferry_equivalents += 1
+                    _append_line(
+                        lines,
+                        step="ferry",
+                        role=f"{crew} boots",
+                        minutes=0,
+                        cost_usd=RATES["ferry_round_trip"],
+                        duration_provenance="modelled_route_condition",
+                    )
                 on_site = DURATIONS[
                     "clean_boots_on_site"
                     if crew == "clean"
                     else "dirty_boots_on_site"
                 ]
                 on_site_source = "assumed_standard_duration"
+                overnight_required = not bool(route.get("same_day_feasible", True))
             _append_line(
                 lines,
                 step=f"{crew} boots on site",
@@ -727,14 +1138,22 @@ def _cost_projection(
                 cost_usd=_labour(rate_key, on_site),
                 duration_provenance=on_site_source,
             )
-            if not route.get("same_day_feasible", True):
+            if overnight_required:
+                if executed:
+                    executed_overnight_uses += 1
+                else:
+                    forecast_overnight_equivalents += 1
                 _append_line(
                     lines,
                     step="overnight",
                     role=f"{crew} boots",
                     minutes=0,
                     cost_usd=RATES["overnight_premium"],
-                    duration_provenance="modelled_route_condition",
+                    duration_provenance=(
+                        "generated_work_order_economics"
+                        if executed
+                        else "modelled_route_condition"
+                    ),
                 )
 
         parts_key = _parts_cost_key(action, domain, family)
@@ -788,8 +1207,16 @@ def _cost_projection(
         "total_minutes": total_minutes,
         "total_cost_usd": total_cost,
         "truck_rolls": truck_rolls,
+        "executed_truck_rolls": executed_truck_rolls,
+        "forecast_truck_roll_equivalents": forecast_truck_roll_equivalents,
+        "executed_ferry_uses": executed_ferry_uses,
+        "forecast_ferry_equivalents": forecast_ferry_equivalents,
+        "executed_overnight_uses": executed_overnight_uses,
+        "forecast_overnight_equivalents": forecast_overnight_equivalents,
         "generated_travel_minutes": generated_travel_minutes,
         "generated_on_site_minutes": generated_on_site_minutes,
+        "execution_economics_complete": execution_economics_complete,
+        "execution_economics_missing": sorted(execution_economics_missing),
         "all_rates_assumed": True,
         "production_writes": False,
         "case_id": case_id,
@@ -836,6 +1263,35 @@ def _summary(cases: list[dict[str, Any]]) -> dict[str, Any]:
     mrs = {mr_id for row in cases for mr_id in row.get("mr_ids", [])}
     dirty_cases = [row for row in cases if row.get("crew_type") == "dirty"]
     dispatched = [row for row in cases if int(row.get("truck_rolls", 0)) > 0]
+    dirty_dispatched = [row for row in dispatched if row.get("crew_type") == "dirty"]
+    executed_truck_rolls = sum(
+        int(row.get("executed_truck_rolls", 0)) for row in cases
+    )
+    forecast_truck_rolls = sum(
+        int(row.get("forecast_truck_roll_equivalents", 0)) for row in cases
+    )
+    household_by_root: dict[str, int] = {}
+    for row in cases:
+        incident_id = str(row.get("incident_id") or row.get("case_id") or "")
+        household_by_root[incident_id] = max(
+            household_by_root.get(incident_id, 0),
+            int(row.get("households_affected", 0)),
+        )
+    case_weighted_households = sum(
+        int(row.get("households_affected", 0)) for row in cases
+    )
+    executed_ferry_uses = sum(
+        int(row.get("executed_ferry_uses", 0)) for row in cases
+    )
+    forecast_ferry_equivalents = sum(
+        int(row.get("forecast_ferry_equivalents", 0)) for row in cases
+    )
+    executed_overnight_uses = sum(
+        int(row.get("executed_overnight_uses", 0)) for row in cases
+    )
+    forecast_overnight_equivalents = sum(
+        int(row.get("forecast_overnight_equivalents", 0)) for row in cases
+    )
     return {
         "case_attempts": len(cases),
         "root_incidents": len(root_incidents),
@@ -849,20 +1305,58 @@ def _summary(cases: list[dict[str, Any]]) -> dict[str, Any]:
         "generated_execution_cost_usd": generated_cost,
         "governed_forecast_cost_usd": forecast_cost,
         "mean_cost_per_case_usd": round(total_cost / len(cases), 2) if cases else 0.0,
-        "truck_rolls": sum(int(row.get("truck_rolls", 0)) for row in cases),
+        "executed_truck_rolls": executed_truck_rolls,
+        "forecast_truck_roll_equivalents": forecast_truck_rolls,
+        "total_scenario_truck_roll_exposure": (
+            executed_truck_rolls + forecast_truck_rolls
+        ),
+        # Compatibility alias for consumers predating the explicit basis split.
+        "truck_rolls": executed_truck_rolls + forecast_truck_rolls,
         "field_dispatched_cases": len(dispatched),
         "work_orders": len(work_orders),
         "maintenance_requests": len(mrs),
-        "households_affected": sum(int(row.get("households_affected", 0)) for row in cases),
+        "case_weighted_households_affected": case_weighted_households,
+        "root_incident_households_affected": sum(household_by_root.values()),
+        # Compatibility alias; the grain is now stated explicitly above.
+        "households_affected": case_weighted_households,
         "off_premise_interventions": sum(
             not bool(row.get("intervention_is_at_premise")) for row in cases
         ),
+        "dirty_boots_case_share_pct": (
+            round(100.0 * len(dirty_cases) / len(cases), 2) if cases else 0.0
+        ),
+        "dirty_boots_field_share_pct": (
+            round(100.0 * len(dirty_dispatched) / len(dispatched), 2)
+            if dispatched
+            else 0.0
+        ),
+        "dirty_boots_cases": len(dirty_cases),
+        "dirty_boots_field_cases": len(dirty_dispatched),
+        "dirty_boots_case_denominator": len(cases),
+        "dirty_boots_field_denominator": len(dispatched),
+        # Compatibility alias for the historical all-case denominator.
         "dirty_boots_share_pct": (
             round(100.0 * len(dirty_cases) / len(cases), 2) if cases else 0.0
         ),
-        "ferry_jobs": sum(bool(row.get("requires_ferry")) for row in dispatched),
-        "overnight_jobs": sum(
-            not bool(row.get("same_day_feasible", True)) for row in dispatched
+        "execution_economics_incomplete_cases": sum(
+            row.get("cost_basis") == "generated_execution"
+            and not bool(row.get("execution_economics_complete", True))
+            for row in cases
+        ),
+        "executed_ferry_uses": executed_ferry_uses,
+        "forecast_ferry_equivalents": forecast_ferry_equivalents,
+        "total_scenario_ferry_exposure": (
+            executed_ferry_uses + forecast_ferry_equivalents
+        ),
+        "executed_overnight_uses": executed_overnight_uses,
+        "forecast_overnight_equivalents": forecast_overnight_equivalents,
+        "total_scenario_overnight_exposure": (
+            executed_overnight_uses + forecast_overnight_equivalents
+        ),
+        # Compatibility aliases; explicit bases are above.
+        "ferry_jobs": executed_ferry_uses + forecast_ferry_equivalents,
+        "overnight_jobs": (
+            executed_overnight_uses + forecast_overnight_equivalents
         ),
     }
 
@@ -878,6 +1372,16 @@ def build_dispatch_cost_projection(
     if not catalog_path.is_file():
         raise FileNotFoundError("run catalog not found")
     catalog = json.loads(catalog_path.read_text(encoding="utf-8"))
+    run_schema_version = str(catalog.get("run_schema_version") or "")
+    if run_schema_version != RUN_SCHEMA_VERSION:
+        raise DispatchProjectionIntegrityError(
+            [
+                "run schema is incompatible with generated-execution costing: "
+                f"expected {RUN_SCHEMA_VERSION}, actual "
+                f"{run_schema_version or '<missing>'}; regenerate the run"
+            ]
+        )
+    catalog_integrity = _verify_catalog_datasets(run_path, catalog)
 
     manifests = _load_rows(run_path, "scenario_manifests")
     service_ids = {
@@ -899,6 +1403,18 @@ def build_dispatch_cost_projection(
     resolutions = _load_rows(run_path, "resolution_events")
     care = _load_rows(run_path, "care_tickets")
     predictive = _load_rows(run_path, "predictive_tickets")
+
+    case_graph_integrity = _validate_case_graph(
+        manifests=manifests,
+        subscribers=subscriber_by_service,
+        incidents=incidents,
+        decisions=decisions,
+        actions=actions,
+        work_orders=work_orders,
+        mrs=mrs,
+        validations=validations,
+        resolutions=resolutions,
+    )
 
     incident_by_id = _index(incidents, "incident_id")
     decision_by_case = _index(decisions, "case_id")
@@ -922,20 +1438,18 @@ def build_dispatch_cost_projection(
         case_id = str(manifest.get("case_id", ""))
         service_id = str(manifest.get("service_id", ""))
         incident_id = str(manifest.get("root_incident_id", ""))
-        subscriber = subscriber_by_service.get(service_id, {})
+        subscriber = subscriber_by_service[service_id]
         group_id = str(subscriber.get("delimiter_id") or service_id)
         site = site_assignments.get(group_id)
         if site is None:
-            candidates = _site_candidates(
-                str(subscriber.get("region") or "coastal"),
-                str(subscriber.get("technology") or manifest.get("technology")),
+            raise DispatchProjectionIntegrityError(
+                [f"case {case_id} has no planning-site assignment for {group_id}"]
             )
-            site = candidates[_stable_index(group_id or case_id, len(candidates))]
 
         scenario = str(manifest.get("scenario", "unknown"))
         decision = decision_by_case.get(case_id, {})
         policy = SCENARIO_POLICIES.get(scenario, {})
-        domain = str(
+        recommended_domain = str(
             decision.get("recommended_domain")
             or policy.get("domain")
             or "unknown"
@@ -955,13 +1469,29 @@ def build_dispatch_cost_projection(
         human = human_by_case.get(case_id, {})
         validation = validation_by_case.get(case_id)
         resolution = resolution_by_case.get(case_id)
+        validation_passed, validation_issues = _validation_result(validation)
+        scenario_truth_domain = str(
+            manifest.get("scenario_truth_domain")
+            or policy.get("domain")
+            or "unknown"
+        )
+        actual_domain = str(
+            (resolution or {}).get("fault_domain")
+            if resolution is not None and validation_passed
+            else scenario_truth_domain
+        )
+        actual_domain_source = (
+            "validated_resolution"
+            if resolution is not None and validation_passed
+            else "immutable_scenario_truth"
+        )
         technology = str(
             subscriber.get("technology")
             or manifest.get("technology")
             or "HFC"
         )
         family = _technology_family(technology)
-        coords = _coordinates(subscriber, site, domain)
+        coords = _coordinates(subscriber, site, actual_domain)
         generated_one_way = (
             _duration_minutes(case_work_orders[0], "dispatched_at", "arrived_at")
             if case_work_orders
@@ -992,18 +1522,26 @@ def build_dispatch_cost_projection(
             case_id=case_id,
             action=action,
             action_status=action_status,
-            domain=domain,
+            domain=actual_domain,
             family=family,
             route=route,
             work_orders=case_work_orders,
             human_required=bool(human.get("required")),
-            validated=validation is not None,
+            validated=validation_passed,
             closed=str(incident.get("status", "")).upper() == "CLOSED",
         )
-        missed = false_negative_cost(
-            site.site_id,
-            domain,
-            destination=(coords["intervention_lat"], coords["intervention_lon"]),
+        domain_mismatch = recommended_domain != actual_domain
+        missed = (
+            false_negative_cost(
+                site.site_id,
+                actual_domain,
+                destination=(
+                    coords["intervention_lat"],
+                    coords["intervention_lon"],
+                ),
+            )
+            if domain_mismatch
+            else None
         )
         benchmark = roll_cost(site.archetype, family, island=site.island)
         priority = _priority(case_care, scenario)
@@ -1024,7 +1562,24 @@ def build_dispatch_cost_projection(
             }
         )
         total_cost = float(cost["total_cost_usd"])
-        misdispatch_cost = round(total_cost + missed.cost_usd, 2)
+        misdispatch_premium = round(missed.cost_usd, 2) if missed else 0.0
+        misdispatch_cost = round(total_cost + misdispatch_premium, 2)
+        if cost["basis"] == "generated_execution":
+            cost_provenance = (
+                "Demo-generated action and work-order timing/economics with assumed "
+                "labour, vehicle, ferry, overnight and parts rates. The planning "
+                "route is comparison-only and does not contribute to executed cost."
+            )
+            if not cost["execution_economics_complete"]:
+                cost_provenance += (
+                    " Missing source execution fields are excluded or explicitly "
+                    "filled with a labelled duration assumption."
+                )
+        else:
+            cost_provenance = (
+                "Governed forecast using the deterministic action, modelled planning "
+                "route and assumed economic rates."
+            )
         cases.append(
             {
                 "run_id": catalog.get("run_id", run_path.name),
@@ -1055,8 +1610,13 @@ def build_dispatch_cost_projection(
                     if region != site.archetype
                     else ""
                 ),
-                "true_domain": domain,
-                "recommended_domain": domain,
+                "actual_domain": actual_domain,
+                "actual_domain_source": actual_domain_source,
+                # Compatibility alias; unlike earlier releases, it is independent
+                # of the deterministic recommendation.
+                "true_domain": actual_domain,
+                "recommended_domain": recommended_domain,
+                "domain_match": not domain_mismatch,
                 "recommended_action": recommended_action,
                 "executed_or_forecast_action": action,
                 "action_status": action_status,
@@ -1088,21 +1648,44 @@ def build_dispatch_cost_projection(
                     route.get("modelled_one_way_minutes", 0) or 0
                 ),
                 "generated_route_minutes": route.get("generated_one_way_minutes"),
-                "requires_ferry": bool(route.get("requires_ferry")),
-                "same_day_feasible": bool(route.get("same_day_feasible", True)),
+                "requires_ferry": (
+                    int(cost["executed_ferry_uses"]) > 0
+                    if cost["basis"] == "generated_execution"
+                    else bool(route.get("requires_ferry"))
+                ),
+                "same_day_feasible": (
+                    int(cost["executed_overnight_uses"]) == 0
+                    if cost["basis"] == "generated_execution"
+                    else bool(route.get("same_day_feasible", True))
+                ),
+                "modelled_requires_ferry": bool(route.get("requires_ferry")),
+                "modelled_same_day_feasible": bool(
+                    route.get("same_day_feasible", True)
+                ),
                 "route": route,
                 **coords,
-                "households_affected": blast_radius(domain, site.site_id, family),
+                "households_affected": blast_radius(actual_domain, site.site_id, family),
                 "cost_basis": cost["basis"],
-                "cost_provenance": (
-                    "Demo-generated case/action/work-order inputs with modelled geography "
-                    "and assumed economic rates."
-                ),
+                "cost_provenance": cost_provenance,
                 "total_minutes": int(cost["total_minutes"]),
                 "total_cost_usd": total_cost,
                 "truck_rolls": int(cost["truck_rolls"]),
+                "executed_truck_rolls": int(cost["executed_truck_rolls"]),
+                "forecast_truck_roll_equivalents": int(
+                    cost["forecast_truck_roll_equivalents"]
+                ),
+                "executed_ferry_uses": int(cost["executed_ferry_uses"]),
+                "forecast_ferry_equivalents": int(
+                    cost["forecast_ferry_equivalents"]
+                ),
+                "executed_overnight_uses": int(
+                    cost["executed_overnight_uses"]
+                ),
+                "forecast_overnight_equivalents": int(
+                    cost["forecast_overnight_equivalents"]
+                ),
                 "misdispatch_cost_usd": misdispatch_cost,
-                "misdispatch_premium_usd": round(misdispatch_cost - total_cost, 2),
+                "misdispatch_premium_usd": misdispatch_premium,
                 "benchmark_per_dispatch_usd": benchmark.per_dispatch_usd,
                 "benchmark_per_completed_usd": benchmark.per_completed_usd,
                 "benchmark_wasted_usd": wasted_visit_cost(
@@ -1114,7 +1697,14 @@ def build_dispatch_cost_projection(
                 "ledger_rows": cost["ledger_rows"],
                 "generated_travel_minutes": cost["generated_travel_minutes"],
                 "generated_on_site_minutes": cost["generated_on_site_minutes"],
-                "validated": validation is not None,
+                "execution_economics_complete": cost[
+                    "execution_economics_complete"
+                ],
+                "execution_economics_missing": cost[
+                    "execution_economics_missing"
+                ],
+                "validated": validation_passed,
+                "validation_issues": validation_issues,
                 "validation_id": (validation or {}).get("validation_id"),
                 "resolution_id": (resolution or {}).get("resolution_id"),
                 "production_write": False,
@@ -1122,10 +1712,61 @@ def build_dispatch_cost_projection(
         )
 
     summary = _summary(cases)
+    projected_work_order_ids = {
+        str(work_order_id)
+        for case in cases
+        for work_order_id in case.get("work_order_ids", [])
+        if work_order_id
+    }
+    source_work_order_ids = {
+        str(row.get("work_order_id"))
+        for row in work_orders
+        if row.get("work_order_id")
+    }
+    projected_mr_ids = {
+        str(mr_id)
+        for case in cases
+        for mr_id in case.get("mr_ids", [])
+        if mr_id
+    }
+    source_mr_ids = {str(row.get("mr_id")) for row in mrs if row.get("mr_id")}
+    reconciliation = {
+        "case_attempts_equal_manifest_rows": len(cases) == len(manifests),
+        "work_order_ids_projected": len(projected_work_order_ids),
+        "source_work_order_ids": len(source_work_order_ids),
+        "missing_work_order_ids": sorted(
+            source_work_order_ids - projected_work_order_ids
+        ),
+        "orphaned_work_order_ids": sorted(
+            projected_work_order_ids - source_work_order_ids
+        ),
+        "duplicate_work_order_ids": _duplicate_values(work_orders, "work_order_id"),
+        "mr_ids_projected": len(projected_mr_ids),
+        "source_mr_ids": len(source_mr_ids),
+        "missing_mr_ids": sorted(source_mr_ids - projected_mr_ids),
+        "orphaned_mr_ids": sorted(projected_mr_ids - source_mr_ids),
+        "mr_revision_ids": _duplicate_values(mrs, "mr_id"),
+        "passing_validations": sum(bool(case.get("validated")) for case in cases),
+        "failing_or_incomplete_validations": sum(
+            not bool(case.get("validated")) and case.get("validation_id") is not None
+            for case in cases
+        ),
+    }
+    reconciliation["all_identifier_sets_match"] = not any(
+        reconciliation[key]
+        for key in (
+            "missing_work_order_ids",
+            "orphaned_work_order_ids",
+            "duplicate_work_order_ids",
+            "missing_mr_ids",
+            "orphaned_mr_ids",
+        )
+    )
     return {
         "schema_version": DISPATCH_PROJECTION_SCHEMA_VERSION,
         "run_id": catalog.get("run_id", run_path.name),
         "release": catalog.get("release"),
+        "run_schema_version": catalog.get("run_schema_version"),
         "measurement_context": {
             "mode": "digital_twin_run",
             "source": "immutable Digital Twin run",
@@ -1143,30 +1784,25 @@ def build_dispatch_cost_projection(
             ),
             "window": "complete run snapshot",
             "primary_grain": "case_id",
-            "completeness": "complete canonical run datasets; not paginated",
+            "completeness": (
+                "catalog hashes, row counts and mandatory case-graph joins verified; "
+                "complete canonical run datasets; not paginated"
+            ),
+            "run_schema_version": catalog.get("run_schema_version"),
             "production_writes": False,
         },
         "summary": summary,
         "cases": cases,
+        "data_integrity": {
+            **catalog_integrity,
+            **case_graph_integrity,
+            "passed": True,
+        },
         "provenance": {
             "run_derived": dispatch_cost_contract()["run_derived_inputs"],
             "modelled": dispatch_cost_contract()["modelled_inputs"],
             "assumed": dispatch_cost_contract()["assumed_inputs"],
             "hub_locations_assumed": all(base.assumed for base in DISPATCH_BASES),
         },
-        "reconciliation": {
-            "case_attempts_equal_manifest_rows": len(cases) == len(manifests),
-            "work_order_ids_projected": summary["work_orders"],
-            "source_work_order_ids": len(
-                {
-                    str(row.get("work_order_id"))
-                    for row in work_orders
-                    if row.get("work_order_id")
-                }
-            ),
-            "mr_ids_projected": summary["maintenance_requests"],
-            "source_mr_ids": len(
-                {str(row.get("mr_id")) for row in mrs if row.get("mr_id")}
-            ),
-        },
+        "reconciliation": reconciliation,
     }

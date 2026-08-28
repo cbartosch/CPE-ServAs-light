@@ -1,3 +1,23 @@
+## 1.27.2 — Wave 1 cost and data integrity
+
+- Verify every catalogued Digital Twin dataset hash and row count before producing
+  cost or dispatch output; fail with a structured HTTP 409 integrity report.
+- Enforce case-to-subscriber, root-incident, deterministic-decision, action,
+  work-order, MR, validation and resolution identity joins before costing.
+- Separate generated-execution economics from planning-route forecast economics.
+  Executed cost now uses generated work-order timing, road distance, ferry and
+  overnight fields; the planning route is comparison-only.
+- Add generated travel-economics fields to new work orders and advance the
+  immutable run schema so corrected runs cannot collide with older runs.
+- Separate actual synthetic/validated fault domain from the deterministic
+  recommendation, and calculate a misdispatch premium only when they differ.
+- Require PASS, stable telemetry and a complete closure checklist before a
+  validation can support resolution or closure costing.
+- Reconcile exact work-order and MR identifier sets, expose revision IDs, and
+  split executed versus forecast truck-roll counts and metric denominators.
+- Preserve Stage 2 measurement formulas, Stage 3 Install Assurance behavior and
+  the Stage 4 External Evidence/LLM triangulation boundary.
+
 ## 1.27.1 — delimiter-region topology P0 repair
 
 - Generate planning geography at serving-delimiter grain so every subscriber

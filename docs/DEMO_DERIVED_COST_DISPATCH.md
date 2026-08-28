@@ -49,7 +49,7 @@ The calculation deliberately separates three input classes.
 - Scenario, technology, region and delimiter identity.
 - Deterministic domain and action.
 - Action lifecycle state.
-- Generated work-order skills, parts and timestamps.
+- Generated work-order skills, parts, timestamps, road distance, ferry use and overnight use.
 - Generated JTrack/MR, validation and closure records.
 
 ### Modelled
@@ -84,10 +84,10 @@ does not call the result an invoice, actual cost or surveyed dispatch route.
 generated_execution
 ```
 
-The demo action has status `SIMULATED_EXECUTED`. Where a generated work order is
-available, dispatch-to-arrival and arrival-to-completion timestamps drive travel
-and on-site labour durations. Economic rates and vehicle distance remain
-assumed/modelled.
+The demo action has status `SIMULATED_EXECUTED`. Generated work-order timestamps,
+road distance, ferry use and overnight use drive the execution ledger. The
+planning route remains visible as a comparison but does not contribute vehicle,
+ferry or overnight charges to executed cost. Economic rates remain assumed.
 
 ```text
 governed_forecast
@@ -123,6 +123,11 @@ Default mode: **Active demo run**.
 - Retains manual planning mode for independent what-if checks.
 
 ## Safety and integrity
+
+Before any economic output, the projector verifies the run schema, every catalog
+SHA-256 and row count, and mandatory case/subscriber/incident/action/work-order/MR/
+validation/resolution joins. A failure returns HTTP 409 with a structured
+`dispatch_projection_integrity_failed` report and no cost result.
 
 - The projection is read-only.
 - It does not change the run catalog or any canonical dataset.
