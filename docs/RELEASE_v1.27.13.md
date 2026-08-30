@@ -1,4 +1,4 @@
-# Release v1.27.12 — DvSum CADDI and Python 3.14.7
+# Release v1.27.13 — DvSum CADDI, Python 3.14.7 and target-lint closure
 
 This release is based on Wave 1 commit `2b46e9d351d6d5ba1de1573d4bfd0c6d27a94cf1` and applies the accumulated production-safety and portability corrections directly to the application tree.
 
@@ -33,3 +33,8 @@ Quality-gate conflicts return structured HTTP 409 detail with the run ID, issue 
 - The Streamlit header and toolbar use the same readable dark surface as the page.
 - Manifest verification normalizes LF/CRLF for UTF-8 text but remains byte-exact for binary files.
 - FastAPI/Starlette route decorators count as application reachability; genuinely unused public models are removed.
+
+
+## Target lint closure
+
+The release closes every Ruff 0.13.3 diagnostic reported by the Windows verification gate for v1.27.12. The target verifier runs `python -m ruff check src scripts tests` before any push.

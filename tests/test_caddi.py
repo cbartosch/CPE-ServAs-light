@@ -10,12 +10,16 @@ from pathlib import Path
 
 from fastapi.testclient import TestClient
 
-from lpr_cpe_demo.cadi import CADI_CAPABILITIES, cadi_contract, cadi_contract_rows
 from lpr_cpe_demo.caddi import (
     CADDI_REQUIRED_LINEAGE,
     DVSUM_CADDI_CAPABILITIES,
     caddi_contract,
     caddi_contract_rows,
+)
+from lpr_cpe_demo.cadi import (
+    CADI_CAPABILITIES,
+    cadi_contract,
+    cadi_contract_rows,
 )
 from lpr_cpe_demo.dashboard import build
 from lpr_cpe_demo.digital_twin import api as digital_twin_api

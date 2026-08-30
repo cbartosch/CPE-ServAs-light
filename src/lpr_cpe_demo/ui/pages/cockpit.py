@@ -10,8 +10,8 @@ import pandas as pd
 import plotly.express as px
 import streamlit as st
 
-from lpr_cpe_demo.config import get_settings
 from lpr_cpe_demo.caddi import caddi_contract, caddi_contract_rows
+from lpr_cpe_demo.config import get_settings
 from lpr_cpe_demo.ui.client import APIError
 from lpr_cpe_demo.ui.common import (
     api,

@@ -1,4 +1,4 @@
-LPR CPE SERVICE ASSURANCE DEMO — v1.27.12 RELEASE GATES
+LPR CPE SERVICE ASSURANCE DEMO — v1.27.13 RELEASE GATES
 ========================================================
 
 TARGET  Python 3.14.7 host and container runtime
@@ -8,9 +8,10 @@ PASS    LF/CRLF-safe text manifest and byte-exact binary verification
 PASS    FastAPI route reachability and unused-model cleanup
 PASS    Responsive Control Tower cross-link and readable Streamlit header
 PASS    Current-schema run recovery and structured fail-closed 409 contract
-PASS    Complete application test inventory: 898 tests across 39 files; all passed, 2 framework skips
+PASS    Complete application test inventory: 903 tests; 901 passed, 2 framework skips
 PASS    Python compilation, duplicate-key scan, manifest verification and Git whitespace checks
 NOTE    Application tests executed in the isolated build runtime on Python 3.13.5; target-side verification requires Python 3.14.7 and Ruff 0.13.3.
+PASS    Target Ruff 0.13.3 diagnostics reported for v1.27.12 are corrected in source.
 NOTE    Historical sections below describe the runtime and findings of their original releases.
 
 WAVE 1 COST AND CANONICAL-DATA INTEGRITY CANDIDATE - 2026-08-28

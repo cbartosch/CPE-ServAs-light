@@ -36,8 +36,8 @@ from typing import Any, Literal
 
 from .agents.status import RECORDER, describe_provider
 from .benchmarks import citation
-from .commercial import BLAST_RADIUS_PLANT_EVENT, PROTECTION_REASON
 from .caddi import caddi_contract, caddi_contract_rows
+from .commercial import BLAST_RADIUS_PLANT_EVENT, PROTECTION_REASON
 from .effort import false_positive_cost
 from .fault_generator import DOMAIN_MIX, generate_faults, summarise
 from .geography import sites_in_cpe_footprint

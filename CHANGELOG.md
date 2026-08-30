@@ -1,5 +1,6 @@
-## 1.27.12 — Canonical DvSum CADDI and Python 3.14.7 release
+## 1.27.13 — DvSum CADDI Python 3.14.7 lint-closed release
 
+- Close the target Ruff 0.13.3 findings reported by the Windows verification gate, including import ordering, redundant UTF-8 encoding arguments, install-assurance formatting, duplicate set entries and route-decorator line length.
 - Make DvSum CADDI the sole current product nomenclature across code, prompts, panels, APIs, datasets, documentation and editable artifacts.
 - Standardize active host and container contracts on Python 3.14.7.
 - Preserve verified TLS for dependency installation and remove host-trust bypasses.

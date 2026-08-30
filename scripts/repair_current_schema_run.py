@@ -45,14 +45,14 @@ def request_json(
     method: str = "GET",
     body: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    payload = None if body is None else json.dumps(body).encode("utf-8")
+    payload = None if body is None else json.dumps(body).encode()
     request = urllib.request.Request(
         base_url.rstrip("/") + path,
         data=payload,
         method=method,
         headers={"Content-Type": "application/json"},
     )
-    token = base64.b64encode(f"{user}:{password}".encode("utf-8")).decode("ascii")
+    token = base64.b64encode(f"{user}:{password}".encode()).decode("ascii")
     request.add_header("Authorization", f"Basic {token}")
     try:
         with urllib.request.urlopen(request, timeout=300) as response:
@@ -66,7 +66,7 @@ def request_json(
 
 
 def canonical_json(value: dict[str, Any]) -> bytes:
-    return json.dumps(value, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    return json.dumps(value, sort_keys=True, separators=(",", ":")).encode()
 
 
 def build_config(

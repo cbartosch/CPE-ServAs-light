@@ -1,18 +1,18 @@
-LPR CPE Service Assurance Demo v1.27.12 DvSum CADDI Python 3.14.7
+LPR CPE Service Assurance Demo v1.27.13 DvSum CADDI Python 3.14.7
 Generated: 2026-08-30
-Indexed files: 311
-Indexed bytes: 13083608
+Indexed files: 312
+Indexed bytes: 13086456
 
 .dockerignore	114 bytes
 .env.example	3010 bytes
 .gitattributes	473 bytes
 .gitignore	152 bytes
 .stage3-manifest-exclusions.txt	89 bytes
-BUILD_TEST_REPORT.txt	5106 bytes
-BUNDLE_CONTENTS.txt	13542 bytes
-CHANGELOG.md	98528 bytes
+BUILD_TEST_REPORT.txt	5176 bytes
+BUNDLE_CONTENTS.txt	13591 bytes
+CHANGELOG.md	98757 bytes
 Dockerfile	1688 bytes
-FILE_MANIFEST.txt	13530 bytes
+FILE_MANIFEST.txt	13579 bytes
 LICENSE.txt	297 bytes
 Makefile	1780 bytes
 README.md	17742 bytes
@@ -58,7 +58,7 @@ docs/OFFLINE_AND_LOW_RESOURCE.md	1748 bytes
 docs/OPEN_ISSUES_THREE_WAVES.md	3142 bytes
 docs/PACKAGE_VERSIONS.md	1604 bytes
 docs/RED_TEAM_v1.20.0.md	8368 bytes
-docs/RELEASE_v1.27.12.md	2266 bytes
+docs/RELEASE_v1.27.13.md	2500 bytes
 docs/RUNBOOK.md	7019 bytes
 docs/SECURITY.md	1086 bytes
 docs/SECURITY_CONTROLS.md	3254 bytes
@@ -129,7 +129,7 @@ scripts/preflight.py	1479 bytes
 scripts/registry-doctor.ps1	4592 bytes
 scripts/registry-doctor.sh	1701 bytes
 scripts/repair-current-schema-run.sh	244 bytes
-scripts/repair_current_schema_run.py	6275 bytes
+scripts/repair_current_schema_run.py	6254 bytes
 scripts/run_ab_matrix.py	11095 bytes
 scripts/run_commercial_priority.py	9885 bytes
 scripts/run_dispatch_simulation.py	8174 bytes
@@ -278,7 +278,7 @@ tests/test_api.py	3771 bytes
 tests/test_assets.py	2799 bytes
 tests/test_benchmarks.py	7044 bytes
 tests/test_bundle_integrity.py	7364 bytes
-tests/test_caddi.py	7320 bytes
+tests/test_caddi.py	7337 bytes
 tests/test_caddi_naming_regression.py	1974 bytes
 tests/test_commercial.py	25360 bytes
 tests/test_control_tower_layout_regression.py	932 bytes
@@ -309,6 +309,7 @@ tests/test_retrieval_ab.py	12280 bytes
 tests/test_routing_theme.py	12292 bytes
 tests/test_security_store.py	8623 bytes
 tests/test_sidebar.py	6467 bytes
+tests/test_target_lint_regressions.py	2221 bytes
 tests/test_telemetry.py	15641 bytes
 tests/test_ui_widgets.py	24099 bytes
 tests/test_workflow.py	6186 bytes

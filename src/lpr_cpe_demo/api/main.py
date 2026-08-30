@@ -9,8 +9,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
 from lpr_cpe_demo import __version__
-from lpr_cpe_demo.config import Settings, get_settings
 from lpr_cpe_demo.caddi import caddi_contract
+from lpr_cpe_demo.config import Settings, get_settings
 from lpr_cpe_demo.domain import ApprovalDecisionInput, ApprovalStatus, FaultDomain
 from lpr_cpe_demo.measurement import measurement_contract
 from lpr_cpe_demo.workflow.service import (
