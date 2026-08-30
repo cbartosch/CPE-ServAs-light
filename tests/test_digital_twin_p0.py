@@ -567,8 +567,8 @@ def test_39_bundle_targets_python_3_14_2():
     root = Path(__file__).parents[1]
     pyproject = (root / "pyproject.toml").read_text(encoding="utf-8")
     dockerfile = (root / "docker" / "Dockerfile.digital-twin").read_text(encoding="utf-8")
-    assert 'requires-python = ">=3.14.2,<3.14.3"' in pyproject
-    assert 'ARG BASE_IMAGE=python:3.14.2-slim-bookworm' in dockerfile
+    assert 'requires-python = ">=3.14.7,<3.14.8"' in pyproject
+    assert 'ARG BASE_IMAGE=python:3.14.7-slim-bookworm' in dockerfile
     assert 'FROM ${BASE_IMAGE}' in dockerfile
 
 
@@ -737,14 +737,14 @@ def test_47_digital_twin_docker_supports_verified_corporate_tls():
     dockerfile = (root / "docker" / "Dockerfile.digital-twin").read_text(encoding="utf-8")
     compose = (root / "docker-compose.yml").read_text(encoding="utf-8")
     env_example = (root / ".env.example").read_text(encoding="utf-8")
-    assert "ARG BASE_IMAGE=python:3.14.2-slim-bookworm" in dockerfile
+    assert "ARG BASE_IMAGE=python:3.14.7-slim-bookworm" in dockerfile
     assert "COPY docker/certs/" in dockerfile
     assert "update-ca-certificates" in dockerfile
     assert "PIP_CERT=/etc/ssl/certs/ca-certificates.crt" in dockerfile
     assert "ARG PIP_INDEX_URL=" in dockerfile
     assert "PIP_INDEX_URL: ${PIP_INDEX_URL:-}" in compose
-    assert "BASE_IMAGE: ${DT_BASE_IMAGE:-python:3.14.2-slim-bookworm}" in compose
-    assert "DT_BASE_IMAGE=python:3.14.2-slim-bookworm" in env_example
+    assert "BASE_IMAGE: ${DT_BASE_IMAGE:-python:3.14.7-slim-bookworm}" in compose
+    assert "DT_BASE_IMAGE=python:3.14.7-slim-bookworm" in env_example
     assert "PIP_INDEX_URL=" in env_example
 
 def test_48_predictive_bridge_uses_py314_collections_abc_imports():
@@ -981,8 +981,8 @@ def test_68_legacy_control_tower_cross_links_into_active_run_workflows():
     assert "td.executive_crosslink()" in control
     assert 'href="digital-twin?view=predictive"' in theme
     assert 'href="digital-twin?view=customer-care"' in theme
-    assert 'href="digital-twin?view=dalli"' in theme
-    assert "DvSum DALLI/Genesys contract" in theme
+    assert 'href="digital-twin?view=caddi"' in theme
+    assert "DvSum CADDI/Genesys contract" in theme
 
 
 def test_69_predictive_and_care_workspace_links_back_to_legacy_control_tower():

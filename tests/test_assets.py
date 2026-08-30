@@ -20,15 +20,15 @@ def test_compose_has_required_services_and_healthchecks() -> None:
     assert "PIP_INDEX_URL" in services["api"]["build"]["args"]
 
 
-def test_env_files_contain_safe_defaults() -> None:
-    for name in (".env", ".env.example"):
-        text = (ROOT / name).read_text(encoding="utf-8")
-        assert "APPLICATION_MODE=simulation" in text
-        assert "PRODUCTION_WRITES_ENABLED=false" in text
-        assert "MODEL_PROVIDER=fake" in text
-        assert "MCP_PROFILE=custom_stateless_2026" in text
-        assert "MCP_PROTOCOL_VERSION=2026-07-28" in text
-        assert "UI_REFRESH_SECONDS=2" in text
+def test_env_template_contains_safe_defaults() -> None:
+    # .env is intentionally local/ignored and must not be required in a clean clone.
+    text = (ROOT / ".env.example").read_text(encoding="utf-8")
+    assert "APPLICATION_MODE=simulation" in text
+    assert "PRODUCTION_WRITES_ENABLED=false" in text
+    assert "MODEL_PROVIDER=fake" in text
+    assert "MCP_PROFILE=custom_stateless_2026" in text
+    assert "MCP_PROTOCOL_VERSION=2026-07-28" in text
+    assert "UI_REFRESH_SECONDS=2" in text
 
 
 def test_streamlit_source_parses() -> None:

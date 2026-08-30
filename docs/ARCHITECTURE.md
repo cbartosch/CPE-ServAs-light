@@ -92,26 +92,26 @@ Operations projection reads the complete workflow repository and resolves
 `parent_incident_id` to a durable root. Paginated tables never drive headline
 counts. See `docs/SHARED_MEASUREMENT_CONTRACT.md`.
 
-## DvSum DALLI / Genesys call-center boundary
+## DvSum CADDI / Genesys call-center boundary
 
-DvSum DALLI is the existing LPR call-center correlation and presentation layer integrated
+DvSum CADDI is the existing LPR call-center correlation and presentation layer integrated
 with Genesys. It is represented explicitly in this bundle as a contract-only layer;
-there is no live DvSum DALLI client or source data connection.
+there is no live DvSum CADDI client or source data connection.
 
 ```mermaid
 flowchart LR
-    SRC[CSG / OTS / Intraway / NXT / Symphonica / Dvision-LLA / Plume] -->|authoritative facts| DALLI[DvSum DALLI context]
-    GEN[Genesys interaction] --> DALLI
-    DALLI --> AGENT[Call-center agent]
+    SRC[CSG / OTS / Intraway / NXT / Symphonica / Dvision-LLA / Plume] -->|authoritative facts| CADDI[DvSum CADDI context]
+    GEN[Genesys interaction] --> CADDI
+    CADDI --> AGENT[Call-center agent]
     SRC --> ASSURE[Assurance and orchestration]
     ASSURE --> OPS[Operations / Clean Boots / jTrack / repair]
-    OPS -->|customer-safe state projection| DALLI
+    OPS -->|customer-safe state projection| CADDI
 ```
 
-The originating systems remain authoritative. DvSum DALLI correlates and presents the
+The originating systems remain authoritative. DvSum CADDI correlates and presents the
 context needed by the call center. Operations remains authoritative for incident,
 work-order, MR, maintenance, repair and validated closure state. The preferred
-target is to augment or federate with DvSum DALLI before considering selective replacement.
+target is to augment or federate with DvSum CADDI before considering selective replacement.
 See `docs/CADI_INTEGRATION_CONTRACT.md` for the capability and discovery contract.
 
 ## LPR data represented by fixtures

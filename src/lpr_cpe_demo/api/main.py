@@ -10,7 +10,7 @@ from pydantic import BaseModel, Field
 
 from lpr_cpe_demo import __version__
 from lpr_cpe_demo.config import Settings, get_settings
-from lpr_cpe_demo.dalli import dalli_contract
+from lpr_cpe_demo.caddi import caddi_contract
 from lpr_cpe_demo.domain import ApprovalDecisionInput, ApprovalStatus, FaultDomain
 from lpr_cpe_demo.measurement import measurement_contract
 from lpr_cpe_demo.workflow.service import (
@@ -78,11 +78,11 @@ def create_app(
     def get_service(request: Request) -> WorkflowService:
         return request.app.state.workflow_service
 
-    @app.get("/api/integrations/dalli", tags=["integrations"])
+    @app.get("/api/integrations/caddi", tags=["integrations"])
     @app.get("/api/integrations/caddi", tags=["integrations"], deprecated=True)
     @app.get("/api/integrations/cadi", tags=["integrations"], deprecated=True)
-    def dalli_integration() -> dict[str, Any]:
-        return dalli_contract()
+    def caddi_integration() -> dict[str, Any]:
+        return caddi_contract()
 
     @app.get("/health", tags=["system"])
     def health() -> dict[str, str]:

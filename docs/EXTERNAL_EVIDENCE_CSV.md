@@ -2,7 +2,7 @@
 
 ## Purpose
 
-The External Evidence capability imports CSV extracts from NXT, DvSum DALLI,
+The External Evidence capability imports CSV extracts from NXT, DvSum CADDI,
 Genesys, JTrack, and an installation/identity source. It creates an immutable,
 read-only evidence batch that can be replayed as a historical, point-in-time,
 shadow, or 24-hour install-assurance scenario.
@@ -32,14 +32,14 @@ CSV files
 | `identity_map` | Service/device relationship per validity period |
 | `nxt_telemetry` | One metric observation |
 | `nxt_alarms` | One alarm lifecycle event |
-| `dvsum_dalli_insights` | One analytical insight/recommendation |
+| `dvsum_caddi_insights` | One analytical insight/recommendation |
 | `genesys_interactions` | One customer interaction |
 | `jtrack_events` | One MR/work lifecycle event |
 | `install_cohort` | One commissioning event |
 
-The importer accepts `cadi`, `caddi`, `dali`, `dalli`, and `dvsum` as source-key
-aliases, but normalizes them to `dvsum_dalli_insights`. This is compatibility for
-file naming only; the displayed product name is **DvSum DALLI**.
+The importer accepts `cadi`, `caddi`, and `dvsum` as source-key
+aliases, but normalizes them to `dvsum_caddi_insights`. This is compatibility for
+file naming only; the displayed product name is **DvSum CADDI**.
 
 ## Identity and authority
 
@@ -52,7 +52,7 @@ Authority remains with the originating systems:
 - NXT owns its telemetry and alarm facts.
 - Genesys owns the interaction record.
 - JTrack owns MR and repair lifecycle state.
-- DvSum DALLI supplies analytical context, not source-system truth.
+- DvSum CADDI supplies analytical context, not source-system truth.
 - LPR deterministic controls own the allowed recommendation and policy outcome.
 - The LLM is advisory and cannot authorize or execute an action.
 
@@ -161,7 +161,7 @@ python scripts/import_external_evidence.py `
   --identity reference\external_evidence_examples\identity_map.csv `
   --nxt-telemetry reference\external_evidence_examples\nxt_telemetry.csv `
   --nxt-alarms reference\external_evidence_examples\nxt_alarms.csv `
-  --dvsum-dalli reference\external_evidence_examples\dvsum_dalli_insights.csv `
+  --dvsum-caddi reference\external_evidence_examples\dvsum_caddi_insights.csv `
   --genesys reference\external_evidence_examples\genesys_interactions.csv `
   --jtrack reference\external_evidence_examples\jtrack_events.csv `
   --install-cohort reference\external_evidence_examples\install_cohort.csv `

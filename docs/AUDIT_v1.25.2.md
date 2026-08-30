@@ -84,6 +84,6 @@ the project targets Python 3.14.2.
 
 ## Non-scope
 
-No changes were made to Stage 2 metric semantics, DvSum DALLI naming, Install
+No changes were made to Stage 2 metric semantics, DvSum CADDI naming, Install
 Assurance episode generation, Docker networking/TLS policy, or the other open
 findings in the Stage 3 deep audit.

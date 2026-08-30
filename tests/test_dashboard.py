@@ -226,7 +226,7 @@ class TestDarkThemeReadability(unittest.TestCase):
         html = td.executive_crosslink()
         self.assertIn('href="digital-twin?view=predictive"', html)
         self.assertIn('href="digital-twin?view=customer-care"', html)
-        self.assertIn('href="digital-twin?view=dalli"', html)
+        self.assertIn('href="digital-twin?view=caddi"', html)
         self.assertIn('href="digital-twin?view=external-evidence"', html)
         self.assertIn('href="footprint"', html)
         self.assertIn('href="simulator"', html)

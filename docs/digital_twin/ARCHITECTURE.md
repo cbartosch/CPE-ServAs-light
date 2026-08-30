@@ -1,6 +1,6 @@
-# Architecture — Stage 3 install assurance and DvSum DALLI
+# Architecture — Stage 3 install assurance and DvSum CADDI
 
-Stage 3 preserves the Stage 2 measurement projection and adds a separate 24-Hour Install Assurance Watch. DvSum DALLI is the project-facing analytics/context layer. Production writes remain disabled.
+Stage 3 preserves the Stage 2 measurement projection and adds a separate 24-Hour Install Assurance Watch. DvSum CADDI is the project-facing analytics/context layer. Production writes remain disabled.
 
 ```mermaid
 flowchart LR
@@ -46,18 +46,18 @@ Each synthetic contact is promoted to a `care_ticket`. The ticket stays on the c
 
 `care_ticket_reviews` expose deterministic RCA, model/agent output, reconciliation state, predictive context, and evidence references in one record for operational review.
 
-## DvSum DALLI / Genesys call-center plane
+## DvSum CADDI / Genesys call-center plane
 
-DvSum DALLI is declared as the existing LPR call-center correlation and presentation
-layer integrated with Genesys. The Digital Twin does not claim a live DvSum DALLI
+DvSum CADDI is declared as the existing LPR call-center correlation and presentation
+layer integrated with Genesys. The Digital Twin does not claim a live DvSum CADDI
 connection. It exposes the contract so the Customer Care experience can be
-designed to build on DvSum DALLI rather than become a second source of truth.
+designed to build on DvSum CADDI rather than become a second source of truth.
 
 CSG, OTS, Intraway, NXT, Symphonica, Dvision/LLA, Plume and operational
-repair systems remain authoritative for the facts they originate. DvSum DALLI is the
+repair systems remain authoritative for the facts they originate. DvSum CADDI is the
 intended place to present a correlated customer-safe view. Operations, Clean
 Boots, jTrack and validation remain responsible for incident, work and closure
-state. See `../DVSUM_DALLI_INTEGRATION_CONTRACT.md`.
+state. See `../DVSUM_CADDI_INTEGRATION_CONTRACT.md`.
 
 ## Shared measurement projection
 

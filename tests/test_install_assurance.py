@@ -180,15 +180,14 @@ def test_genesys_contacts_attach_without_restarting_diagnostics(tmp_path):
     assert promoted_contact["disposition"] == "ATTACH_TO_EXISTING_INSTALL_INCIDENT"
 
 
-def test_dvsum_dalli_projection_keeps_authoritative_lineage(tmp_path):
+def test_dvsum_caddi_projection_keeps_authoritative_lineage(tmp_path):
     _, run_path = _run(tmp_path)
     detail = _detail(run_path, _watch(run_path))
 
-    assert len(detail["dalli_contexts"]) == len(detail["episodes"])
-    assert detail["caddi_contexts"] == detail["dalli_contexts"]
-    context = next(row for row in detail["dalli_contexts"] if row["genesys_interaction_id"])
-    assert context["canonical_name"] == "DvSum DALLI"
-    assert context["source_layer"] == "dvsum_dalli"
+    assert len(detail["caddi_contexts"]) == len(detail["episodes"])
+    context = next(row for row in detail["caddi_contexts"] if row["genesys_interaction_id"])
+    assert context["canonical_name"] == "DvSum CADDI"
+    assert context["source_layer"] == "dvsum_caddi"
     assert context["authoritative_status_source"] == "LPR Install Assurance"
     assert context["live_connection"] is False
     assert context["production_write"] is False
@@ -290,21 +289,19 @@ def test_install_assurance_api_endpoints(tmp_path, monkeypatch):
     assert active_projection.json()["summary"]["parent_run_id"] == run_id
 
 
-def test_dalli_canonical_and_legacy_api_aliases(tmp_path, monkeypatch):
+def test_caddi_canonical_and_cadi_compatibility_api_alias(tmp_path, monkeypatch):
     from lpr_cpe_demo.digital_twin import api
 
     monkeypatch.setattr(api, "DATA_ROOT", tmp_path)
     client = TestClient(api.app)
     auth = ("demo", "CHANGE_ME")
 
-    canonical = client.get("/api/integrations/dalli", auth=auth)
-    former_double_d = client.get("/api/integrations/caddi", auth=auth)
+    canonical = client.get("/api/integrations/caddi", auth=auth)
     former_single_d = client.get("/api/integrations/cadi", auth=auth)
     assert canonical.status_code == 200
-    assert former_double_d.status_code == 200
     assert former_single_d.status_code == 200
-    assert canonical.json() == former_double_d.json() == former_single_d.json()
-    assert canonical.json()["canonical_name"] == "DvSum DALLI"
+    assert canonical.json() == former_single_d.json()
+    assert canonical.json()["canonical_name"] == "DvSum CADDI"
 
 
 def test_install_artifact_summary_is_json_round_trip_safe(tmp_path):
@@ -344,7 +341,7 @@ def test_install_assurance_is_visible_across_executive_and_operations_ui():
 
     assert '"Install Assurance", _install_assurance' in digital_twin
     assert "Install assurance cohort" in digital_twin
-    assert "DvSum DALLI & Genesys context" in digital_twin
+    assert "DvSum CADDI & Genesys context" in digital_twin
     assert "def _install_assurance_panel" in cockpit
     assert "Episode lifecycle is mutually exclusive" in cockpit
     assert 'href="digital-twin?view=install-assurance"' in theme
@@ -399,7 +396,7 @@ def test_install_watch_is_reproducible_across_data_roots(tmp_path):
         "actions",
         "contacts",
         "incidents",
-        "dalli_contexts",
+        "caddi_contexts",
     ):
         assert first_detail[key] == second_detail[key]
 
@@ -415,7 +412,7 @@ def test_install_watch_rows_are_simulation_only_and_causal(tmp_path):
         "actions",
         "contacts",
         "incidents",
-        "dalli_contexts",
+        "caddi_contexts",
     ):
         assert all(row.get("production_write") is False for row in detail[dataset])
 
@@ -425,6 +422,6 @@ def test_install_watch_rows_are_simulation_only_and_causal(tmp_path):
     for contact in detail["contacts"]:
         episode = episodes[contact["episode_id"]]
         assert contact["opened_at"] <= episode["as_of_at"]
-    for context in detail["dalli_contexts"]:
+    for context in detail["caddi_contexts"]:
         assert context["episode_id"] in episodes
         assert context["episode_id"] in context["source_record_ids"]

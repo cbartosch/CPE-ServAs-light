@@ -118,6 +118,28 @@ def _public_definitions() -> dict[str, tuple[str, int]]:
     return found
 
 
+ROUTE_DECORATORS = {
+    "get", "post", "put", "patch", "delete", "options", "head",
+    "api_route", "websocket", "websocket_route",
+}
+
+
+def _registered_route_names() -> set[str]:
+    """Return top-level functions registered by FastAPI/Starlette decorators."""
+    registered: set[str] = set()
+    for path in sorted(SRC.rglob("*.py")):
+        tree = ast.parse(path.read_text(encoding="utf-8"))
+        for node in tree.body:
+            if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                continue
+            for decorator in node.decorator_list:
+                target = decorator.func if isinstance(decorator, ast.Call) else decorator
+                if isinstance(target, ast.Attribute) and target.attr in ROUTE_DECORATORS:
+                    registered.add(node.name)
+                    break
+    return registered
+
+
 def _references(name: str, roots: tuple[pathlib.Path, ...],
                 exclude: str | None = None) -> int:
     """Count references, excluding the definition line only.
@@ -152,8 +174,9 @@ class TestNoOrphanedPublicSymbols(unittest.TestCase):
 
     def test_every_public_symbol_is_reachable_from_application_code(self):
         orphans = []
+        registered_routes = _registered_route_names()
         for name, (where, line) in sorted(self.definitions.items()):
-            if name in INTENTIONALLY_LIBRARY_ONLY:
+            if name in INTENTIONALLY_LIBRARY_ONLY or name in registered_routes:
                 continue
             app = _references(name, (SRC, SCRIPTS))
             if app:

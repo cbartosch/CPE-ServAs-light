@@ -130,10 +130,11 @@ def css() -> str:
     .ct-badge.caveat {{ border-color: {ACCENTS['amber']}; color: {ACCENTS['amber']}; }}
 
     .ct-crosslink {{
-        display: grid;
-        grid-template-columns: minmax(0, 1fr) auto;
-        gap: 1rem;
+        display: flex;
+        flex-wrap: wrap;
         align-items: center;
+        justify-content: space-between;
+        gap: 1rem;
         border: 1px solid rgba(255,255,255,0.12);
         background: rgba(255,255,255,0.065);
         border-radius: 14px;
@@ -141,20 +142,41 @@ def css() -> str:
         margin: 0 0 0.9rem;
         backdrop-filter: blur(6px);
     }}
+    .ct-crosslink > div:first-child {{
+        flex: 1 1 32rem;
+        min-width: 18rem;
+        max-width: 72rem;
+    }}
     .ct-crosslink-title {{
         color: {INK};
         font-weight: 700;
         font-size: 0.94rem;
+        line-height: 1.35;
         margin-bottom: 0.15rem;
+        overflow-wrap: normal;
+        word-break: normal;
     }}
     .ct-crosslink-copy {{
         color: {MUTED};
         font-size: 0.79rem;
         line-height: 1.45;
+        overflow-wrap: break-word;
+        word-break: normal;
     }}
-    .ct-crosslink-actions {{ display: flex; flex-wrap: wrap; gap: 0.45rem; }}
+    .ct-crosslink-actions {{
+        display: flex;
+        flex: 0 1 auto;
+        flex-wrap: wrap;
+        justify-content: flex-end;
+        gap: 0.45rem;
+        min-width: 0;
+        max-width: 100%;
+        width: auto !important;
+    }}
     .ct-crosslink-link {{
         display: inline-flex;
+        flex: 0 0 auto;
+        width: auto !important;
         align-items: center;
         justify-content: center;
         min-height: 2.35rem;
@@ -177,8 +199,30 @@ def css() -> str:
         background: {ACCENTS['cyan']};
         color: {SLATE_950} !important;
     }}
-    @media (max-width: 800px) {{
-        .ct-crosslink {{ grid-template-columns: 1fr; }}
+    @media (max-width: 1100px) {{
+        .ct-crosslink {{ align-items: flex-start; }}
+        .ct-crosslink > div:first-child {{
+            flex-basis: 100%;
+            min-width: 0;
+            max-width: 100%;
+        }}
+        .ct-crosslink-actions {{
+            flex-basis: 100%;
+            justify-content: flex-start;
+        }}
+    }}
+
+    [data-testid="stHeader"] {{
+        background: rgba(23,23,23,0.98) !important;
+        border-bottom: 1px solid rgba(255,255,255,0.08);
+    }}
+    [data-testid="stHeader"] *,
+    [data-testid="stToolbar"] *,
+    [data-testid="stToolbar"] button {{
+        color: {INK} !important;
+    }}
+    [data-testid="stToolbar"] button:hover {{
+        background: rgba(255,255,255,0.08) !important;
     }}
 
     .ct-card {{
@@ -236,14 +280,14 @@ def css() -> str:
 
 
 def executive_crosslink() -> str:
-    """Return links into active-run evidence and the DvSum DALLI/Genesys contract."""
+    """Return links into active-run evidence and the DvSum CADDI/Genesys contract."""
     return (
         '<div class="ct-crosslink">'
         '<div><div class="ct-crosslink-title">Continue into active-run evidence</div>'
         '<div class="ct-crosslink-copy">Active-run mode uses the same canonical '
         'measurement projection as Predictive Health and Customer Care. The '
         'independent seeded benchmark is available only in Planning model mode. '
-        'The DvSum DALLI/Genesys contract remains available as a separate context layer.'
+        'The DvSum CADDI/Genesys contract remains available as a separate context layer.'
         '</div></div>'
         '<div class="ct-crosslink-actions">'
         '<a class="ct-crosslink-link primary" target="_self" '
@@ -255,7 +299,7 @@ def executive_crosslink() -> str:
         '<a class="ct-crosslink-link" target="_self" '
         'href="digital-twin?view=external-evidence">External Evidence →</a>'
         '<a class="ct-crosslink-link" target="_self" '
-        'href="digital-twin?view=dalli">DvSum DALLI / Genesys →</a>'
+        'href="digital-twin?view=caddi">DvSum CADDI/Genesys contract</a>'
         '<a class="ct-crosslink-link" target="_self" '
         'href="footprint">Footprint & Dispatch →</a>'
         '<a class="ct-crosslink-link" target="_self" '

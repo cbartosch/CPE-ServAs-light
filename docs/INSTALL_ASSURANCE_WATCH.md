@@ -17,7 +17,7 @@ validation linked to the same identity chain.
 installation work order
   -> install assurance episode
   -> NXT/provisioning/short-horizon observations
-  -> optional Genesys contact and DvSum DALLI context
+  -> optional Genesys contact and DvSum CADDI context
   -> optional root incident
   -> optional Clean Boots work order
   -> optional tap/ODP maintenance request
@@ -100,10 +100,10 @@ The deterministic cohort includes:
 9. Active green, amber and red episodes.
 10. An open promoted incident that is not closed by watch maturity.
 
-## DvSum DALLI and Genesys
+## DvSum CADDI and Genesys
 
 The LPR assurance layer remains authoritative for the episode lifecycle. The
-artifact produces a customer-safe **DvSum DALLI** projection containing watch
+artifact produces a customer-safe **DvSum CADDI** projection containing watch
 status, health, leading finding, completed actions, current owner, root incident,
 work order/MR references and the next update.
 
@@ -111,7 +111,7 @@ Genesys remains the interaction channel. A contact is attached to the existing
 assurance episode and, where present, the existing root incident. Completed
 diagnostics are not restarted and no duplicate incident is created.
 
-This is a contract projection only. The demo does not claim a live DvSum DALLI
+This is a contract projection only. The demo does not claim a live DvSum CADDI
 endpoint or write path.
 
 ## Metrics

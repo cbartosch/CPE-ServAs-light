@@ -4,20 +4,19 @@
 # of the in-image CA staging below is reached. A corporate TLS intercept therefore
 # fails the build with:
 #
-#   failed to resolve source metadata for docker.io/library/python:3.14.2-slim-bookworm:
+#   failed to resolve source metadata for docker.io/library/python:3.14.7-slim-bookworm:
 #   tls: failed to verify certificate: x509: certificate signed by unknown authority
 #
 # That is a host and daemon problem, not a pip problem. Point BASE_IMAGE at an
 # internal mirror to avoid the public registry entirely:
 #
-#   BASE_IMAGE=artifactory.example.com/docker-remote/python:3.14.2-slim-bookworm
+#   BASE_IMAGE=artifactory.example.com/docker-remote/python:3.14.7-slim-bookworm
 #
 # Set it in .env and compose passes it through.
-ARG BASE_IMAGE=python:3.14.2-slim-bookworm
+ARG BASE_IMAGE=python:3.14.7-slim-bookworm
 FROM ${BASE_IMAGE}
 
 ARG PIP_INDEX_URL=
-ARG PIP_STRICT_TLS=0
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
@@ -40,13 +39,10 @@ RUN update-ca-certificates
 COPY requirements-mcp.txt ./
 COPY vendor/ /wheels/
 # Dependency install, in order of preference:
-#   1. vendored wheels  -- no network at all (scripts/vendor-wheels.*)
-#   2. configured index -- PIP_INDEX_URL, e.g. an internal Artifactory mirror
-#   3. verified PyPI    -- normal networks
-#   4. trusted-host     -- networks that re-sign HTTPS with a corporate CA
-# Tier 4 keeps the proxy's own inspection but stops verifying the chain. Set
-# PIP_STRICT_TLS=1 to refuse it and fail loudly instead, or stage the corporate
-# CA into docker/certs/ to keep verification with no fallback needed.
+#   1. vendored wheels  -- no network required
+#   2. configured index -- PIP_INDEX_URL, such as an approved mirror
+#   3. the default package index with normal certificate verification
+# Certificate verification is mandatory; there is no host-trust bypass.
 RUN set -eu; \
     EXTRA=""; \
     IDX="${PIP_INDEX_URL:-}"; \
@@ -54,21 +50,10 @@ RUN set -eu; \
     if ls /wheels/*.whl >/dev/null 2>&1; then \
       echo "pip: installing from vendored wheels, no network required"; \
       python -m pip install --no-index --find-links=/wheels -r requirements-mcp.txt; \
-    elif python -m pip install $EXTRA -r requirements-mcp.txt; then \
-      echo "pip: certificate verification succeeded"; \
-    elif [ "${PIP_STRICT_TLS:-0}" = "1" ]; then \
-      echo "pip: verification failed and PIP_STRICT_TLS=1 -- refusing to fall back" >&2; \
-      echo "pip: stage a CA (scripts/capture-ca.*) or set PIP_INDEX_URL" >&2; \
-      exit 1; \
     else \
-      echo "pip: verification failed, retrying with trusted hosts (corporate proxy)" >&2; \
-      python -m pip install $EXTRA \
-        --trusted-host pypi.org \
-        --trusted-host files.pythonhosted.org \
-        --trusted-host pypi.python.org \
-        -r requirements-mcp.txt; \
+      echo "pip: installing from a TLS-verified package index"; \
+      python -m pip install $EXTRA -r requirements-mcp.txt; \
     fi
-
 COPY src ./src
 
 RUN useradd --create-home --uid 10001 appuser \

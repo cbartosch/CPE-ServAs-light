@@ -24,7 +24,6 @@ def test_stage1_and_future_feature_files_are_not_baselined() -> None:
     protected = {
         "src/lpr_cpe_demo/cadi.py",
         "src/lpr_cpe_demo/caddi.py",
-        "src/lpr_cpe_demo/dalli.py",
         "scripts/import_external_evidence.py",
         "src/lpr_cpe_demo/digital_twin/dispatch_projection.py",
         "src/lpr_cpe_demo/digital_twin/executive_style.py",
@@ -33,7 +32,7 @@ def test_stage1_and_future_feature_files_are_not_baselined() -> None:
         "src/lpr_cpe_demo/measurement.py",
         "src/lpr_cpe_demo/ui/measurement.py",
         "src/lpr_cpe_demo/ui/theme_dark.py",
-        "tests/test_cadi.py",
+        "tests/test_caddi.py",
         "tests/test_demo_dispatch_projection.py",
         "tests/test_external_evidence.py",
         "tests/test_install_assurance.py",

@@ -1,9 +1,9 @@
-# Stage 3 DvSum DALLI naming repair audit
+# Stage 3 DvSum CADDI naming repair audit
 
 ## Scope
 
 This patch changes the project-facing integration name from the incomplete or
-legacy spellings `Dali`, `CADDI`, and `CADI` to **DvSum DALLI** across the Stage 3
+legacy project spellings to **DvSum CADDI** across the Stage 3
 Executive, Predictive/Customer Care, Operations, Install Assurance, API, and
 standalone Control Tower surfaces.
 
@@ -13,18 +13,18 @@ The correction is intentionally semantic-preserving:
 - Stage 3 install-assurance episode generation and outcomes do not change.
 - CADDI/CADI imports, routes, and query parameters remain deprecated compatibility
   aliases.
-- No live DvSum DALLI or Genesys connection is claimed.
+- No live DvSum CADDI or Genesys connection is claimed.
 
 ## Canonical surfaces
 
 | Surface | Canonical value |
 |---|---|
-| Python module | `lpr_cpe_demo.dalli` |
-| API route | `GET /api/integrations/dalli` |
-| UI query | `digital-twin?view=dalli` |
-| Display label | `DvSum DALLI` |
-| Analytical source layer | `dvsum_dalli` |
-| Install child dataset | `dalli_contexts.jsonl.gz` |
+| Python module | `lpr_cpe_demo.caddi` |
+| API route | `GET /api/integrations/caddi` |
+| UI query | `digital-twin?view=caddi` |
+| Display label | `DvSum CADDI` |
+| Analytical source layer | `dvsum_caddi` |
+| Install child dataset | `caddi_contexts.jsonl.gz` |
 
 Compatibility aliases remain available through `lpr_cpe_demo.caddi`,
 `lpr_cpe_demo.cadi`, `/api/integrations/caddi`, `/api/integrations/cadi`, and the
@@ -33,7 +33,7 @@ former query values.
 ## Defects repaired
 
 The Stage 3 merge had also left conflicting DvSum integration imports in both API
-modules. Those imports are now single-sourced through the canonical DALLI module.
+modules. Those imports are now single-sourced through the canonical CADDI module.
 The dashboard and telemetry contract use the same canonical implementation, while
 stable internal block keys remain unchanged for Stage 1/2 compatibility.
 
@@ -45,7 +45,7 @@ The following focused suite passed:
 214 tests passed
 ```
 
-It covers DvSum DALLI contracts and aliases, both APIs, all relevant dashboards,
+It covers DvSum CADDI contracts and aliases, both APIs, all relevant dashboards,
 24-Hour Install Assurance, Stage 2 measurement semantics, standalone HTML,
 telemetry, and lint-baseline policy.
 
@@ -72,7 +72,7 @@ edf7f477508d2eccc52840db6cd95f0703b5cffc59fb261f63084cec9d7e1a13
 ```
 
 The exact Ruff executable was unavailable in the isolated packaging runtime. The
-new DALLI and Install Assurance files remain outside the legacy per-file baseline,
+new CADDI and Install Assurance files remain outside the legacy per-file baseline,
 line lengths were checked, imports were reviewed, and the target-laptop release
 gate remains:
 

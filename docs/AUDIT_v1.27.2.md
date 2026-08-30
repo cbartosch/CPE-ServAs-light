@@ -89,7 +89,7 @@ complete Digital Twin P0 module
 API and shared-measurement tests
 External Evidence and LLM-triangulation tests
 Install Assurance regression tests
-executive/dashboard and DvSum DALLI tests
+executive/dashboard and DvSum CADDI tests
 workflow, approval, MCP, security and red-team tests
 telemetry and lint-baseline tests
 governed nine-scenario matrix

@@ -1,3 +1,18 @@
+LPR CPE SERVICE ASSURANCE DEMO — v1.27.12 RELEASE GATES
+========================================================
+
+TARGET  Python 3.14.7 host and container runtime
+PASS    DvSum CADDI is canonical in current code, prompts, panels, APIs and artifacts
+PASS    TLS-verified dependency installation; no host-trust bypass
+PASS    LF/CRLF-safe text manifest and byte-exact binary verification
+PASS    FastAPI route reachability and unused-model cleanup
+PASS    Responsive Control Tower cross-link and readable Streamlit header
+PASS    Current-schema run recovery and structured fail-closed 409 contract
+PASS    Complete application test inventory: 898 tests across 39 files; all passed, 2 framework skips
+PASS    Python compilation, duplicate-key scan, manifest verification and Git whitespace checks
+NOTE    Application tests executed in the isolated build runtime on Python 3.13.5; target-side verification requires Python 3.14.7 and Ruff 0.13.3.
+NOTE    Historical sections below describe the runtime and findings of their original releases.
+
 WAVE 1 COST AND CANONICAL-DATA INTEGRITY CANDIDATE - 2026-08-28
 ----------------------------------------------------------------
 PASS  current run schema required before generated-execution costing
@@ -19,7 +34,7 @@ PASS  500,000-home run: 2,500 cases, 20 datasets / 612,675 rows verified,
       model-route premiums
 PASS  governed nine-scenario matrix retains exact expected outcomes
 PASS  318 focused API, Digital Twin, dashboard, External Evidence, Install
-      Assurance, DvSum DALLI, workflow, MCP, security, telemetry, lint-baseline
+      Assurance, DvSum CADDI, workflow, MCP, security, telemetry, lint-baseline
       and bundle-integrity tests
 PASS  Wave 1 dispatch/cost module statement coverage: 88%
 PASS  complete 888-test collection audited per module: 882 passed, 4 inherited
@@ -42,7 +57,7 @@ NOT EXECUTED IN THE ASSEMBLY ENVIRONMENT
 NOT RUN  exact Ruff 0.13.3 executable
 NOT RUN  Python 3.14.2 Windows runtime
 NOT RUN  Docker Engine/Desktop build and browser-rendered Streamlit UAT
-NOT RUN  live OpenAI/Anthropic or production NXT/DvSum DALLI/Genesys/JTrack calls
+NOT RUN  live OpenAI/Anthropic or production NXT/DvSum CADDI/Genesys/JTrack calls
 
 MANDATORY TARGET-WINDOWS GATE
 -----------------------------

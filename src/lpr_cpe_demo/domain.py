@@ -379,12 +379,6 @@ class ApprovalDecisionInput(StrictModel):
     selected_domain: FaultDomain | None = None
 
 
-class StartScenarioResponse(StrictModel):
-    incident_id: str
-    status: str
-    stage: Stage
-    pending_approval_id: str | None = None
-
 
 class MCPToolResult(StrictModel):
     name: str

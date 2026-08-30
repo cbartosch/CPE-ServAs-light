@@ -1,4 +1,4 @@
-FROM python:3.14.2-slim-bookworm AS base
+FROM python:3.14.7-slim-bookworm AS base
 
 ARG PIP_INDEX_URL=
 

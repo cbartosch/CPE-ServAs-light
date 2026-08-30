@@ -33,7 +33,7 @@ from collections.abc import Iterable
 from dataclasses import dataclass, field
 from typing import Any, Literal, Protocol
 
-from .dalli import DVSUM_DALLI_CAPABILITIES
+from .caddi import DVSUM_CADDI_CAPABILITIES
 
 Availability = Literal["in_flow", "modelled", "missing"]
 
@@ -191,15 +191,15 @@ DATA_CONTRACT: tuple[PanelContract, ...] = (
     PanelContract("cadi_call_center_context", "per Genesys interaction", tuple(
         _req(
             capability.label,
-            "DvSum DALLI / Genesys backed by " + ", ".join(capability.authoritative_sources),
+            "DvSum CADDI / Genesys backed by " + ", ".join(capability.authoritative_sources),
             capability.grain,
             "missing",
             (
-                "DvSum DALLI capability supplied by LPR stakeholders; no live "
-                "DvSum DALLI adapter is connected. " + capability.authority_note
+                "DvSum CADDI capability supplied by LPR stakeholders; no live "
+                "DvSum CADDI adapter is connected. " + capability.authority_note
             ),
         )
-        for capability in DVSUM_DALLI_CAPABILITIES
+        for capability in DVSUM_CADDI_CAPABILITIES
     )),
     PanelContract("playbook_backlog", "daily", (
         _req("action_type outcomes over time",

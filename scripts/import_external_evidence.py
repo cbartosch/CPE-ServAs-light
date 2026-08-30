@@ -19,7 +19,7 @@ SOURCE_ARGUMENTS = {
     "identity_map": "identity",
     "nxt_telemetry": "nxt_telemetry",
     "nxt_alarms": "nxt_alarms",
-    "dvsum_dalli_insights": "dvsum_dalli",
+    "dvsum_caddi_insights": "dvsum_caddi",
     "genesys_interactions": "genesys",
     "jtrack_events": "jtrack",
     "install_cohort": "install_cohort",
@@ -29,7 +29,7 @@ SOURCE_ARGUMENTS = {
 def parser() -> argparse.ArgumentParser:
     result = argparse.ArgumentParser(
         description=(
-            "Import NXT, DvSum DALLI, Genesys, JTrack and installation CSVs into "
+            "Import NXT, DvSum CADDI, Genesys, JTrack and installation CSVs into "
             "an immutable, simulation-only evidence batch."
         )
     )

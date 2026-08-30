@@ -7,13 +7,18 @@ A Docker Desktop demonstration of an HFC/PON customer-premises-equipment service
 - optional LangChain-backed OpenAI or Anthropic RCA assistance;
 - human approval for RCA disagreement, remote actions, dispatch, Clean/Dirty Boots handover, and plant actions;
 - a Streamlit operations cockpit, incident workbench, human decision center, decision/model monitor, and system monitor;
-- an explicit DvSum DALLI/Genesys call-center correlation contract that preserves source-system authority without claiming a live adapter;
+- an explicit DvSum CADDI/Genesys call-center correlation contract that preserves source-system authority without claiming a live adapter;
 - a shared measurement contract that reconciles population, grain, window, provenance and completeness across Executive, Predictive/Care and Operations views;
 - a strict, stateless MCP simulation endpoint for NXT, CPE, WFM, Clean Boots, jTrack MR, and plant actions;
 - PostgreSQL for the queryable incident and approval read model;
 - persistent idempotency and approval-consumption records for simulated MCP effects.
 
 > **Simulation only.** No production system is connected and production writes are disabled by default.
+
+## Current release: v1.27.12
+
+The current application release uses **DvSum CADDI** as the canonical analytics/context product name, targets Python 3.14.7, and requires current Digital Twin runs to identify the `lpr-digital-twin-run-v3-execution-economics` schema. See [`docs/RELEASE_v1.27.12.md`](docs/RELEASE_v1.27.12.md) and [`docs/CURRENT_SCHEMA_RUN_RECOVERY.md`](docs/CURRENT_SCHEMA_RUN_RECOVERY.md).
+
 
 ## Three-wave remediation
 
@@ -29,7 +34,7 @@ Stage 3 adds supervised new-install assurance as an **assurance episode**, not a
 fault incident. Healthy HFC and PON installations complete a minimum 24-hour
 watch without inflating break/fix counts. Persistent defects are promoted once
 to a root incident, while Genesys contacts attach to the existing episode and
-DvSum DALLI receives a customer-safe analytical projection. See
+DvSum CADDI receives a customer-safe analytical projection. See
 [`docs/INSTALL_ASSURANCE_WATCH.md`](docs/INSTALL_ASSURANCE_WATCH.md).
 
 
@@ -246,28 +251,28 @@ docker compose up --build -d
 
 The backend uses LangChain chat-model integrations and validates structured RCA output. In the default safe profile the fake assistant is used. For external providers, initialization failures fall back to the deterministic assistant only when explicitly permitted by configuration; the active provider and engine are shown in the System Monitor.
 
-## DvSum DALLI / Genesys call-center layer
+## DvSum CADDI / Genesys call-center layer
 
-DvSum DALLI is represented explicitly as the existing LPR call-center correlation and
+DvSum CADDI is represented explicitly as the existing LPR call-center correlation and
 presentation layer integrated with Genesys. It is **not** treated as a replacement
 system of record. CSG, OTS, Intraway, CommScope ServAssure NXT, Symphonica,
 Dvision/LLA, Plume and the operational repair systems remain authoritative for the
 facts they originate.
 
-This release exposes a contract-only DvSum DALLI source map in both APIs and the UI. No
-live DvSum DALLI endpoint, credentials or source data are connected. Maintenance and
-repair remain in the Operations/VPTO workflow; DvSum DALLI receives a customer-safe status
+This release exposes a contract-only DvSum CADDI source map in both APIs and the UI. No
+live DvSum CADDI endpoint, credentials or source data are connected. Maintenance and
+repair remain in the Operations/VPTO workflow; DvSum CADDI receives a customer-safe status
 projection in the target architecture. See
-[`docs/DVSUM_DALLI_INTEGRATION_CONTRACT.md`](docs/DVSUM_DALLI_INTEGRATION_CONTRACT.md).
+[`docs/DVSUM_CADDI_INTEGRATION_CONTRACT.md`](docs/DVSUM_CADDI_INTEGRATION_CONTRACT.md).
 
 ## Architecture
 
 ```mermaid
 flowchart LR
     C[Customer] --> GX[Genesys]
-    GX --> DALLI[DvSum DALLI call-center context]
-    S[CSG / OTS / Intraway / NXT / Symphonica / Dvision-LLA / Plume] -. authoritative facts .-> DALLI
-    DALLI -. contract mapped; live adapter pending .-> UI[Streamlit GUI]
+    GX --> CADDI[DvSum CADDI call-center context]
+    S[CSG / OTS / Intraway / NXT / Symphonica / Dvision-LLA / Plume] -. authoritative facts .-> CADDI
+    CADDI -. contract mapped; live adapter pending .-> UI[Streamlit GUI]
     U[Operator] --> UI
     UI --> API[FastAPI query and command API]
     API --> DB[(PostgreSQL read model)]
@@ -279,7 +284,7 @@ flowchart LR
     M --> MS[MCP simulation server]
     MS --> N[NXT / CPE / WFM / jTrack simulations]
     G --> DB
-    G -. customer-safe repair status .-> DALLI
+    G -. customer-safe repair status .-> CADDI
 ```
 
 See `docs/ARCHITECTURE.md` and `docs/WORKFLOW.md` for implementation detail.
@@ -353,7 +358,7 @@ The packaging report in `BUILD_TEST_REPORT.txt` distinguishes tests executed in 
 
 ## External CSV evidence and triangulation
 
-The **External Evidence** workspace imports UTF-8 CSV exports from NXT, DvSum DALLI,
+The **External Evidence** workspace imports UTF-8 CSV exports from NXT, DvSum CADDI,
 Genesys, JTrack and an installation/identity source. It validates identity, timestamps,
 lifecycle and lineage; quarantines inconsistent rows; and presents deterministic and
 optional LLM-assisted triangulation beside advisory action recommendations. Imported

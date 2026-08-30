@@ -2,7 +2,7 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 export PYTHONPATH="$PWD/src"
-python -c "import sys; assert sys.version_info[:3] == (3,14,2), f'Python 3.14.2 is required, got {sys.version.split()[0]}'"
+python -c "import sys; assert sys.version_info[:3] == (3,14,7), f'Python 3.14.7 is required, got {sys.version.split()[0]}'"
 python -m compileall -q src
 coverage erase
 coverage run -m pytest

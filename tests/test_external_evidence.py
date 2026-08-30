@@ -72,8 +72,8 @@ NXT_ALARMS = csv_template("nxt_alarms") + _csv_row(
     "false",
     "NXT-SRC-91",
 )
-DALLI = csv_template("dvsum_dalli_insights") + _csv_row(
-    "DALLI-0001",
+CADDI = csv_template("dvsum_caddi_insights") + _csv_row(
+    "CADDI-0001",
     "2026-08-27T08:34:00Z",
     "SVC-0001234",
     "",
@@ -86,7 +86,7 @@ DALLI = csv_template("dvsum_dalli_insights") + _csv_row(
     "NXT",
     "NXT-TEL-884021|NXT-AEV-00091",
     "FRESH",
-    "DALLI-1",
+    "CADDI-1",
     "NXT",
 )
 GENESYS = csv_template("genesys_interactions") + _csv_row(
@@ -156,7 +156,7 @@ def _complete_batch(
         "identity_map": IDENTITY,
         "nxt_telemetry": NXT_TELEMETRY,
         "nxt_alarms": NXT_ALARMS,
-        "dvsum_dalli_insights": DALLI,
+        "dvsum_caddi_insights": CADDI,
         "genesys_interactions": GENESYS,
         "jtrack_events": JTRACK,
         "install_cohort": INSTALL,
@@ -172,13 +172,13 @@ def _complete_batch(
     return batch_id
 
 
-def test_external_evidence_contract_is_read_only_and_names_dvsum_dalli():
+def test_external_evidence_contract_is_read_only_and_names_dvsum_caddi():
     contract = external_evidence_contract()
     assert contract["production_writes"] is False
     assert contract["llm"]["cannot_execute_actions"] is True
-    assert "DvSum DALLI" in contract["sources"]["dvsum_dalli_insights"]["label"]
-    assert contract["source_aliases"]["caddi"] == "dvsum_dalli_insights"
-    assert csv_template("dalli").startswith("insight_id,generated_at")
+    assert "DvSum CADDI" in contract["sources"]["dvsum_caddi_insights"]["label"]
+    assert contract["source_aliases"]["caddi"] == "dvsum_caddi_insights"
+    assert csv_template("caddi").startswith("insight_id,generated_at")
 
 
 def test_batch_validates_correlates_and_preserves_lineage(tmp_path):
@@ -271,24 +271,24 @@ def test_point_in_time_replay_excludes_future_records_from_timeline(tmp_path):
     assert recommendation["existing_mr_ids"] == []
 
 
-def test_missing_dalli_evidence_reference_is_visible(tmp_path):
+def test_missing_caddi_evidence_reference_is_visible(tmp_path):
     batch_id = _complete_batch(tmp_path)
     batch_path = safe_batch_path(tmp_path, batch_id)
-    dalli_path = next((batch_path / "raw").glob("dvsum_dalli_insights__*.csv"))
-    content = dalli_path.read_text(encoding="utf-8").replace(
+    caddi_path = next((batch_path / "raw").glob("dvsum_caddi_insights__*.csv"))
+    content = caddi_path.read_text(encoding="utf-8").replace(
         "NXT-TEL-884021|NXT-AEV-00091",
         "NXT-TEL-884021|MISSING-RECORD",
     )
     add_csv_content(
         tmp_path,
         batch_id,
-        source_type="dvsum_dalli_insights",
-        filename="dalli.csv",
+        source_type="dvsum_caddi_insights",
+        filename="caddi.csv",
         content=content,
         replace=True,
     )
     report = validate_import_batch(tmp_path, batch_id)
-    assert "DALLI_EVIDENCE_REFERENCE_MISSING" in {
+    assert "CADDI_EVIDENCE_REFERENCE_MISSING" in {
         issue["code"] for issue in report["issues"]
     }
 
@@ -392,7 +392,7 @@ def test_external_evidence_api_round_trip(tmp_path, monkeypatch):
     for source, content in {
         "identity_map": IDENTITY,
         "nxt_telemetry": NXT_TELEMETRY,
-        "dvsum_dalli_insights": DALLI,
+        "dvsum_caddi_insights": CADDI,
         "genesys_interactions": GENESYS,
         "jtrack_events": JTRACK,
         "install_cohort": INSTALL,
@@ -429,7 +429,7 @@ def test_external_evidence_ui_exposes_upload_validation_and_agent():
     assert "st.file_uploader" in source
     assert "Validate, normalize and correlate" in source
     assert "Analyze and triangulate evidence" in source
-    assert "DvSum DALLI" in source
+    assert "DvSum CADDI" in source
     assert "deterministic quality and policy branch remains authoritative" in source
 
 
@@ -580,12 +580,12 @@ def test_replacement_preserves_raw_revision_and_materialized_batch_is_locked(tmp
         )
 
 
-def test_dalli_stale_and_domain_action_conflicts_are_flagged(tmp_path):
+def test_caddi_stale_and_domain_action_conflicts_are_flagged(tmp_path):
     batch = create_import_batch(tmp_path)
     for source, content in {
         "identity_map": IDENTITY,
         "nxt_telemetry": NXT_TELEMETRY,
-        "dvsum_dalli_insights": DALLI.replace(
+        "dvsum_caddi_insights": CADDI.replace(
             "hfc_tap,0.86,PLANT,attach_to_existing_mr",
             "hfc_tap,0.86,PROVISIONING,reprovision",
         ).replace(",FRESH,", ",STALE,"),
@@ -599,16 +599,16 @@ def test_dalli_stale_and_domain_action_conflicts_are_flagged(tmp_path):
         )
     report = validate_import_batch(tmp_path, batch["batch_id"])
     codes = {issue["code"] for issue in report["issues"]}
-    assert "DALLI_INSIGHT_NOT_FRESH" in codes
-    assert "DALLI_DOMAIN_ACTION_INCONSISTENT" in codes
+    assert "CADDI_INSIGHT_NOT_FRESH" in codes
+    assert "CADDI_DOMAIN_ACTION_INCONSISTENT" in codes
 
 
-def test_dvsum_dalli_domain_is_compared_with_deterministic_recommendation(tmp_path):
+def test_dvsum_caddi_domain_is_compared_with_deterministic_recommendation(tmp_path):
     batch = create_import_batch(tmp_path)
     files = {
         "identity_map": IDENTITY,
         "nxt_telemetry": NXT_TELEMETRY,
-        "dvsum_dalli_insights": DALLI.replace(",hfc_tap,", ",provisioning,"),
+        "dvsum_caddi_insights": CADDI.replace(",hfc_tap,", ",provisioning,"),
         "jtrack_events": JTRACK,
     }
     for source, content in files.items():
@@ -623,8 +623,8 @@ def test_dvsum_dalli_domain_is_compared_with_deterministic_recommendation(tmp_pa
     analysis = analyze_import_batch(tmp_path, batch["batch_id"], llm_provider="fake")
     deterministic = analysis["deterministic_recommendations"][0]
     assert deterministic["recommended_domain"] == "hfc_tap"
-    assert deterministic["dvsum_dalli_domain"] == "provisioning"
-    assert deterministic["dvsum_dalli_domain_agreement"] == "DISAGREE"
+    assert deterministic["dvsum_caddi_domain"] == "provisioning"
+    assert deterministic["dvsum_caddi_domain_agreement"] == "DISAGREE"
     assert deterministic["requires_human_review"] is True
 
 

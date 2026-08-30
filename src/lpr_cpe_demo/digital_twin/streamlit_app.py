@@ -12,7 +12,7 @@ from datetime import datetime
 
 import streamlit as st
 
-from ..dalli import dalli_contract, dalli_contract_rows
+from ..caddi import caddi_contract, caddi_contract_rows
 from ..ui.measurement import (
     format_metric,
     metric_value,
@@ -102,16 +102,12 @@ VIEW_ALIASES = {
     "install": "install",
     "install-assurance": "install",
     "24-hour-install-watch": "install",
-    "dalli": "dalli",
-    "dali": "dalli",
-    "dvsum-dalli": "dalli",
-    "caddi": "dalli",
-    "cadi": "dalli",
-    "dvsum-caddi": "dalli",
-    "genesys": "dalli",
-    "cadi-genesys": "dalli",
-    "caddi-genesys": "dalli",
-    "dalli-genesys": "dalli",
+    "caddi": "caddi",
+    "dvsum-caddi": "caddi",
+    "genesys": "caddi",
+    "caddi-genesys": "caddi",
+    "cadi": "caddi",
+    "cadi-genesys": "caddi",
     "executive": "executive",
     "executive-view": "executive",
     "create": "create",
@@ -279,7 +275,7 @@ def _hero() -> None:
           <div class="lpr-pill-row">
             <span class="lpr-pill"><span class="lpr-dot"></span> Predictive HFC + PON</span>
             <span class="lpr-pill"><span class="lpr-dot"></span> Care correlation</span>
-            <span class="lpr-pill"><span class="lpr-dot"></span> DvSum DALLI / Genesys contract mapped</span>
+            <span class="lpr-pill"><span class="lpr-dot"></span> DvSum CADDI / Genesys contract mapped</span>
             <span class="lpr-pill"><span class="lpr-dot"></span> AI reconciled to controls</span>
             <span class="lpr-pill"><span class="lpr-dot"></span> Production writes off</span>
           </div>
@@ -882,8 +878,8 @@ def _customer_experience() -> None:
         ),
     )
     st.caption(
-        "Target presentation layer: DvSum DALLI inside Genesys. The demo uses canonical run "
-        "evidence and does not claim a live DvSum DALLI connection."
+        "Target presentation layer: DvSum CADDI inside Genesys. The demo uses canonical run "
+        "evidence and does not claim a live DvSum CADDI connection."
     )
     run_id = _run_id("care_run")
     if not run_id:
@@ -1055,12 +1051,12 @@ def _customer_experience() -> None:
             st.json(case)
 
 
-def _dalli_layer() -> None:
-    contract = dalli_contract()
+def _caddi_layer() -> None:
+    contract = caddi_contract()
     summary = contract["summary"]
     _section(
         "Existing call-center layer",
-        "DvSum DALLI & Genesys integration boundary",
+        "DvSum CADDI & Genesys integration boundary",
         (
             "Make the existing LPR call-center correlation investment explicit, "
             "preserve source authority, and identify where the assurance layer should "
@@ -1070,20 +1066,20 @@ def _dalli_layer() -> None:
 
     cols = st.columns(4)
     cols[0].metric("Mapped capability domains", summary["capability_domains"])
-    cols[1].metric("Declared existing in DvSum DALLI", summary["declared_existing"])
+    cols[1].metric("Declared existing in DvSum CADDI", summary["declared_existing"])
     cols[2].metric("Known data gaps", summary["known_gaps"])
-    cols[3].metric("Live DvSum DALLI adapter", "Not connected")
+    cols[3].metric("Live DvSum CADDI adapter", "Not connected")
 
     st.warning(
         "Contract-only status. The mapping below is based on LPR stakeholder input; "
-        "DvSum DALLI APIs, field definitions, source precedence, latency, retention, ownership "
+        "DvSum CADDI APIs, field definitions, source precedence, latency, retention, ownership "
         "and contractor roadmap still require joint discovery."
     )
     st.info(contract["source_of_truth_policy"] + " " + contract["operations_boundary"])
 
     left, right = st.columns(2)
     with left:
-        st.markdown("### DvSum DALLI remains")
+        st.markdown("### DvSum CADDI remains")
         st.markdown(
             """
             - The Genesys-facing call-center context and correlation experience.
@@ -1097,12 +1093,12 @@ def _dalli_layer() -> None:
             """
             - Predictive detection, evidence lineage and fault-side localization.
             - Governed next-best action and correlation to one root incident.
-            - Maintenance/repair handoff, validation and customer-safe status back to DvSum DALLI.
+            - Maintenance/repair handoff, validation and customer-safe status back to DvSum CADDI.
             """
         )
 
-    st.dataframe(dalli_contract_rows(), hide_index=True, use_container_width=True)
-    with st.expander("DvSum DALLI architecture decision gate", expanded=False):
+    st.dataframe(caddi_contract_rows(), hide_index=True, use_container_width=True)
+    with st.expander("DvSum CADDI architecture decision gate", expanded=False):
         st.markdown(
             f"""
             **Preferred pattern:** `{contract['preferred_pattern']}`
@@ -1110,9 +1106,9 @@ def _dalli_layer() -> None:
             **Replacement policy:** `{contract['replacement_policy']}`
 
 
-            Stage 2 keeps the Stage 1 DvSum DALLI contract intact while applying the shared
-            measurement model to active-run and Operations evidence. A live DvSum DALLI adapter or
-            replacement decision remains out of scope until the DvSum DALLI owner, Genesys owner,
+            Stage 2 keeps the Stage 1 DvSum CADDI contract intact while applying the shared
+            measurement model to active-run and Operations evidence. A live DvSum CADDI adapter or
+            replacement decision remains out of scope until the DvSum CADDI owner, Genesys owner,
             source-system teams and contractor confirm the architecture and responsibilities.
             """
         )
@@ -1270,7 +1266,7 @@ def _evidence() -> None:
                     st.error(str(exc))
     with release_tab:
         cols = st.columns(4)
-        cols[0].metric("Runtime", "Python 3.14.2")
+        cols[0].metric("Runtime", "Python 3.14.7")
         cols[1].metric("Canonical datasets", "20")
         cols[2].metric("Production writes", "Disabled")
         cols[3].metric("Operating model", "Fail closed")
@@ -1279,7 +1275,7 @@ def _evidence() -> None:
             """
             **What the demo proves**
             - Predictive modem evidence and Customer Care are correlated through the same service and root incident.
-            - DvSum DALLI is explicitly positioned as the Genesys call-center context layer; no live DvSum DALLI adapter is claimed.
+            - DvSum CADDI is explicitly positioned as the Genesys call-center context layer; no live DvSum CADDI adapter is claimed.
             - Deterministic operating controls remain authoritative when an AI recommendation differs.
             - Dispatch requires diagnosis plus skills, parts and access readiness.
             - CPE replacement requires failed diagnostics or a documented reason.
@@ -1423,10 +1419,10 @@ def _install_assurance() -> None:
         ),
     )
     selected = next(row for row in episodes if row["episode_id"] == episode_id)
-    dalli = next(
+    caddi = next(
         (
             row
-            for row in projection.get("dalli_contexts") or projection.get("caddi_contexts", [])
+            for row in projection.get("caddi_contexts") or projection.get("caddi_contexts", [])
             if row.get("episode_id") == episode_id
         ),
         None,
@@ -1445,11 +1441,11 @@ def _install_assurance() -> None:
     else:
         st.warning("Persistent evidence promoted this episode to one governed root incident.")
 
-    with st.expander("DvSum DALLI & Genesys context", expanded=False):
-        if dalli:
-            st.json(dalli)
+    with st.expander("DvSum CADDI & Genesys context", expanded=False):
+        if caddi:
+            st.json(caddi)
         else:
-            st.info("No DvSum DALLI projection is available for this episode.")
+            st.info("No DvSum CADDI projection is available for this episode.")
     with st.expander("Technical assurance episode", expanded=False):
         st.json(selected)
 
@@ -1459,13 +1455,13 @@ def _external_evidence() -> None:
     _section(
         "Import & triangulate",
         "External CSV evidence",
-        "Load NXT, DvSum DALLI, Genesys and JTrack exports into an immutable, "
+        "Load NXT, DvSum CADDI, Genesys and JTrack exports into an immutable, "
         "read-only scenario. Deterministic controls validate every row; an optional "
         "LLM agent triangulates the accepted evidence and flags inconsistencies.",
     )
     st.warning(
         "Simulation and analysis only. Imported files never write back to NXT, "
-        "DvSum DALLI, Genesys, JTrack or production incident systems."
+        "DvSum CADDI, Genesys, JTrack or production incident systems."
     )
     try:
         contract = _request("/api/external-evidence/contract")
@@ -1478,7 +1474,7 @@ def _external_evidence() -> None:
         "identity_map",
         "nxt_telemetry",
         "nxt_alarms",
-        "dvsum_dalli_insights",
+        "dvsum_caddi_insights",
         "genesys_interactions",
         "jtrack_events",
         "install_cohort",
@@ -1712,13 +1708,13 @@ def _external_evidence() -> None:
                     {
                         "Service": item.get("service_id"),
                         "Agent agreement": _friendly(item.get("agreement")),
-                        "DvSum DALLI": _friendly(
+                        "DvSum CADDI": _friendly(
                             (item.get("deterministic") or {}).get(
-                                "dvsum_dalli_domain_agreement"
+                                "dvsum_caddi_domain_agreement"
                             )
                         ),
                         "DvSum domain": _friendly(
-                            (item.get("deterministic") or {}).get("dvsum_dalli_domain")
+                            (item.get("deterministic") or {}).get("dvsum_caddi_domain")
                         ),
                         "Domain": _friendly(
                             (item.get("authoritative_recommendation") or {}).get("domain")
@@ -1827,7 +1823,7 @@ def render() -> None:
         ("install", "Install Assurance", _install_assurance),
         ("external", "External Evidence", _external_evidence),
         ("care", "Customer Experience", _customer_experience),
-        ("dalli", "DvSum DALLI & Genesys", _dalli_layer),
+        ("caddi", "DvSum CADDI & Genesys", _caddi_layer),
         ("subscriber", "Subscriber Story", _subscriber_story),
         ("decisions", "Decisions & Controls", _decision_control),
         ("evidence", "Evidence & Audit", _evidence),

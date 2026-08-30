@@ -521,7 +521,7 @@ class TestBaseImageIsParameterised(unittest.TestCase):
 
     def test_the_arg_has_a_working_default(self):
         for name in self.DOCKERFILES:
-            self.assertIn("ARG BASE_IMAGE=python:3.12-slim", self._text(name))
+            self.assertIn("ARG BASE_IMAGE=python:3.14.7-slim-bookworm", self._text(name))
 
     def test_compose_passes_the_base_image_to_every_built_service(self):
         import yaml

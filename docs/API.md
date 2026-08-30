@@ -16,7 +16,7 @@
 | GET | `/api/measurement-contract` | canonical entity grains, formulas, statuses and invariants |
 | GET | `/api/operations-projection` | complete live-workflow projection using the shared metric schema |
 | GET | `/api/measurement-projection` | alias of the live Operations projection |
-| GET | `/api/integrations/dalli` | canonical DvSum DALLI/Genesys capability and authority map |
+| GET | `/api/integrations/caddi` | canonical DvSum CADDI/Genesys capability and authority map |
 | GET | `/api/integrations/caddi` | deprecated compatibility alias |
 | GET | `/api/integrations/cadi` | deprecated compatibility alias |
 | GET | `/api/system/status` | engine, model and MCP status |
@@ -55,13 +55,13 @@ row counts or mandatory joins are invalid. See
   watch without changing the canonical run.
 - `GET /api/runs/{run_id}/install-assurance/watches` lists watch snapshots.
 - `GET /api/runs/{run_id}/install-assurance/watches/{watch_id}` returns episode,
-  observation, action, contact, incident and DvSum DALLI context rows.
+  observation, action, contact, incident and DvSum CADDI context rows.
 - `GET /api/runs/{run_id}/install-assurance/projection` returns the latest watch
   projection for a run.
 - `GET /api/install-assurance/projection` returns the latest watch for the active
   run.
 
-Canonical DvSum DALLI contract: `GET /api/integrations/dalli`. The former
+Canonical DvSum CADDI contract: `GET /api/integrations/caddi`. The former
 `/api/integrations/caddi` and `/api/integrations/cadi` spellings remain deprecated
 compatibility aliases.
 

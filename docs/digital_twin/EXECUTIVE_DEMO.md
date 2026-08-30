@@ -56,6 +56,6 @@ scorecard or Care queue unless a future governed promotion operation is added.
 
 ## Stage boundary
 
-DvSum DALLI remains the explicit Genesys-facing context layer from Stage 1. Stage 2 does
-not add a live DvSum DALLI adapter and does not implement the 24-Hour Install Assurance
+DvSum CADDI remains the explicit Genesys-facing context layer from Stage 1. Stage 2 does
+not add a live DvSum CADDI adapter and does not implement the 24-Hour Install Assurance
 Watch.

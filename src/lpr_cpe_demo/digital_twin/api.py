@@ -9,7 +9,7 @@ from fastapi import Depends, FastAPI, HTTPException, Query
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
 from pydantic import BaseModel, Field
 
-from ..dalli import dalli_contract
+from ..caddi import caddi_contract
 from ..measurement import measurement_contract
 from . import __version__
 from .dispatch_projection import (
@@ -35,6 +35,7 @@ from .orchestrator import (
     run_predictive_scan,
 )
 from .storage import (
+    RUN_SCHEMA_VERSION,
     get_active_run,
     iter_jsonl_gz,
     load_jsonl_gz,
@@ -140,11 +141,10 @@ def _build_dispatch_projection(run_id: str) -> dict:
         ) from exc
 
 
-@app.get("/api/integrations/dalli")
-@app.get("/api/integrations/caddi", deprecated=True)
+@app.get("/api/integrations/caddi")
 @app.get("/api/integrations/cadi", deprecated=True)
-def dalli_integration(_: dict = Depends(principal)):
-    return dalli_contract()
+def caddi_integration(_: dict = Depends(principal)):
+    return caddi_contract()
 
 
 @app.get("/health")
@@ -153,10 +153,11 @@ def health():
         "status": "ok",
         "version": __version__,
         "production_writes": False,
-        "release": "Wave 1 Cost and Data Integrity",
+        "release": "DvSum CADDI Python 3.14.7",
         "predictive_care_integration": True, "external_evidence_csv": True, "llm_triangulation": True,
         "install_assurance": True,
-        "dalli_integration": "contract_only",
+        "caddi_integration": "contract_only",
+        "run_schema_version": RUN_SCHEMA_VERSION,
         "measurement_schema": "1.0",
         "dispatch_cost_projection": True,
     }
@@ -319,7 +320,21 @@ def decide(run_id: str, decision: HumanDecision, actor: dict = Depends(principal
     except KeyError as exc:
         raise HTTPException(404, "case not found") from exc
     except ValueError as exc:
-        raise HTTPException(409, str(exc)) from exc
+        message = str(exc)
+        prefix = "live decision would violate quality gate: "
+        if message.startswith(prefix):
+            issues = [issue.strip() for issue in message[len(prefix):].split(";") if issue.strip()]
+            detail: str | dict[str, object] = {
+                "error": "live_decision_quality_gate_failed",
+                "run_id": run_id,
+                "issues": issues,
+                "recovery": "generate and activate a current-schema run",
+                "expected_run_schema_version": RUN_SCHEMA_VERSION,
+            }
+        else:
+            detail = message
+        raise HTTPException(409, detail) from exc
+
 
 @app.post("/api/runs/{run_id}/predictive/scans")
 def create_predictive_scan(
