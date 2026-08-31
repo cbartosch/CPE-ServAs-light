@@ -1,6 +1,10 @@
-LPR CPE SERVICE ASSURANCE DEMO — v1.27.13 RELEASE GATES
+LPR CPE SERVICE ASSURANCE DEMO — v1.27.14 RELEASE GATES
 ========================================================
 
+PASS    Predictive & Customer Care navigation keeps a full-width narrative row
+PASS    Navigation actions use a fluid grid and do not starve summary width
+PASS    Digital Twin Streamlit header and toolbar match the dark workspace surface
+PASS    Desktop layout verified at 1600x900 and 1366x768; responsive fallbacks verified
 TARGET  Python 3.14.7 host and container runtime
 PASS    DvSum CADDI is canonical in current code, prompts, panels, APIs and artifacts
 PASS    TLS-verified dependency installation; no host-trust bypass
@@ -8,7 +12,7 @@ PASS    LF/CRLF-safe text manifest and byte-exact binary verification
 PASS    FastAPI route reachability and unused-model cleanup
 PASS    Responsive Control Tower cross-link and readable Streamlit header
 PASS    Current-schema run recovery and structured fail-closed 409 contract
-PASS    Complete application test inventory: 903 tests; 901 passed, 2 framework skips
+PASS    Complete application test inventory: 905 tests; 903 passed, 2 framework skips
 PASS    Python compilation, duplicate-key scan, manifest verification and Git whitespace checks
 NOTE    Application tests executed in the isolated build runtime on Python 3.13.5; target-side verification requires Python 3.14.7 and Ruff 0.13.3.
 PASS    Target Ruff 0.13.3 diagnostics reported for v1.27.12 are corrected in source.

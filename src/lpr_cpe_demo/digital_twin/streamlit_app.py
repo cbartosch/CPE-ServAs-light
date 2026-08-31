@@ -312,8 +312,8 @@ def _executive_crosslink(requested_view: str) -> None:
     )
     st.markdown(
         f'''<div class="lpr-crosslink">
-          <div>
-            <div class="lpr-crosslink-title">One executive story, two evidence lenses</div>
+          <div class="lpr-crosslink-summary">
+            <div class="lpr-crosslink-title">One executive story, connected operational views</div>
             <div class="lpr-crosslink-copy">{html.escape(context)} The active run remains unchanged while you move between views.</div>
           </div>
           <div class="lpr-crosslink-actions">

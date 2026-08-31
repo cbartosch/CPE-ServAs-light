@@ -15,9 +15,9 @@ A Docker Desktop demonstration of an HFC/PON customer-premises-equipment service
 
 > **Simulation only.** No production system is connected and production writes are disabled by default.
 
-## Current release: v1.27.13
+## Current release: v1.27.14
 
-The current application release uses **DvSum CADDI** as the canonical analytics/context product name, targets Python 3.14.7, and requires current Digital Twin runs to identify the `lpr-digital-twin-run-v3-execution-economics` schema. See [`docs/RELEASE_v1.27.13.md`](docs/RELEASE_v1.27.13.md) and [`docs/CURRENT_SCHEMA_RUN_RECOVERY.md`](docs/CURRENT_SCHEMA_RUN_RECOVERY.md).
+The current application release uses **DvSum CADDI** as the canonical analytics/context product name, targets Python 3.14.7, and requires current Digital Twin runs to identify the `lpr-digital-twin-run-v3-execution-economics` schema. See [`docs/RELEASE_v1.27.14.md`](docs/RELEASE_v1.27.14.md) and [`docs/CURRENT_SCHEMA_RUN_RECOVERY.md`](docs/CURRENT_SCHEMA_RUN_RECOVERY.md).
 
 
 ## Three-wave remediation

@@ -1,18 +1,18 @@
-LPR CPE Service Assurance Demo v1.27.13 DvSum CADDI Python 3.14.7
-Generated: 2026-08-30
-Indexed files: 312
-Indexed bytes: 13086456
+LPR CPE Service Assurance Demo v1.27.14 DvSum CADDI Python 3.14.7
+Generated: 2026-09-01
+Indexed files: 314
+Indexed bytes: 13092077
 
 .dockerignore	114 bytes
 .env.example	3010 bytes
 .gitattributes	473 bytes
 .gitignore	152 bytes
 .stage3-manifest-exclusions.txt	89 bytes
-BUILD_TEST_REPORT.txt	5176 bytes
-BUNDLE_CONTENTS.txt	13591 bytes
-CHANGELOG.md	98757 bytes
+BUILD_TEST_REPORT.txt	5502 bytes
+BUNDLE_CONTENTS.txt	13691 bytes
+CHANGELOG.md	99516 bytes
 Dockerfile	1688 bytes
-FILE_MANIFEST.txt	13579 bytes
+FILE_MANIFEST.txt	13679 bytes
 LICENSE.txt	297 bytes
 Makefile	1780 bytes
 README.md	17742 bytes
@@ -59,6 +59,7 @@ docs/OPEN_ISSUES_THREE_WAVES.md	3142 bytes
 docs/PACKAGE_VERSIONS.md	1604 bytes
 docs/RED_TEAM_v1.20.0.md	8368 bytes
 docs/RELEASE_v1.27.13.md	2500 bytes
+docs/RELEASE_v1.27.14.md	1716 bytes
 docs/RUNBOOK.md	7019 bytes
 docs/SECURITY.md	1086 bytes
 docs/SECURITY_CONTROLS.md	3254 bytes
@@ -181,7 +182,7 @@ src/lpr_cpe_demo/digital_twin/cli.py	1165 bytes
 src/lpr_cpe_demo/digital_twin/decision.py	7656 bytes
 src/lpr_cpe_demo/digital_twin/dispatch_projection.py	71189 bytes
 src/lpr_cpe_demo/digital_twin/executive_projection.py	23398 bytes
-src/lpr_cpe_demo/digital_twin/executive_style.py	13245 bytes
+src/lpr_cpe_demo/digital_twin/executive_style.py	14435 bytes
 src/lpr_cpe_demo/digital_twin/external_evidence.py	100205 bytes
 src/lpr_cpe_demo/digital_twin/install_assurance.py	39615 bytes
 src/lpr_cpe_demo/digital_twin/models.py	2839 bytes
@@ -189,7 +190,7 @@ src/lpr_cpe_demo/digital_twin/orchestrator.py	85299 bytes
 src/lpr_cpe_demo/digital_twin/predictive_bridge.py	15672 bytes
 src/lpr_cpe_demo/digital_twin/providers.py	1204 bytes
 src/lpr_cpe_demo/digital_twin/storage.py	6970 bytes
-src/lpr_cpe_demo/digital_twin/streamlit_app.py	75378 bytes
+src/lpr_cpe_demo/digital_twin/streamlit_app.py	75416 bytes
 src/lpr_cpe_demo/digital_twin/workflow.py	6823 bytes
 src/lpr_cpe_demo/domain.py	12050 bytes
 src/lpr_cpe_demo/effort.py	13880 bytes
@@ -301,6 +302,7 @@ tests/test_measurement_semantics.py	12137 bytes
 tests/test_northbound.py	13854 bytes
 tests/test_plant_effort.py	14681 bytes
 tests/test_predictive.py	27924 bytes
+tests/test_predictive_workspace_layout_regression.py	1268 bytes
 tests/test_reachability.py	9964 bytes
 tests/test_red_team.py	14699 bytes
 tests/test_release_gates.py	2961 bytes
@@ -309,7 +311,7 @@ tests/test_retrieval_ab.py	12280 bytes
 tests/test_routing_theme.py	12292 bytes
 tests/test_security_store.py	8623 bytes
 tests/test_sidebar.py	6467 bytes
-tests/test_target_lint_regressions.py	2221 bytes
+tests/test_target_lint_regressions.py	2345 bytes
 tests/test_telemetry.py	15641 bytes
 tests/test_ui_widgets.py	24099 bytes
 tests/test_workflow.py	6186 bytes

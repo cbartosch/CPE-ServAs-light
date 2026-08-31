@@ -21,7 +21,9 @@ def test_repair_client_uses_default_utf8_encoding() -> None:
 def test_new_release_surfaces_respect_line_length() -> None:
     for relative in (
         "scripts/verify_manifest.py",
+        "src/lpr_cpe_demo/digital_twin/executive_style.py",
         "src/lpr_cpe_demo/digital_twin/install_assurance.py",
+        "tests/test_predictive_workspace_layout_regression.py",
         "tests/test_reachability.py",
     ):
         lines = _source(relative).splitlines()

@@ -177,10 +177,10 @@ def css() -> str:
     }
 
     .lpr-crosslink {
-        display:grid;
-        grid-template-columns:minmax(0,1fr) auto;
-        align-items:center;
-        gap:1rem;
+        display:flex;
+        flex-direction:column;
+        align-items:stretch;
+        gap:.8rem;
         background:rgba(255,255,255,.96);
         border:1px solid var(--lpr-line);
         border-radius:16px;
@@ -188,32 +188,52 @@ def css() -> str:
         margin:0 0 1rem;
         box-shadow:0 8px 24px rgba(16,36,62,.05);
     }
+    .lpr-crosslink-summary {
+        min-width:0;
+        max-width:76ch;
+    }
     .lpr-crosslink-title {
         color:var(--lpr-navy);
         font-size:.92rem;
         font-weight:760;
+        line-height:1.3;
+        overflow-wrap:normal;
+        word-break:normal;
     }
     .lpr-crosslink-copy {
         margin-top:.12rem;
+        max-width:72ch;
         color:var(--lpr-muted);
         font-size:.78rem;
         line-height:1.45;
+        overflow-wrap:break-word;
+        word-break:normal;
     }
-    .lpr-crosslink-actions { display:flex; flex-wrap:wrap; gap:.45rem; }
+    .lpr-crosslink-actions {
+        display:grid;
+        grid-template-columns:repeat(auto-fit,minmax(9rem,1fr));
+        gap:.45rem;
+        width:100%;
+        min-width:0;
+    }
     .lpr-crosslink-link {
         display:inline-flex;
+        width:100%;
+        min-width:0;
         align-items:center;
         justify-content:center;
-        min-height:2.3rem;
-        padding:.42rem .72rem;
+        min-height:2.45rem;
+        padding:.46rem .68rem;
         border-radius:9px;
         border:1px solid #d7dfe8;
         background:#fff;
         color:var(--lpr-navy) !important;
+        text-align:center;
         text-decoration:none !important;
         font-size:.77rem;
         font-weight:720;
-        white-space:nowrap;
+        line-height:1.2;
+        white-space:normal;
     }
     .lpr-crosslink-link:hover {
         border-color:var(--lpr-teal);
@@ -224,8 +244,13 @@ def css() -> str:
         background:#2f3338;
         color:#fff !important;
     }
-    @media (max-width:800px) {
-        .lpr-crosslink { grid-template-columns:1fr; }
+    @media (max-width:680px) {
+        .lpr-crosslink-actions {
+            grid-template-columns:repeat(2,minmax(0,1fr));
+        }
+    }
+    @media (max-width:460px) {
+        .lpr-crosslink-actions { grid-template-columns:1fr; }
     }
 
     .lpr-section-label {
@@ -414,6 +439,25 @@ def css() -> str:
     .lpr-crosslink-link:hover {
         border-color: #7FE1D8 !important;
         background: #5E646C !important;
+    }
+    [data-testid="stHeader"] {
+        background: #383C41 !important;
+        border-bottom: 1px solid var(--lpr-panel-border) !important;
+    }
+    [data-testid="stToolbar"] {
+        background: transparent !important;
+    }
+    [data-testid="stHeader"] *,
+    [data-testid="stToolbar"] *,
+    [data-testid="stToolbar"] button {
+        color: var(--lpr-panel-text) !important;
+    }
+    [data-testid="stHeader"] svg,
+    [data-testid="stToolbar"] svg {
+        fill: currentColor !important;
+    }
+    [data-testid="stToolbar"] button:hover {
+        background: var(--lpr-panel-raised) !important;
     }
     [data-baseweb="input"] > div,
     [data-baseweb="select"] > div,

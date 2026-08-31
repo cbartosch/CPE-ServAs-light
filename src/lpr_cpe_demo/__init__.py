@@ -1,3 +1,3 @@
 """LPR CPE service assurance demonstration bundle."""
 
-__version__ = "1.27.13"
+__version__ = "1.27.14"

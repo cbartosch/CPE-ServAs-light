@@ -1,3 +1,11 @@
+## 1.27.14 — executive workspace layout closure
+
+- Replace the Predictive & Customer Care workspace navigation grid with a full-width summary followed by a fluid action grid, preventing navigation buttons from collapsing the narrative to a narrow word column.
+- Allow navigation labels to wrap naturally and provide deterministic two-column and one-column fallbacks on small screens.
+- Apply the dark workspace surface to the Streamlit header and toolbar so Deploy and menu controls remain readable.
+- Add regression guards for the active-run workspace layout, not only the legacy Control Tower layout.
+- Preserve the DvSum CADDI-only terminology, Python 3.14.7 runtime contract, current-run safety controls, manifest integrity and complete release gates.
+
 ## 1.27.13 — DvSum CADDI Python 3.14.7 lint-closed release
 
 - Close the target Ruff 0.13.3 findings reported by the Windows verification gate, including import ordering, redundant UTF-8 encoding arguments, install-assurance formatting, duplicate set entries and route-decorator line length.
