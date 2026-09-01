@@ -1,3 +1,13 @@
+## 1.27.15 — runtime connectivity and legacy-child compatibility closure
+
+- Route the Streamlit container explicitly to the workflow API service and separate normal request and full-scenario execution timeouts.
+- Show progress while a scenario runs and report actionable timeout guidance instead of a generic unavailable message.
+- Keep a valid parent executive projection available when an immutable legacy Install Assurance child lacks current-schema DvSum CADDI context data.
+- Return a structured HTTP 409 for direct access to an incomplete child artifact while preserving the parent run and its evidence.
+- Harden the active-workspace navigation against stale or competing CSS and apply the dark surface to all Streamlit header layers.
+- Display the loaded application release, force-recreate containers in startup scripts and verify in-container API routing with a runtime smoke test.
+- Preserve Python 3.14.7, DvSum CADDI-only terminology, fail-closed controls, immutable runs and verified TLS installation.
+
 ## 1.27.14 — executive workspace layout closure
 
 - Replace the Predictive & Customer Care workspace navigation grid with a full-width summary followed by a fluid action grid, preventing navigation buttons from collapsing the narrative to a narrow word column.

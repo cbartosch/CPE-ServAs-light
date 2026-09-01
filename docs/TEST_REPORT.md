@@ -15,6 +15,18 @@ See `docs/STAGE3_DVSUM_CADDI_AUDIT.md`.
 
 ---
 
+# v1.27.15 runtime connectivity and legacy-child compatibility
+
+- Application collection: **914 tests**.
+- Complete isolated test inventory: **912 passed, 2 framework skips**.
+- Nine-scenario governed workflow matrix: **PASS**.
+- Browser layout harness: **PASS** at 1600×900, 1366×768, 1024×768 and 600×800.
+- Parent Digital Twin executive projection remains available when the newest optional legacy Install Assurance child lacks current-schema context data.
+- Direct access to that incomplete child returns a structured HTTP 409 and does not mutate the parent run.
+- Scenario launch uses a separate 240-second request budget and exposes progress and diagnostics.
+- Startup scripts force-recreate the Docker services and run `scripts/runtime_smoke.py` inside the UI container.
+- Target-side mandatory gate: Python 3.14.7, pytest 9.0.2, Ruff 0.13.3, Docker Compose configuration and runtime connectivity smoke.
+
 # Test Report
 
 ## Stage 2 semantic reconciliation candidate

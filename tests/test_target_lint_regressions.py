@@ -20,11 +20,14 @@ def test_repair_client_uses_default_utf8_encoding() -> None:
 
 def test_new_release_surfaces_respect_line_length() -> None:
     for relative in (
+        "scripts/runtime_smoke.py",
         "scripts/verify_manifest.py",
         "src/lpr_cpe_demo/digital_twin/executive_style.py",
         "src/lpr_cpe_demo/digital_twin/install_assurance.py",
+        "src/lpr_cpe_demo/ui/client.py",
         "tests/test_predictive_workspace_layout_regression.py",
         "tests/test_reachability.py",
+        "tests/test_runtime_connectivity_regressions.py",
     ):
         lines = _source(relative).splitlines()
         offenders = [index for index, line in enumerate(lines, 1) if len(line) > 100]

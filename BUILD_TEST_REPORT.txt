@@ -1,21 +1,23 @@
-LPR CPE SERVICE ASSURANCE DEMO — v1.27.14 RELEASE GATES
+LPR CPE SERVICE ASSURANCE DEMO — v1.27.15 RELEASE GATES
 ========================================================
 
-PASS    Predictive & Customer Care navigation keeps a full-width narrative row
+PASS    UI container routes workflow traffic explicitly to api:8000
+PASS    Routine reads and long scenario execution use separate 30s / 240s budgets
+PASS    Scenario launch shows progress and actionable timeout diagnostics
+PASS    Parent executive projection skips incomplete optional legacy Install Assurance children
+PASS    Direct access to an incomplete child artifact returns a structured HTTP 409
+PASS    Active Predictive & Customer Care navigation keeps a full-width narrative row
 PASS    Navigation actions use a fluid grid and do not starve summary width
-PASS    Digital Twin Streamlit header and toolbar match the dark workspace surface
-PASS    Desktop layout verified at 1600x900 and 1366x768; responsive fallbacks verified
-TARGET  Python 3.14.7 host and container runtime
+PASS    Streamlit header and toolbar use the dark workspace surface globally
+PASS    Startup scripts force-recreate containers and run an in-container API-routing smoke test
+PASS    Sidebar exposes the loaded application release to identify stale images
 PASS    DvSum CADDI is canonical in current code, prompts, panels, APIs and artifacts
-PASS    TLS-verified dependency installation; no host-trust bypass
-PASS    LF/CRLF-safe text manifest and byte-exact binary verification
-PASS    FastAPI route reachability and unused-model cleanup
-PASS    Responsive Control Tower cross-link and readable Streamlit header
-PASS    Current-schema run recovery and structured fail-closed 409 contract
-PASS    Complete application test inventory: 905 tests; 903 passed, 2 framework skips
-PASS    Python compilation, duplicate-key scan, manifest verification and Git whitespace checks
-NOTE    Application tests executed in the isolated build runtime on Python 3.13.5; target-side verification requires Python 3.14.7 and Ruff 0.13.3.
-PASS    Target Ruff 0.13.3 diagnostics reported for v1.27.12 are corrected in source.
+PASS    Python compilation, nine-scenario matrix and Git whitespace checks
+PASS    Complete application collection: 914 tests; 912 passed and 2 framework skips
+PASS    Browser layout harness at 1600x900, 1366x768, 1024x768 and 600x800
+TARGET  Python 3.14.7, pytest 9.0.2 and Ruff 0.13.3 are mandatory before push
+TARGET  Docker Compose rebuild/recreate and runtime connectivity smoke are mandatory before push
+NOTE    Complete test inventory executed in bounded file groups on Python 3.13.5.
 NOTE    Historical sections below describe the runtime and findings of their original releases.
 
 WAVE 1 COST AND CANONICAL-DATA INTEGRITY CANDIDATE - 2026-08-28

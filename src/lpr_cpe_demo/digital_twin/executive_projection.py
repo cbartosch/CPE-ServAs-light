@@ -602,7 +602,7 @@ def build_executive_projection(
         "stories": stories,
         "customer_journeys": stories,
     }
-    install_assurance = latest_install_assurance_projection(run_path)
+    install_assurance = latest_install_assurance_projection(run_path, skip_incomplete=True)
     if install_assurance is not None:
         result["install_assurance"] = install_assurance
     return result

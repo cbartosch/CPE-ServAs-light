@@ -9,7 +9,8 @@ from lpr_cpe_demo.ui.common import api, demo_header, render_banner
 def render() -> None:
     demo_header(
         "Scenario Launcher",
-        "Start a controlled HFC or PON case and run it to the next human decision or terminal state.",
+        "Start a controlled HFC or PON case and run it to the next human decision "
+        "or terminal state.",
     )
     render_banner()
     try:
@@ -26,14 +27,28 @@ def render() -> None:
     st.info(selected["description"])
     col1, col2 = st.columns(2)
     col1.metric("Technology", selected["technology"])
-    col2.metric("Expected path", " → ".join(selected.get("expected_path") or ["RCA", "Decision"]))
+    col2.metric(
+        "Expected path",
+        " → ".join(selected.get("expected_path") or ["RCA", "Decision"]),
+    )
     if st.button("Start scenario", type="primary", use_container_width=True):
         try:
-            incident = api().start(selected["name"])
+            with st.spinner(
+                "Running the scenario to the next governed decision or terminal state…"
+            ):
+                incident = api().start(selected["name"])
         except APIError as exc:
-            st.error(str(exc))
+            message = str(exc)
+            if "timed out" in message.lower():
+                st.error(
+                    f"{message}. The API may still be processing the scenario; check "
+                    "Platform Health or `docker compose logs api` before retrying."
+                )
+            else:
+                st.error(message)
             return
         st.session_state.selected_incident_id = incident["incident_id"]
         st.success(
-            f"Started {incident['incident_id']}. Current stage: {incident['stage'].replace('_', ' ')}."
+            f"Started {incident['incident_id']}. Current stage: "
+            f"{incident['stage'].replace('_', ' ')}."
         )

@@ -153,9 +153,13 @@ services:
   ui:
     <<: *app-common
     environment:
+      API_URL: http://api:8000
+      API_TIMEOUT_SECONDS: ${API_TIMEOUT_SECONDS:-30}
+      API_SCENARIO_TIMEOUT_SECONDS: ${API_SCENARIO_TIMEOUT_SECONDS:-240}
       DT_API_URL: http://digital-twin-api:8001
       DT_USER: ${DT_USER:-demo}
       DT_PASSWORD: ${DT_PASSWORD:-CHANGE_ME}
+      LPR_APP_RELEASE: "1.27.15"
     command: >-
       streamlit run src/lpr_cpe_demo/ui/app.py
       --server.address=0.0.0.0
@@ -195,6 +199,9 @@ services:
       WORKFLOW_ENGINE: portable
       MCP_USE_NETWORK: "false"
       MODEL_PROVIDER: fake
+      API_URL: http://api:8000
+      API_TIMEOUT_SECONDS: ${API_TIMEOUT_SECONDS:-30}
+      API_SCENARIO_TIMEOUT_SECONDS: ${API_SCENARIO_TIMEOUT_SECONDS:-240}
       DT_API_URL: http://digital-twin-api:8001
       DT_USER: ${DT_USER:-demo}
       DT_PASSWORD: ${DT_PASSWORD:-CHANGE_ME}

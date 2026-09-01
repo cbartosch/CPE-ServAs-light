@@ -21,6 +21,7 @@ The API key is never rendered. Only the variable name, and whether it is set.
 
 from __future__ import annotations
 
+from .. import __version__
 from ..agents.status import RECORDER, SOURCE_MEANING, describe_provider
 from .theme import ContrastCheck, contrast_ratio
 
@@ -87,9 +88,15 @@ def status_lines(env: dict[str, str] | None = None) -> dict[str, str]:
     else:
         activity = "No decision attempted yet"
 
-    return {"state": state, "label": STATE_LABEL[state],
-            "model": description.model or "none",
-            "detail": detail, "consequence": consequence, "activity": activity}
+    return {
+        "state": state,
+        "label": STATE_LABEL[state],
+        "model": description.model or "none",
+        "detail": detail,
+        "consequence": consequence,
+        "activity": activity,
+        "release": __version__,
+    }
 
 
 def html(env: dict[str, str] | None = None) -> str:
@@ -113,6 +120,8 @@ def html(env: dict[str, str] | None = None) -> str:
               padding-top:6px">{lines['activity']}</div>
   <div style="color:{PANEL_MUTED};font-size:.7rem;margin-top:5px;
               line-height:1.4">{lines['consequence']}</div>
+  <div style="color:{PANEL_MUTED};font-size:.64rem;margin-top:7px;
+              letter-spacing:.04em">Application release {lines['release']}</div>
 </div>"""
 
 

@@ -47,6 +47,34 @@ LIFECYCLE_STATES = (
 )
 HEALTH_STATES = ("GREEN", "AMBER", "RED")
 
+INSTALL_ASSURANCE_REQUIRED_FILES = (
+    "summary.json",
+    "episodes.jsonl.gz",
+    "observations.jsonl.gz",
+    "actions.jsonl.gz",
+    "contacts.jsonl.gz",
+    "incidents.jsonl.gz",
+    "caddi_contexts.jsonl.gz",
+)
+
+
+class IncompleteInstallAssuranceArtifactError(RuntimeError):
+    """An immutable child watch exists but lacks its current-schema datasets."""
+
+    def __init__(self, watch_id: str, missing_files: list[str]) -> None:
+        self.watch_id = watch_id
+        self.missing_files = tuple(missing_files)
+        missing = ", ".join(missing_files)
+        super().__init__(f"install assurance watch {watch_id} is incomplete: {missing}")
+
+    def detail(self) -> dict[str, Any]:
+        return {
+            "error": "install_assurance_artifact_incomplete",
+            "watch_id": self.watch_id,
+            "missing_files": list(self.missing_files),
+            "canonical_parent_run_unchanged": True,
+        }
+
 
 @dataclass(frozen=True, slots=True)
 class InstallWatchRequest:
@@ -1026,10 +1054,15 @@ def load_install_assurance_watch(
     path = Path(run_path) / "install_assurance" / watch_id
     if not path.is_dir():
         raise KeyError(watch_id)
-    context_path = path / "caddi_contexts.jsonl.gz"
-    if not context_path.is_file():
-        raise FileNotFoundError("CADDI context dataset not found")
-    caddi_contexts = load_jsonl_gz(context_path, limit=limit)
+
+    missing_files = [
+        filename
+        for filename in INSTALL_ASSURANCE_REQUIRED_FILES
+        if not (path / filename).is_file()
+    ]
+    if missing_files:
+        raise IncompleteInstallAssuranceArtifactError(watch_id, missing_files)
+
     return {
         "summary": json.loads((path / "summary.json").read_text(encoding="utf-8")),
         "episodes": load_jsonl_gz(path / "episodes.jsonl.gz", limit=limit),
@@ -1037,20 +1070,40 @@ def load_install_assurance_watch(
         "actions": load_jsonl_gz(path / "actions.jsonl.gz", limit=limit),
         "contacts": load_jsonl_gz(path / "contacts.jsonl.gz", limit=limit),
         "incidents": load_jsonl_gz(path / "incidents.jsonl.gz", limit=limit),
-        "caddi_contexts": caddi_contexts,
+        "caddi_contexts": load_jsonl_gz(
+            path / "caddi_contexts.jsonl.gz",
+            limit=limit,
+        ),
     }
 
 
-def latest_install_assurance_projection(run_path: Path) -> dict[str, Any] | None:
+def latest_install_assurance_projection(
+    run_path: Path,
+    *,
+    skip_incomplete: bool = False,
+) -> dict[str, Any] | None:
+    """Return the latest complete child projection.
+
+    The executive parent projection uses ``skip_incomplete=True`` so an immutable
+    legacy child that predates the current CADDI context dataset cannot make the
+    otherwise valid parent run appear missing. Direct child endpoints keep the
+    default fail-closed behavior and surface a structured HTTP 409.
+    """
+
     watches = list_install_assurance_watches(run_path)
-    if not watches:
-        return None
-    watch_id = str(watches[0]["watch_id"])
-    detail = load_install_assurance_watch(run_path, watch_id, limit=5000)
-    return {
-        "summary": detail["summary"],
-        "episodes": detail["episodes"],
-        "contacts": detail["contacts"],
-        "incidents": detail["incidents"],
-        "caddi_contexts": detail["caddi_contexts"],
-    }
+    for watch in watches:
+        watch_id = str(watch["watch_id"])
+        try:
+            detail = load_install_assurance_watch(run_path, watch_id, limit=5000)
+        except IncompleteInstallAssuranceArtifactError:
+            if skip_incomplete:
+                continue
+            raise
+        return {
+            "summary": detail["summary"],
+            "episodes": detail["episodes"],
+            "contacts": detail["contacts"],
+            "incidents": detail["incidents"],
+            "caddi_contexts": detail["caddi_contexts"],
+        }
+    return None

@@ -6,13 +6,44 @@ from typing import Any
 import httpx
 
 
+DEFAULT_REQUEST_TIMEOUT_SECONDS = 30.0
+DEFAULT_SCENARIO_TIMEOUT_SECONDS = 240.0
+
+
 class APIError(RuntimeError):
     pass
 
 
+def _timeout_from_env(name: str, default: float) -> float:
+    raw = os.getenv(name, "").strip()
+    if not raw:
+        return default
+    try:
+        value = float(raw)
+    except ValueError:
+        return default
+    return value if value > 0 else default
+
+
 class DemoAPI:
-    def __init__(self, base_url: str | None = None) -> None:
-        self.base_url = (base_url or os.getenv("API_URL", "http://localhost:8000")).rstrip("/")
+    def __init__(
+        self,
+        base_url: str | None = None,
+        *,
+        request_timeout: float | None = None,
+        scenario_timeout: float | None = None,
+    ) -> None:
+        self.base_url = (base_url or os.getenv("API_URL", "http://localhost:8000")).rstrip(
+            "/"
+        )
+        self.request_timeout = request_timeout or _timeout_from_env(
+            "API_TIMEOUT_SECONDS",
+            DEFAULT_REQUEST_TIMEOUT_SECONDS,
+        )
+        self.scenario_timeout = scenario_timeout or _timeout_from_env(
+            "API_SCENARIO_TIMEOUT_SECONDS",
+            DEFAULT_SCENARIO_TIMEOUT_SECONDS,
+        )
 
     def _request(
         self,
@@ -21,23 +52,31 @@ class DemoAPI:
         *,
         user: str = "demo.operator",
         role: str = "operations_supervisor",
+        timeout: float | None = None,
         **kwargs: Any,
     ) -> Any:
         headers = dict(kwargs.pop("headers", {}))
         headers.update({"X-Demo-User": user, "X-Demo-Role": role})
+        effective_timeout = timeout or self.request_timeout
         try:
             response = httpx.request(
                 method,
                 f"{self.base_url}{path}",
                 headers=headers,
-                timeout=20.0,
+                timeout=effective_timeout,
                 **kwargs,
             )
+        except httpx.TimeoutException as exc:
+            raise APIError(
+                f"API request timed out after {effective_timeout:g} seconds: "
+                f"{method.upper()} {path}"
+            ) from exc
         except httpx.HTTPError as exc:
             raise APIError(f"API unavailable: {exc}") from exc
         if response.status_code >= 400:
             try:
-                detail = response.json().get("detail", response.text)
+                payload = response.json()
+                detail = payload.get("detail", payload) if isinstance(payload, dict) else payload
             except ValueError:
                 detail = response.text
             raise APIError(f"{response.status_code}: {detail}")
@@ -48,14 +87,33 @@ class DemoAPI:
     def get(self, path: str) -> Any:
         return self._request("GET", path)
 
-    def post(self, path: str, payload: dict[str, Any] | None = None, **identity: str) -> Any:
-        return self._request("POST", path, json=payload, **identity)
+    def post(
+        self,
+        path: str,
+        payload: dict[str, Any] | None = None,
+        *,
+        timeout: float | None = None,
+        **identity: str,
+    ) -> Any:
+        return self._request(
+            "POST",
+            path,
+            json=payload,
+            timeout=timeout,
+            **identity,
+        )
 
     def scenarios(self) -> list[dict[str, Any]]:
         return list(self.get("/api/scenarios"))
 
     def start(self, scenario_name: str) -> dict[str, Any]:
-        return dict(self.post(f"/api/scenarios/{scenario_name}/start", {"run_until_pause": True}))
+        return dict(
+            self.post(
+                f"/api/scenarios/{scenario_name}/start",
+                {"run_until_pause": True},
+                timeout=self.scenario_timeout,
+            )
+        )
 
     def incidents(self) -> list[dict[str, Any]]:
         return list(self.get("/api/incidents"))
@@ -113,7 +171,8 @@ class DigitalTwinAPI:
             raise APIError(f"Digital Twin API unavailable: {exc}") from exc
         if response.status_code >= 400:
             try:
-                detail = response.json().get("detail", response.text)
+                payload = response.json()
+                detail = payload.get("detail", payload) if isinstance(payload, dict) else payload
             except ValueError:
                 detail = response.text
             raise APIError(f"Digital Twin {response.status_code}: {detail}")
@@ -134,9 +193,7 @@ class DigitalTwinAPI:
     def projection(self, run_id: str) -> dict[str, Any]:
         return dict(self.get(f"/api/runs/{run_id}/executive-projection"))
 
-    def dispatch_cost_projection(
-        self, run_id: str | None = None
-    ) -> dict[str, Any]:
+    def dispatch_cost_projection(self, run_id: str | None = None) -> dict[str, Any]:
         path = (
             f"/api/runs/{run_id}/dispatch-cost-projection"
             if run_id

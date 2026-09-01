@@ -19,6 +19,7 @@ from .dispatch_projection import (
 )
 from .executive_projection import build_executive_projection
 from .install_assurance import (
+    IncompleteInstallAssuranceArtifactError,
     create_install_assurance_watch,
     install_assurance_contract,
     latest_install_assurance_projection,
@@ -115,6 +116,8 @@ def _active_run_id() -> str:
 def _build_projection(run_id: str) -> dict:
     try:
         return build_executive_projection(DATA_ROOT, run_id)
+    except IncompleteInstallAssuranceArtifactError as exc:
+        raise HTTPException(409, exc.detail()) from exc
     except FileNotFoundError as exc:
         raise HTTPException(404, "run not found") from exc
     except (OSError, json.JSONDecodeError, ValueError) as exc:
@@ -428,11 +431,16 @@ def install_watch_detail(
         raise HTTPException(400, str(exc)) from exc
     except KeyError as exc:
         raise HTTPException(404, "install assurance watch not found") from exc
+    except IncompleteInstallAssuranceArtifactError as exc:
+        raise HTTPException(409, exc.detail()) from exc
 
 
 @app.get("/api/runs/{run_id}/install-assurance/projection")
 def install_watch_projection(run_id: str, _: dict = Depends(principal)):
-    projection = latest_install_assurance_projection(_run_path(run_id))
+    try:
+        projection = latest_install_assurance_projection(_run_path(run_id))
+    except IncompleteInstallAssuranceArtifactError as exc:
+        raise HTTPException(409, exc.detail()) from exc
     if projection is None:
         raise HTTPException(404, "no install assurance watch for run")
     return projection
@@ -440,7 +448,10 @@ def install_watch_projection(run_id: str, _: dict = Depends(principal)):
 
 @app.get("/api/install-assurance/projection")
 def active_install_watch_projection(_: dict = Depends(principal)):
-    projection = latest_install_assurance_projection(_run_path(_active_run_id()))
+    try:
+        projection = latest_install_assurance_projection(_run_path(_active_run_id()))
+    except IncompleteInstallAssuranceArtifactError as exc:
+        raise HTTPException(409, exc.detail()) from exc
     if projection is None:
         raise HTTPException(404, "no install assurance watch for active run")
     return projection
