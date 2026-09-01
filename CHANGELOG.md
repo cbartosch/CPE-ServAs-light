@@ -1,3 +1,10 @@
+## 1.27.16 — target Ruff closure and release-gate hardening
+
+- Remove the unused `sys` import from the current-schema recovery client.
+- Make the UI API client import block deterministic for Ruff 0.13.3 by keeping the type import at module scope and loading `os` and `httpx` at their call sites.
+- Add release regressions for both exact target-lint findings and keep the complete application, runtime, DvSum CADDI, manifest, and Docker gates unchanged.
+- Preserve the v1.27.15 runtime connectivity, scenario timeout, legacy-child compatibility, responsive navigation, and dark Streamlit header corrections.
+
 ## 1.27.15 — runtime connectivity and legacy-child compatibility closure
 
 - Route the Streamlit container explicitly to the workflow API service and separate normal request and full-scenario execution timeouts.

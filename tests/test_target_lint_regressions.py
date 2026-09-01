@@ -18,6 +18,35 @@ def test_repair_client_uses_default_utf8_encoding() -> None:
     assert '.encode("utf-8")' not in source
 
 
+def test_repair_client_has_no_unused_sys_import() -> None:
+    tree = ast.parse(_source("scripts/repair_current_schema_run.py"))
+    imported = {
+        alias.name
+        for node in tree.body
+        if isinstance(node, ast.Import)
+        for alias in node.names
+    }
+    assert "sys" not in imported
+
+
+def test_ui_client_import_block_is_ruff_stable() -> None:
+    source = _source("src/lpr_cpe_demo/ui/client.py")
+    expected = (
+        "from __future__ import annotations\n\n"
+        "from typing import Any\n"
+    )
+    assert source.startswith(expected)
+    module = ast.parse(source)
+    top_level_imports = [
+        node
+        for node in module.body
+        if isinstance(node, (ast.Import, ast.ImportFrom))
+    ]
+    assert len(top_level_imports) == 2
+    assert "import os" in source
+    assert "import httpx" in source
+
+
 def test_new_release_surfaces_respect_line_length() -> None:
     for relative in (
         "scripts/runtime_smoke.py",

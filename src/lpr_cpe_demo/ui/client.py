@@ -1,9 +1,6 @@
 from __future__ import annotations
 
-import os
 from typing import Any
-
-import httpx
 
 
 DEFAULT_REQUEST_TIMEOUT_SECONDS = 30.0
@@ -15,6 +12,8 @@ class APIError(RuntimeError):
 
 
 def _timeout_from_env(name: str, default: float) -> float:
+    import os
+
     raw = os.getenv(name, "").strip()
     if not raw:
         return default
@@ -33,6 +32,8 @@ class DemoAPI:
         request_timeout: float | None = None,
         scenario_timeout: float | None = None,
     ) -> None:
+        import os
+
         self.base_url = (base_url or os.getenv("API_URL", "http://localhost:8000")).rstrip(
             "/"
         )
@@ -55,6 +56,8 @@ class DemoAPI:
         timeout: float | None = None,
         **kwargs: Any,
     ) -> Any:
+        import httpx
+
         headers = dict(kwargs.pop("headers", {}))
         headers.update({"X-Demo-User": user, "X-Demo-Role": role})
         effective_timeout = timeout or self.request_timeout
@@ -152,6 +155,8 @@ class DigitalTwinAPI:
         username: str | None = None,
         password: str | None = None,
     ) -> None:
+        import os
+
         self.base_url = (
             base_url or os.getenv("DT_API_URL", "http://localhost:8001")
         ).rstrip("/")
@@ -159,6 +164,8 @@ class DigitalTwinAPI:
         self.password = password or os.getenv("DT_PASSWORD", "CHANGE_ME")
 
     def _request(self, method: str, path: str, **kwargs: Any) -> Any:
+        import httpx
+
         try:
             response = httpx.request(
                 method,

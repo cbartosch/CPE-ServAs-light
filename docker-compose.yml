@@ -159,7 +159,7 @@ services:
       DT_API_URL: http://digital-twin-api:8001
       DT_USER: ${DT_USER:-demo}
       DT_PASSWORD: ${DT_PASSWORD:-CHANGE_ME}
-      LPR_APP_RELEASE: "1.27.15"
+      LPR_APP_RELEASE: "1.27.16"
     command: >-
       streamlit run src/lpr_cpe_demo/ui/app.py
       --server.address=0.0.0.0

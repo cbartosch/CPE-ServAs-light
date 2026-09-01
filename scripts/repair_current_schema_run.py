@@ -13,7 +13,6 @@ import argparse
 import base64
 import hashlib
 import json
-import sys
 import urllib.error
 import urllib.request
 from datetime import date

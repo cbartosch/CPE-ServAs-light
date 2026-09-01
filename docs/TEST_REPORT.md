@@ -15,6 +15,15 @@ See `docs/STAGE3_DVSUM_CADDI_AUDIT.md`.
 
 ---
 
+# v1.27.16 target Ruff closure
+
+- Removes the two remaining target-side Ruff 0.13.3 findings from v1.27.15.
+- Complete collection: **916 tests**; **914 passed**, **2 framework-dependent skips**, **0 failed**, executed in bounded file groups.
+- Nine-scenario matrix: **PASS**.
+- Manifest verification: **PASS** after regeneration.
+- Preserves all application and runtime behavior from v1.27.15.
+- Requires the complete pytest suite, exact Ruff 0.13.3 check, scenario matrix, manifest verification, clean-clone verification, and Docker runtime smoke before push.
+
 # v1.27.15 runtime connectivity and legacy-child compatibility
 
 - Application collection: **914 tests**.

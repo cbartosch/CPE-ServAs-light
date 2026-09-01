@@ -1,18 +1,18 @@
-LPR CPE Service Assurance Demo v1.27.15 DvSum CADDI Python 3.14.7
+LPR CPE Service Assurance Demo v1.27.16 DvSum CADDI Python 3.14.7
 Generated: 2026-09-01
-Indexed files: 317
-Indexed bytes: 13114703
+Indexed files: 318
+Indexed bytes: 13118234
 
 .dockerignore	114 bytes
 .env.example	3105 bytes
 .gitattributes	473 bytes
 .gitignore	152 bytes
 .stage3-manifest-exclusions.txt	89 bytes
-BUILD_TEST_REPORT.txt	5676 bytes
-BUNDLE_CONTENTS.txt	13822 bytes
-CHANGELOG.md	100534 bytes
+BUILD_TEST_REPORT.txt	5901 bytes
+BUNDLE_CONTENTS.txt	13858 bytes
+CHANGELOG.md	101144 bytes
 Dockerfile	1688 bytes
-FILE_MANIFEST.txt	13810 bytes
+FILE_MANIFEST.txt	13846 bytes
 LICENSE.txt	297 bytes
 Makefile	1780 bytes
 README.md	17915 bytes
@@ -61,12 +61,13 @@ docs/RED_TEAM_v1.20.0.md	8368 bytes
 docs/RELEASE_v1.27.13.md	2500 bytes
 docs/RELEASE_v1.27.14.md	1716 bytes
 docs/RELEASE_v1.27.15.md	2015 bytes
+docs/RELEASE_v1.27.16.md	1128 bytes
 docs/RUNBOOK.md	7019 bytes
 docs/SECURITY.md	1086 bytes
 docs/SECURITY_CONTROLS.md	3254 bytes
 docs/SHARED_MEASUREMENT_CONTRACT.md	7078 bytes
 docs/STAGE3_DVSUM_CADDI_AUDIT.md	2624 bytes
-docs/TEST_REPORT.md	9418 bytes
+docs/TEST_REPORT.md	9980 bytes
 docs/WAVE_1_COST_DATA_INTEGRITY.md	2447 bytes
 docs/WORKFLOW.md	5876 bytes
 docs/control_tower.html	231328 bytes
@@ -90,7 +91,7 @@ docs/video/slates/09_provenance.png	191147 bytes
 docs/video/slates/10_rigour.png	177716 bytes
 docs/video/slates/11_close.png	144914 bytes
 integration/executive_theme.py	192 bytes
-pyproject.toml	6868 bytes
+pyproject.toml	6898 bytes
 reference/CPE_Service_Assurance_Architecture.docx	22112 bytes
 reference/CPE_demo_spec_audit_and_changes.md	32285 bytes
 reference/LPR_CPE_Service_Assurance_Mockup_Design_Specification_v1_1_Audit_Hardened.docx	971521 bytes
@@ -131,7 +132,7 @@ scripts/preflight.py	1479 bytes
 scripts/registry-doctor.ps1	4592 bytes
 scripts/registry-doctor.sh	1701 bytes
 scripts/repair-current-schema-run.sh	244 bytes
-scripts/repair_current_schema_run.py	6254 bytes
+scripts/repair_current_schema_run.py	6243 bytes
 scripts/run_ab_matrix.py	11095 bytes
 scripts/run_commercial_priority.py	9885 bytes
 scripts/run_dispatch_simulation.py	8174 bytes
@@ -249,7 +250,7 @@ src/lpr_cpe_demo/ui/artwork.py	1152 bytes
 src/lpr_cpe_demo/ui/assets/footprint_map.svg	8947 bytes
 src/lpr_cpe_demo/ui/assets/landmark_band.svg	3469 bytes
 src/lpr_cpe_demo/ui/assets/landmark_watermark.svg	2351 bytes
-src/lpr_cpe_demo/ui/client.py	6551 bytes
+src/lpr_cpe_demo/ui/client.py	6624 bytes
 src/lpr_cpe_demo/ui/common.py	1242 bytes
 src/lpr_cpe_demo/ui/deck.py	5963 bytes
 src/lpr_cpe_demo/ui/executive_theme.py	192 bytes
@@ -314,7 +315,7 @@ tests/test_routing_theme.py	12292 bytes
 tests/test_runtime_connectivity_regressions.py	6786 bytes
 tests/test_security_store.py	8623 bytes
 tests/test_sidebar.py	6467 bytes
-tests/test_target_lint_regressions.py	2480 bytes
+tests/test_target_lint_regressions.py	3322 bytes
 tests/test_telemetry.py	15641 bytes
 tests/test_ui_widgets.py	24099 bytes
 tests/test_workflow.py	6186 bytes
