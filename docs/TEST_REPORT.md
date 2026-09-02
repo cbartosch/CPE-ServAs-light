@@ -1,3 +1,9 @@
+# v1.29.1 P1/P2 unified assurance validation
+
+The release adds dedicated tests for shared assurance episodes, install-to-repair handoff, durable post-action quarantine, repeated health observations, idempotent retries, lease-based due-job claims, healthy release, degraded reopen and unknown-health escalation.
+
+Assembly results: 931 tests collected, 929 passed and 2 skipped; all 15 dedicated P1/P2 tests passed; the canonical manifest verified 328 entries. The assembly runtime did not provide Docker Desktop or the exact Ruff executable. The delivery verifier therefore reruns Ruff 0.13.3, the complete pytest suite, Docker Compose validation and optional container smoke checks under Python 3.14.7 before push.
+
 # Stage 3 DvSum CADDI naming repair candidate
 
 - Canonical display name: **DvSum CADDI**

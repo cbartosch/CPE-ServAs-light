@@ -42,6 +42,7 @@ class Stage(StrEnum):
     WAITING_APPROVAL = "waiting_approval"
     EXECUTE = "execute"
     VERIFY = "verify"
+    POST_ACTION_QUARANTINE = "post_action_quarantine"
     FAILURE_REVIEW = "failure_review"
     RECONCILE = "reconcile"
     CLOSED = "closed"
@@ -260,6 +261,9 @@ class IncidentState(StrictModel):
     new_evidence_since_last_rca: bool = True
     verification_passed: bool | None = None
     verification_summary: str | None = None
+    pre_action_health: dict[str, Any] | None = None
+    immediate_post_action_health: dict[str, Any] | None = None
+    active_quarantine_id: str | None = None
     current_owner: str = "NOC"
     delimiter: str | None = None
     work_orders: list[dict[str, Any]] = Field(default_factory=list)

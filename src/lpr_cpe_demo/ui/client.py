@@ -121,6 +121,16 @@ class DemoAPI:
     def incidents(self) -> list[dict[str, Any]]:
         return list(self.get("/api/incidents"))
 
+    def assurance_episodes(self) -> list[dict[str, Any]]:
+        return list(self.get("/api/assurance/episodes"))
+
+    def quarantines(self, status: str | None = None) -> list[dict[str, Any]]:
+        suffix = f"?status={status}" if status else ""
+        return list(self.get(f"/api/assurance/quarantines{suffix}"))
+
+    def quarantine_policy(self) -> dict[str, Any]:
+        return dict(self.get("/api/assurance/quarantine-policy"))
+
     def incident(self, incident_id: str) -> dict[str, Any]:
         return dict(self.get(f"/api/incidents/{incident_id}"))
 

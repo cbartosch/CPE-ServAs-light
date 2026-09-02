@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import asyncio
+import logging
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from typing import Any
@@ -9,10 +11,15 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
 from lpr_cpe_demo import __version__
+from lpr_cpe_demo.assurance import InstallHandoffRequest
 from lpr_cpe_demo.caddi import caddi_contract
 from lpr_cpe_demo.config import Settings, get_settings
 from lpr_cpe_demo.domain import ApprovalDecisionInput, ApprovalStatus, FaultDomain
 from lpr_cpe_demo.measurement import measurement_contract
+from lpr_cpe_demo.quarantine import (
+    QuarantineObservationRequest,
+    QuarantineStatus,
+)
 from lpr_cpe_demo.workflow.service import (
     ApprovalConflict,
     ApprovalNotFound,
@@ -20,6 +27,9 @@ from lpr_cpe_demo.workflow.service import (
     IncidentNotFound,
     WorkflowService,
 )
+
+
+LOGGER = logging.getLogger(__name__)
 
 
 class StartScenarioBody(BaseModel):
@@ -43,6 +53,11 @@ class ResetBody(BaseModel):
     confirm: str
 
 
+class RunDueQuarantineBody(BaseModel):
+    worker_id: str = Field(default="operator", min_length=1, max_length=120)
+    limit: int = Field(default=20, ge=1, le=200)
+
+
 def create_app(
     *,
     settings: Settings | None = None,
@@ -53,9 +68,38 @@ def create_app(
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         app.state.workflow_service = service or WorkflowService(settings=configured_settings)
+        scheduler_task: asyncio.Task[None] | None = None
+
+        async def quarantine_scheduler() -> None:
+            while True:
+                try:
+                    await asyncio.to_thread(
+                        app.state.workflow_service.run_due_quarantine_jobs,
+                        worker_id="api-quarantine-scheduler",
+                        limit=20,
+                    )
+                except Exception:
+                    # A transient scheduler failure must not stop the API process.
+                    # Durable leases make the same work eligible after expiry.
+                    LOGGER.exception("Post-action quarantine scheduler iteration failed")
+                await asyncio.sleep(
+                    configured_settings.post_action_quarantine_worker_interval_seconds
+                )
+
+        if (
+            configured_settings.post_action_quarantine_enabled
+            and configured_settings.post_action_quarantine_scheduler_enabled
+        ):
+            scheduler_task = asyncio.create_task(quarantine_scheduler())
         try:
             yield
         finally:
+            if scheduler_task is not None:
+                scheduler_task.cancel()
+                try:
+                    await scheduler_task
+                except asyncio.CancelledError:
+                    LOGGER.debug("Post-action quarantine scheduler stopped")
             app.state.workflow_service.close()
 
     app = FastAPI(
@@ -85,12 +129,14 @@ def create_app(
         return caddi_contract()
 
     @app.get("/health", tags=["system"])
-    def health() -> dict[str, str]:
+    def health() -> dict[str, Any]:
         return {
             "status": "ok",
             "mode": configured_settings.application_mode,
             "version": __version__,
             "measurement_schema": "1.0",
+            "unified_assurance": "p2",
+            "post_action_quarantine": configured_settings.post_action_quarantine_enabled,
         }
 
     @app.get("/ready", tags=["system"])
@@ -112,6 +158,36 @@ def create_app(
         except KeyError as exc:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
         return state.model_dump(mode="json")
+
+    @app.post("/api/assurance/install-handoffs", tags=["assurance"])
+    def create_install_handoff(
+        body: InstallHandoffRequest,
+        workflow: WorkflowService = Depends(get_service),
+    ) -> dict[str, Any]:
+        try:
+            return workflow.create_install_handoff(body).model_dump(mode="json")
+        except ApprovalConflict as exc:
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
+
+    @app.get("/api/assurance/episodes", tags=["assurance"])
+    def list_assurance_episodes(
+        limit: int = Query(default=200, ge=1, le=5000),
+        workflow: WorkflowService = Depends(get_service),
+    ) -> list[dict[str, Any]]:
+        return [
+            episode.model_dump(mode="json")
+            for episode in workflow.list_assurance_episodes(limit=limit)
+        ]
+
+    @app.get("/api/assurance/episodes/{episode_id}", tags=["assurance"])
+    def get_assurance_episode(
+        episode_id: str,
+        workflow: WorkflowService = Depends(get_service),
+    ) -> dict[str, Any]:
+        try:
+            return workflow.get_assurance_episode(episode_id)
+        except IncidentNotFound as exc:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=episode_id) from exc
 
     @app.get("/api/incidents", tags=["incidents"])
     def list_incidents(workflow: WorkflowService = Depends(get_service)) -> list[dict[str, Any]]:
@@ -184,6 +260,78 @@ def create_app(
         except ApprovalConflict as exc:
             raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
         return state.model_dump(mode="json")
+
+    @app.get("/api/assurance/quarantine-policy", tags=["assurance"])
+    def quarantine_policy(
+        workflow: WorkflowService = Depends(get_service),
+    ) -> dict[str, Any]:
+        return workflow.quarantine_policy().model_dump(mode="json")
+
+    @app.get("/api/assurance/quarantines", tags=["assurance"])
+    def list_quarantines(
+        quarantine_status: QuarantineStatus | None = Query(
+            default=None,
+            alias="status",
+        ),
+        incident_id: str | None = None,
+        limit: int = Query(default=200, ge=1, le=5000),
+        workflow: WorkflowService = Depends(get_service),
+    ) -> list[dict[str, Any]]:
+        return [
+            item.model_dump(mode="json")
+            for item in workflow.list_quarantines(
+                status=quarantine_status,
+                incident_id=incident_id,
+                limit=limit,
+            )
+        ]
+
+    @app.get(
+        "/api/assurance/quarantines/{quarantine_id}",
+        tags=["assurance"],
+    )
+    def get_quarantine(
+        quarantine_id: str,
+        workflow: WorkflowService = Depends(get_service),
+    ) -> dict[str, Any]:
+        try:
+            return workflow.get_quarantine(quarantine_id)
+        except IncidentNotFound as exc:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=quarantine_id,
+            ) from exc
+
+    @app.post(
+        "/api/assurance/quarantines/{quarantine_id}/observations",
+        tags=["assurance"],
+    )
+    def record_quarantine_observation(
+        quarantine_id: str,
+        body: QuarantineObservationRequest,
+        workflow: WorkflowService = Depends(get_service),
+    ) -> dict[str, Any]:
+        try:
+            return workflow.record_quarantine_observation(
+                quarantine_id,
+                body,
+            )
+        except IncidentNotFound as exc:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=quarantine_id,
+            ) from exc
+
+    @app.post("/api/assurance/quarantine-jobs/run-due", tags=["assurance"])
+    def run_due_quarantine_jobs(
+        body: RunDueQuarantineBody,
+        workflow: WorkflowService = Depends(get_service),
+    ) -> dict[str, Any]:
+        results = workflow.run_due_quarantine_jobs(
+            worker_id=body.worker_id,
+            limit=body.limit,
+        )
+        return {"processed": len(results), "results": results}
 
     @app.get("/api/measurement-contract", tags=["monitoring"])
     def shared_measurement_contract() -> dict[str, Any]:

@@ -71,6 +71,15 @@ class Settings(BaseSettings):
     stability_window_minutes: int = Field(default=15, ge=1)
     ui_refresh_seconds: int = Field(default=2, ge=1, le=30)
 
+    post_action_quarantine_enabled: bool = False
+    post_action_quarantine_scheduler_enabled: bool = False
+    post_action_quarantine_duration_seconds: int = Field(default=900, ge=1)
+    post_action_quarantine_check_interval_seconds: int = Field(default=60, ge=1)
+    post_action_quarantine_required_healthy_checks: int = Field(default=2, ge=1)
+    post_action_quarantine_max_extensions: int = Field(default=2, ge=0)
+    post_action_quarantine_lease_seconds: int = Field(default=120, ge=5)
+    post_action_quarantine_worker_interval_seconds: int = Field(default=15, ge=1)
+
     log_level: str = "INFO"
     tz: str = "America/Puerto_Rico"
     demo_banner: str = (

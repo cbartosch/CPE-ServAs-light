@@ -1107,3 +1107,115 @@ def latest_install_assurance_projection(
             "caddi_contexts": detail["caddi_contexts"],
         }
     return None
+
+
+def build_install_handoff_request(
+    run_path: Path,
+    watch_id: str,
+    install_episode_id: str,
+) -> dict[str, Any]:
+    """Build the P1 handoff payload from an immutable install watch."""
+
+    detail = load_install_assurance_watch(run_path, watch_id, limit=5000)
+    episode = next(
+        (
+            row
+            for row in detail["episodes"]
+            if str(row.get("episode_id")) == install_episode_id
+        ),
+        None,
+    )
+    if episode is None:
+        raise KeyError(install_episode_id)
+    lifecycle = str(episode.get("lifecycle_state", ""))
+    health = str(episode.get("health_state", ""))
+    if lifecycle != "PROMOTED_TO_INCIDENT" and health != "RED":
+        raise ValueError(
+            "only a RED or PROMOTED_TO_INCIDENT install episode can enter repair"
+        )
+    observations = [
+        row
+        for row in detail["observations"]
+        if str(row.get("episode_id")) == install_episode_id
+    ]
+    actions = [
+        row
+        for row in detail["actions"]
+        if str(row.get("episode_id")) == install_episode_id
+    ]
+    return {
+        "run_id": str(detail["summary"]["parent_run_id"]),
+        "watch_id": watch_id,
+        "install_episode_id": install_episode_id,
+        "service_id": str(episode["service_id"]),
+        "device_id": str(episode["device_id"]),
+        "technology": str(episode["technology"]),
+        "title": f"Install assurance repair for {episode['service_id']}",
+        "priority": "P1" if health == "RED" else "P2",
+        "reason": (
+            f"Install watch health={health}; lifecycle={lifecycle}; "
+            "handoff to the canonical repair workflow."
+        ),
+        "evidence": [*observations[-5:], *actions[-5:]],
+        "source_summary": {
+            "health_state": health,
+            "lifecycle_state": lifecycle,
+            "incident_id": episode.get("incident_id"),
+            "delimiter_id": episode.get("delimiter_id"),
+            "latest_observation_at": episode.get("last_observation_at"),
+        },
+        "production_write": False,
+    }
+
+
+def install_handoff_receipt_path(
+    run_path: Path,
+    watch_id: str,
+    install_episode_id: str,
+) -> Path:
+    """Return the path of the separate P1 workflow handoff receipt."""
+
+    _validate_watch_id(watch_id)
+    if not install_episode_id.startswith(EPISODE_PREFIX):
+        raise ValueError("invalid install assurance episode_id")
+    return Path(run_path) / "install_assurance" / watch_id / "workflow_handoffs" / (
+        f"{install_episode_id}.json"
+    )
+
+
+def read_install_handoff_receipt(
+    run_path: Path,
+    watch_id: str,
+    install_episode_id: str,
+) -> dict[str, Any] | None:
+    """Read a durable P1 handoff receipt without mutating watch evidence."""
+
+    path = install_handoff_receipt_path(run_path, watch_id, install_episode_id)
+    if not path.is_file():
+        return None
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
+def write_install_handoff_receipt(
+    run_path: Path,
+    watch_id: str,
+    install_episode_id: str,
+    receipt: dict[str, Any],
+) -> dict[str, Any]:
+    """Persist one idempotent handoff receipt beside immutable watch evidence."""
+
+    path = install_handoff_receipt_path(run_path, watch_id, install_episode_id)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    existing = read_install_handoff_receipt(run_path, watch_id, install_episode_id)
+    if existing is not None:
+        return existing
+    temporary = path.with_name(f".{path.name}.tmp-{os.getpid()}-{uuid.uuid4().hex}")
+    temporary.write_text(
+        json.dumps(receipt, indent=2, sort_keys=True),
+        encoding="utf-8",
+    )
+    try:
+        replace_with_retry(temporary, path)
+    finally:
+        temporary.unlink(missing_ok=True)
+    return receipt

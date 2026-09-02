@@ -1,3 +1,19 @@
+LPR CPE SERVICE ASSURANCE DEMO — v1.29.1 P1/P2 RELEASE GATES
+================================================================
+
+P1/P2 implementation
+--------------------
+PASS  Shared repair/install assurance episode and durable event lineage
+PASS  Install-to-repair handoff is deterministic and retry-safe
+PASS  Pre-action and immediate post-action health snapshots
+PASS  Scheduled post-action quarantine with release/reopen/extend/escalate
+PASS  Durable leases and append-only health observations
+PASS  Production writes remain disabled and DvSum CADDI remains canonical
+PASS  931 tests collected; 929 passed and 2 skipped in the assembly runtime
+PASS  15 dedicated P1/P2 tests
+PASS  328/328 canonical manifest entries
+NOTE  Exact Ruff 0.13.3 and Docker Desktop are mandatory target-workstation gates.
+
 LPR CPE SERVICE ASSURANCE DEMO — v1.27.16 RELEASE GATES
 ========================================================
 

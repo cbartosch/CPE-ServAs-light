@@ -41,7 +41,7 @@ def test_ui_container_has_explicit_service_routes_and_request_budgets() -> None:
     assert "API_TIMEOUT_SECONDS: ${API_TIMEOUT_SECONDS:-30}" in compose
     assert "API_SCENARIO_TIMEOUT_SECONDS: ${API_SCENARIO_TIMEOUT_SECONDS:-240}" in compose
     assert "DT_API_URL: http://digital-twin-api:8001" in compose
-    assert 'LPR_APP_RELEASE: "1.27.16"' in compose
+    assert 'LPR_APP_RELEASE: "1.29.1"' in compose
 
 
 def test_demo_api_uses_a_separate_long_scenario_timeout(monkeypatch) -> None:

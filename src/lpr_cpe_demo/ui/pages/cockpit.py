@@ -92,6 +92,31 @@ def _install_assurance_projection() -> dict | None:
         return None
 
 
+def _unified_assurance_panel() -> None:
+    st.subheader("Unified Repair & Install Assurance")
+    try:
+        episodes = api().assurance_episodes()
+        quarantines = api().quarantines()
+        policy = api().quarantine_policy()
+    except APIError as exc:
+        st.caption(f"Unified assurance read model unavailable: {exc}")
+        return
+    repair = sum(row.get("origin") == "repair" for row in episodes)
+    install = sum(row.get("origin") == "install" for row in episodes)
+    active = sum(row.get("status") == "active" for row in quarantines)
+    released = sum(row.get("status") == "released" for row in quarantines)
+    columns = st.columns(5)
+    columns[0].metric("Repair episodes", repair)
+    columns[1].metric("Install-origin episodes", install)
+    columns[2].metric("Active quarantine", active)
+    columns[3].metric("Released", released)
+    columns[4].metric("Required checks", policy.get("required_healthy_checks", "—"))
+    st.caption(
+        "P1 correlates repair and install under one assurance episode. P2 blocks "
+        "closure until the post-action stability window and repeated health checks pass."
+    )
+
+
 def _install_assurance_panel() -> None:
     projection = _install_assurance_projection()
     st.subheader("24-Hour Install Assurance")
@@ -150,6 +175,7 @@ def live_cockpit() -> None:
     cols[3].metric("MR attempts", int(workload.get("mr_attempts", 0)))
     cols[4].metric("Returned to RCA", int(workload.get("returned_to_rca", 0)))
     _active_run_comparison(projection)
+    _unified_assurance_panel()
 
     if not incidents:
         st.info("Start a scenario to populate the cockpit.")

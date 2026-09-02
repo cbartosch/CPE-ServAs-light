@@ -1,3 +1,13 @@
+## 1.29.1 — unified assurance and post-action quarantine
+
+- Project every repair case and promoted install defect into one durable assurance episode with stable cross-system identifiers and append-only episode events.
+- Promote eligible degraded install-assurance episodes into the existing repair workflow without opening duplicate incidents on retry.
+- Persist assurance episodes, handoff lineage, quarantine state and repeated health observations in PostgreSQL, with SQLite retained for local tests.
+- Require pre-action health evidence, an immediate post-action health check and a policy-configured quarantine period after every successful material repair action.
+- Block closure until the minimum stability duration and required repeated healthy checks pass; reopen on degradation, extend on unknown health and escalate when the extension budget is exhausted.
+- Run due quarantine checks through a lease-based durable scheduler and expose operator APIs, scripts and Streamlit read models for episodes and quarantine state.
+- Preserve the existing LangGraph repair workflow, deterministic policy gates, human approvals, idempotency, simulation-only execution, immutable install evidence and canonical DvSum CADDI terminology.
+
 ## 1.27.16 — target Ruff closure and release-gate hardening
 
 - Remove the unused `sys` import from the current-schema recovery client.

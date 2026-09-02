@@ -76,7 +76,12 @@ class LangGraphWorkflowEngine:
 
         def route(envelope: GraphEnvelope) -> Literal["step", "approval", "stop"]:
             state = IncidentState.model_validate(envelope["incident"])
-            if state.stage in {Stage.CLOSED, Stage.ESCALATED, Stage.QUARANTINED}:
+            if state.stage in {
+                Stage.CLOSED,
+                Stage.ESCALATED,
+                Stage.QUARANTINED,
+                Stage.POST_ACTION_QUARANTINE,
+            }:
                 return "stop"
             if state.stage == Stage.WAITING_APPROVAL and not state.approval_result:
                 return "approval"

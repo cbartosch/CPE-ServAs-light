@@ -1,11 +1,27 @@
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
-from sqlalchemy import JSON, DateTime, String, Text, create_engine, delete, select
+from sqlalchemy import (
+    JSON,
+    DateTime,
+    Integer,
+    String,
+    Text,
+    create_engine,
+    delete,
+    or_,
+    select,
+)
 from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column, sessionmaker
 
+from lpr_cpe_demo.assurance import (
+    AssuranceEpisode,
+    AssuranceEpisodeEvent,
+    AssuranceOrigin,
+    EpisodeStatus,
+)
 from lpr_cpe_demo.config import Settings, get_settings
 from lpr_cpe_demo.domain import (
     ApprovalRequest,
@@ -13,6 +29,13 @@ from lpr_cpe_demo.domain import (
     CaseStatus,
     IncidentState,
     Stage,
+)
+from lpr_cpe_demo.quarantine import (
+    PostActionQuarantine,
+    QuarantineHealth,
+    QuarantineObservation,
+    QuarantineStatus,
+    QuarantineTransition,
 )
 
 
@@ -75,6 +98,82 @@ class IdempotencyRow(Base):
     action_type: Mapped[str] = mapped_column(String(64))
     approval_id: Mapped[str | None] = mapped_column(String(80), nullable=True)
     result_json: Mapped[dict[str, Any]] = mapped_column(JSON)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
+class AssuranceEpisodeRow(Base):
+    __tablename__ = "assurance_episode"
+
+    episode_id: Mapped[str] = mapped_column(String(80), primary_key=True)
+    source_key: Mapped[str] = mapped_column(String(300), unique=True, index=True)
+    origin: Mapped[str] = mapped_column(String(32), index=True)
+    incident_id: Mapped[str] = mapped_column(String(80), unique=True, index=True)
+    install_run_id: Mapped[str | None] = mapped_column(String(120), nullable=True, index=True)
+    install_watch_id: Mapped[str | None] = mapped_column(String(80), nullable=True, index=True)
+    install_episode_id: Mapped[str | None] = mapped_column(String(80), nullable=True, index=True)
+    service_id: Mapped[str | None] = mapped_column(String(120), nullable=True, index=True)
+    device_id: Mapped[str | None] = mapped_column(String(120), nullable=True, index=True)
+    technology: Mapped[str] = mapped_column(String(16), index=True)
+    status: Mapped[str] = mapped_column(String(32), index=True)
+    workflow_stage: Mapped[str] = mapped_column(String(64), index=True)
+    title: Mapped[str] = mapped_column(String(255))
+    metadata_json: Mapped[dict[str, Any]] = mapped_column(JSON)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+
+
+class AssuranceEpisodeEventRow(Base):
+    __tablename__ = "assurance_episode_event"
+
+    event_id: Mapped[str] = mapped_column(String(100), primary_key=True)
+    episode_id: Mapped[str] = mapped_column(String(80), index=True)
+    incident_id: Mapped[str] = mapped_column(String(80), index=True)
+    event_type: Mapped[str] = mapped_column(String(80), index=True)
+    actor: Mapped[str] = mapped_column(String(120))
+    occurred_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+    payload_json: Mapped[dict[str, Any]] = mapped_column(JSON)
+
+
+class QuarantineRow(Base):
+    __tablename__ = "assurance_quarantine"
+
+    quarantine_id: Mapped[str] = mapped_column(String(100), primary_key=True)
+    episode_id: Mapped[str] = mapped_column(String(80), index=True)
+    incident_id: Mapped[str] = mapped_column(String(80), index=True)
+    action_id: Mapped[str] = mapped_column(String(100), unique=True, index=True)
+    action_type: Mapped[str] = mapped_column(String(64), index=True)
+    status: Mapped[str] = mapped_column(String(32), index=True)
+    pre_action_health_json: Mapped[dict[str, Any]] = mapped_column(JSON)
+    immediate_post_action_health_json: Mapped[dict[str, Any]] = mapped_column(JSON)
+    started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+    minimum_release_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+    next_check_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+    required_healthy_checks: Mapped[int] = mapped_column(Integer)
+    healthy_checks: Mapped[int] = mapped_column(Integer)
+    extension_count: Mapped[int] = mapped_column(Integer)
+    max_extensions: Mapped[int] = mapped_column(Integer)
+    check_interval_seconds: Mapped[int] = mapped_column(Integer)
+    lease_owner: Mapped[str | None] = mapped_column(String(120), nullable=True, index=True)
+    lease_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    metadata_json: Mapped[dict[str, Any]] = mapped_column(JSON)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+
+
+class QuarantineObservationRow(Base):
+    __tablename__ = "assurance_quarantine_observation"
+
+    observation_id: Mapped[str] = mapped_column(String(100), primary_key=True)
+    quarantine_id: Mapped[str] = mapped_column(String(100), index=True)
+    incident_id: Mapped[str] = mapped_column(String(80), index=True)
+    observed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+    health: Mapped[str] = mapped_column(String(32), index=True)
+    source: Mapped[str] = mapped_column(String(120))
+    actor: Mapped[str] = mapped_column(String(120))
+    idempotency_key: Mapped[str] = mapped_column(String(160), unique=True, index=True)
+    metrics_json: Mapped[dict[str, Any]] = mapped_column(JSON)
+    transition: Mapped[str] = mapped_column(String(32), index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
 
 
@@ -219,8 +318,265 @@ class Repository:
             row = session.get(IdempotencyRow, idempotency_key)
             return dict(row.result_json) if row is not None else None
 
+    def save_assurance_episode(self, episode: AssuranceEpisode) -> AssuranceEpisode:
+        episode.updated_at = datetime.now(UTC)
+        with self.session_factory.begin() as session:
+            row = session.get(AssuranceEpisodeRow, episode.episode_id)
+            if row is None:
+                row = session.scalar(
+                    select(AssuranceEpisodeRow).where(
+                        AssuranceEpisodeRow.source_key == episode.source_key
+                    )
+                )
+            values = {
+                "source_key": episode.source_key,
+                "origin": episode.origin.value,
+                "incident_id": episode.incident_id,
+                "install_run_id": episode.install_run_id,
+                "install_watch_id": episode.install_watch_id,
+                "install_episode_id": episode.install_episode_id,
+                "service_id": episode.service_id,
+                "device_id": episode.device_id,
+                "technology": episode.technology,
+                "status": episode.status.value,
+                "workflow_stage": episode.workflow_stage,
+                "title": episode.title,
+                "metadata_json": episode.metadata,
+                "created_at": episode.created_at,
+                "updated_at": episode.updated_at,
+            }
+            if row is None:
+                session.add(AssuranceEpisodeRow(episode_id=episode.episode_id, **values))
+            else:
+                for key, value in values.items():
+                    setattr(row, key, value)
+        return episode
+
+    def get_assurance_episode(self, episode_id: str) -> AssuranceEpisode | None:
+        with self.session_factory() as session:
+            row = session.get(AssuranceEpisodeRow, episode_id)
+            return self._assurance_episode_from_row(row) if row is not None else None
+
+    def get_assurance_episode_by_source(self, source_key: str) -> AssuranceEpisode | None:
+        with self.session_factory() as session:
+            row = session.scalar(
+                select(AssuranceEpisodeRow).where(
+                    AssuranceEpisodeRow.source_key == source_key
+                )
+            )
+            return self._assurance_episode_from_row(row) if row is not None else None
+
+    def get_assurance_episode_by_incident(self, incident_id: str) -> AssuranceEpisode | None:
+        with self.session_factory() as session:
+            row = session.scalar(
+                select(AssuranceEpisodeRow).where(
+                    AssuranceEpisodeRow.incident_id == incident_id
+                )
+            )
+            return self._assurance_episode_from_row(row) if row is not None else None
+
+    def list_assurance_episodes(self, limit: int = 200) -> list[AssuranceEpisode]:
+        with self.session_factory() as session:
+            rows = session.scalars(
+                select(AssuranceEpisodeRow)
+                .order_by(AssuranceEpisodeRow.updated_at.desc())
+                .limit(limit)
+            ).all()
+            return [self._assurance_episode_from_row(row) for row in rows]
+
+    def append_assurance_event(
+        self,
+        event: AssuranceEpisodeEvent,
+    ) -> AssuranceEpisodeEvent:
+        with self.session_factory.begin() as session:
+            if session.get(AssuranceEpisodeEventRow, event.event_id) is None:
+                session.add(
+                    AssuranceEpisodeEventRow(
+                        event_id=event.event_id,
+                        episode_id=event.episode_id,
+                        incident_id=event.incident_id,
+                        event_type=event.event_type,
+                        actor=event.actor,
+                        occurred_at=event.occurred_at,
+                        payload_json=event.payload,
+                    )
+                )
+        return event
+
+    def list_assurance_events(self, episode_id: str) -> list[AssuranceEpisodeEvent]:
+        with self.session_factory() as session:
+            rows = session.scalars(
+                select(AssuranceEpisodeEventRow)
+                .where(AssuranceEpisodeEventRow.episode_id == episode_id)
+                .order_by(AssuranceEpisodeEventRow.occurred_at.asc())
+            ).all()
+            return [
+                AssuranceEpisodeEvent(
+                    event_id=row.event_id,
+                    episode_id=row.episode_id,
+                    incident_id=row.incident_id,
+                    event_type=row.event_type,
+                    actor=row.actor,
+                    occurred_at=row.occurred_at,
+                    payload=dict(row.payload_json or {}),
+                )
+                for row in rows
+            ]
+
+    def save_quarantine(
+        self,
+        quarantine: PostActionQuarantine,
+    ) -> PostActionQuarantine:
+        quarantine.updated_at = datetime.now(UTC)
+        with self.session_factory.begin() as session:
+            row = session.get(QuarantineRow, quarantine.quarantine_id)
+            values = {
+                "episode_id": quarantine.episode_id,
+                "incident_id": quarantine.incident_id,
+                "action_id": quarantine.action_id,
+                "action_type": quarantine.action_type,
+                "status": quarantine.status.value,
+                "pre_action_health_json": quarantine.pre_action_health,
+                "immediate_post_action_health_json": quarantine.immediate_post_action_health,
+                "started_at": quarantine.started_at,
+                "minimum_release_at": quarantine.minimum_release_at,
+                "next_check_at": quarantine.next_check_at,
+                "required_healthy_checks": quarantine.required_healthy_checks,
+                "healthy_checks": quarantine.healthy_checks,
+                "extension_count": quarantine.extension_count,
+                "max_extensions": quarantine.max_extensions,
+                "check_interval_seconds": quarantine.check_interval_seconds,
+                "lease_owner": quarantine.lease_owner,
+                "lease_until": quarantine.lease_until,
+                "completed_at": quarantine.completed_at,
+                "metadata_json": quarantine.metadata,
+                "created_at": quarantine.created_at,
+                "updated_at": quarantine.updated_at,
+            }
+            if row is None:
+                session.add(QuarantineRow(quarantine_id=quarantine.quarantine_id, **values))
+            else:
+                for key, value in values.items():
+                    setattr(row, key, value)
+        return quarantine
+
+    def get_quarantine(self, quarantine_id: str) -> PostActionQuarantine | None:
+        with self.session_factory() as session:
+            row = session.get(QuarantineRow, quarantine_id)
+            return self._quarantine_from_row(row) if row is not None else None
+
+    def get_quarantine_by_action(self, action_id: str) -> PostActionQuarantine | None:
+        with self.session_factory() as session:
+            row = session.scalar(
+                select(QuarantineRow).where(QuarantineRow.action_id == action_id)
+            )
+            return self._quarantine_from_row(row) if row is not None else None
+
+    def list_quarantines(
+        self,
+        *,
+        status: QuarantineStatus | None = None,
+        incident_id: str | None = None,
+        limit: int = 200,
+    ) -> list[PostActionQuarantine]:
+        statement = select(QuarantineRow)
+        if status is not None:
+            statement = statement.where(QuarantineRow.status == status.value)
+        if incident_id is not None:
+            statement = statement.where(QuarantineRow.incident_id == incident_id)
+        statement = statement.order_by(QuarantineRow.updated_at.desc()).limit(limit)
+        with self.session_factory() as session:
+            rows = session.scalars(statement).all()
+            return [self._quarantine_from_row(row) for row in rows]
+
+    def append_quarantine_observation(
+        self,
+        observation: QuarantineObservation,
+    ) -> QuarantineObservation:
+        with self.session_factory.begin() as session:
+            existing = session.scalar(
+                select(QuarantineObservationRow).where(
+                    QuarantineObservationRow.idempotency_key
+                    == observation.idempotency_key
+                )
+            )
+            if existing is None:
+                session.add(
+                    QuarantineObservationRow(
+                        observation_id=observation.observation_id,
+                        quarantine_id=observation.quarantine_id,
+                        incident_id=observation.incident_id,
+                        observed_at=observation.observed_at,
+                        health=observation.health.value,
+                        source=observation.source,
+                        actor=observation.actor,
+                        idempotency_key=observation.idempotency_key,
+                        metrics_json=observation.metrics,
+                        transition=observation.transition.value,
+                        created_at=observation.created_at,
+                    )
+                )
+        return observation
+
+    def get_quarantine_observation_by_key(
+        self,
+        idempotency_key: str,
+    ) -> QuarantineObservation | None:
+        with self.session_factory() as session:
+            row = session.scalar(
+                select(QuarantineObservationRow).where(
+                    QuarantineObservationRow.idempotency_key == idempotency_key
+                )
+            )
+            return self._quarantine_observation_from_row(row) if row is not None else None
+
+    def list_quarantine_observations(
+        self,
+        quarantine_id: str,
+    ) -> list[QuarantineObservation]:
+        with self.session_factory() as session:
+            rows = session.scalars(
+                select(QuarantineObservationRow)
+                .where(QuarantineObservationRow.quarantine_id == quarantine_id)
+                .order_by(QuarantineObservationRow.observed_at.asc())
+            ).all()
+            return [self._quarantine_observation_from_row(row) for row in rows]
+
+    def claim_due_quarantines(
+        self,
+        *,
+        now: datetime,
+        worker_id: str,
+        lease_seconds: int,
+        limit: int = 20,
+    ) -> list[PostActionQuarantine]:
+        lease_until = now + timedelta(seconds=lease_seconds)
+        with self.session_factory.begin() as session:
+            statement = (
+                select(QuarantineRow)
+                .where(
+                    QuarantineRow.status == QuarantineStatus.ACTIVE.value,
+                    QuarantineRow.next_check_at <= now,
+                    or_(QuarantineRow.lease_until.is_(None), QuarantineRow.lease_until <= now),
+                )
+                .order_by(QuarantineRow.next_check_at.asc())
+                .limit(limit)
+            )
+            if self.database_url.startswith("postgresql"):
+                statement = statement.with_for_update(skip_locked=True)
+            rows = session.scalars(statement).all()
+            for row in rows:
+                row.lease_owner = worker_id
+                row.lease_until = lease_until
+                row.updated_at = now
+            return [self._quarantine_from_row(row) for row in rows]
+
     def reset(self) -> None:
         with self.session_factory.begin() as session:
+            session.execute(delete(QuarantineObservationRow))
+            session.execute(delete(QuarantineRow))
+            session.execute(delete(AssuranceEpisodeEventRow))
+            session.execute(delete(AssuranceEpisodeRow))
             session.execute(delete(IdempotencyRow))
             session.execute(delete(ApprovalRow))
             session.execute(delete(IncidentRow))
@@ -235,6 +591,9 @@ class Repository:
             "waiting": sum(item.status == CaseStatus.WAITING for item in incidents),
             "closed": sum(item.status == CaseStatus.CLOSED for item in incidents),
             "escalated": sum(item.status == CaseStatus.ESCALATED for item in incidents),
+            "quarantined": sum(
+                item.status == CaseStatus.QUARANTINED for item in incidents
+            ),
             "pending_approvals": len(self.list_approvals(ApprovalStatus.PENDING)),
             "by_stage": {
                 stage.value: sum(item.stage == stage for item in incidents) for stage in Stage
@@ -244,6 +603,74 @@ class Repository:
                 "PON": sum(item.technology.value == "PON" for item in incidents),
             },
         }
+
+    @staticmethod
+    def _quarantine_from_row(row: QuarantineRow) -> PostActionQuarantine:
+        return PostActionQuarantine(
+            quarantine_id=row.quarantine_id,
+            episode_id=row.episode_id,
+            incident_id=row.incident_id,
+            action_id=row.action_id,
+            action_type=row.action_type,
+            status=QuarantineStatus(row.status),
+            pre_action_health=dict(row.pre_action_health_json or {}),
+            immediate_post_action_health=dict(
+                row.immediate_post_action_health_json or {}
+            ),
+            started_at=row.started_at,
+            minimum_release_at=row.minimum_release_at,
+            next_check_at=row.next_check_at,
+            required_healthy_checks=row.required_healthy_checks,
+            healthy_checks=row.healthy_checks,
+            extension_count=row.extension_count,
+            max_extensions=row.max_extensions,
+            check_interval_seconds=row.check_interval_seconds,
+            lease_owner=row.lease_owner,
+            lease_until=row.lease_until,
+            completed_at=row.completed_at,
+            metadata=dict(row.metadata_json or {}),
+            created_at=row.created_at,
+            updated_at=row.updated_at,
+        )
+
+    @staticmethod
+    def _quarantine_observation_from_row(
+        row: QuarantineObservationRow,
+    ) -> QuarantineObservation:
+        return QuarantineObservation(
+            observation_id=row.observation_id,
+            quarantine_id=row.quarantine_id,
+            incident_id=row.incident_id,
+            observed_at=row.observed_at,
+            health=QuarantineHealth(row.health),
+            source=row.source,
+            actor=row.actor,
+            idempotency_key=row.idempotency_key,
+            metrics=dict(row.metrics_json or {}),
+            transition=QuarantineTransition(row.transition),
+            created_at=row.created_at,
+        )
+
+    @staticmethod
+    def _assurance_episode_from_row(row: AssuranceEpisodeRow) -> AssuranceEpisode:
+        return AssuranceEpisode(
+            episode_id=row.episode_id,
+            source_key=row.source_key,
+            origin=AssuranceOrigin(row.origin),
+            incident_id=row.incident_id,
+            install_run_id=row.install_run_id,
+            install_watch_id=row.install_watch_id,
+            install_episode_id=row.install_episode_id,
+            service_id=row.service_id,
+            device_id=row.device_id,
+            technology=row.technology,
+            status=EpisodeStatus(row.status),
+            workflow_stage=row.workflow_stage,
+            title=row.title,
+            metadata=dict(row.metadata_json or {}),
+            created_at=row.created_at,
+            updated_at=row.updated_at,
+        )
 
     @staticmethod
     def _approval_from_row(row: ApprovalRow) -> ApprovalRequest:

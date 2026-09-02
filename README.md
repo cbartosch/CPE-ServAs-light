@@ -15,9 +15,9 @@ A Docker Desktop demonstration of an HFC/PON customer-premises-equipment service
 
 > **Simulation only.** No production system is connected and production writes are disabled by default.
 
-## Current release: v1.27.16
+## Current release: v1.29.1
 
-The current application release uses **DvSum CADDI** as the canonical analytics/context product name, targets Python 3.14.7, and requires current Digital Twin runs to identify the `lpr-digital-twin-run-v3-execution-economics` schema. See [`docs/RELEASE_v1.27.16.md`](docs/RELEASE_v1.27.16.md) and [`docs/CURRENT_SCHEMA_RUN_RECOVERY.md`](docs/CURRENT_SCHEMA_RUN_RECOVERY.md). The startup scripts force-recreate the containers and run an in-container connectivity smoke test so stale UI images and incorrect API routes fail before the browser opens.
+The current application release uses **DvSum CADDI** as the canonical analytics/context product name, targets Python 3.14.7, and unifies repair and install assurance under one durable episode. P2 adds the mandatory pre-action health, controlled action, immediate post-action health, and scheduled quarantine loop before closure. See [`docs/RELEASE_v1.29.1.md`](docs/RELEASE_v1.29.1.md), [`docs/UNIFIED_ASSURANCE_P1_P2.md`](docs/UNIFIED_ASSURANCE_P1_P2.md), and [`docs/CURRENT_SCHEMA_RUN_RECOVERY.md`](docs/CURRENT_SCHEMA_RUN_RECOVERY.md).
 
 
 ## Three-wave remediation

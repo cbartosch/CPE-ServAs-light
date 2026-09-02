@@ -30,6 +30,7 @@ from lpr_cpe_demo.llm import RCAAssistant
 from lpr_cpe_demo.mcp_client import MCPClient, MCPClientError
 from lpr_cpe_demo.mcp_server.security import create_approval_token
 from lpr_cpe_demo.persistence import Repository
+from lpr_cpe_demo.quarantine import QuarantinePolicy, start_post_action_quarantine
 
 
 class WorkflowError(RuntimeError):
@@ -82,7 +83,12 @@ class PortableWorkflowEngine:
         }
 
     def run_one(self, state: IncidentState) -> IncidentState:
-        if state.stage in {Stage.CLOSED, Stage.ESCALATED, Stage.QUARANTINED}:
+        if state.stage in {
+            Stage.CLOSED,
+            Stage.ESCALATED,
+            Stage.QUARANTINED,
+            Stage.POST_ACTION_QUARANTINE,
+        }:
             return state
         if state.stage == Stage.WAITING_APPROVAL and not state.approval_result:
             return state
@@ -110,7 +116,12 @@ class PortableWorkflowEngine:
         while True:
             before = state.stage
             state = self.run_one(state)
-            if state.stage in {Stage.CLOSED, Stage.ESCALATED, Stage.QUARANTINED}:
+            if state.stage in {
+                Stage.CLOSED,
+                Stage.ESCALATED,
+                Stage.QUARANTINED,
+                Stage.POST_ACTION_QUARANTINE,
+            }:
                 return state
             if state.stage == Stage.WAITING_APPROVAL and not state.approval_result:
                 return state
@@ -519,6 +530,13 @@ class PortableWorkflowEngine:
         approval_id = str(approval.get("approval_id"))
         idempotency_key = str(approval.get("idempotency_key"))
         action_type = candidate.action_type
+        state.pre_action_health = {
+            "captured_at": utc_now().isoformat(),
+            "verdict": "degraded",
+            "evidence_refs": [item.evidence_id for item in state.evidence],
+            "evidence_count": len(state.evidence),
+            "diagnostic_cycle": state.diagnostic_cycles,
+        }
         attempt = self._attempt_for(state, action_type)
         existing = self.repository.get_idempotent_result(idempotency_key)
         if existing is None:
@@ -607,7 +625,80 @@ class PortableWorkflowEngine:
             metadata = {"passed": passed}
         state.verification_passed = passed
         state.verification_summary = summary
+        state.immediate_post_action_health = {
+            "captured_at": utc_now().isoformat(),
+            "verdict": "healthy" if passed else "degraded",
+            "summary": summary,
+            "evidence": metadata,
+        }
         if passed:
+            if self.settings.post_action_quarantine_enabled:
+                last_action = state.action_history[-1]
+                episode = self.repository.get_assurance_episode_by_incident(
+                    state.incident_id
+                )
+                episode_id = (
+                    episode.episode_id
+                    if episode is not None
+                    else stable_id("repair", state.incident_id, prefix="ase")
+                )
+                policy = QuarantinePolicy(
+                    enabled=True,
+                    duration_seconds=(
+                        self.settings.post_action_quarantine_duration_seconds
+                    ),
+                    check_interval_seconds=(
+                        self.settings.post_action_quarantine_check_interval_seconds
+                    ),
+                    required_healthy_checks=(
+                        self.settings.post_action_quarantine_required_healthy_checks
+                    ),
+                    max_extensions=(
+                        self.settings.post_action_quarantine_max_extensions
+                    ),
+                    lease_seconds=(
+                        self.settings.post_action_quarantine_lease_seconds
+                    ),
+                )
+                quarantine = self.repository.get_quarantine_by_action(
+                    last_action.action_id
+                )
+                if quarantine is None:
+                    quarantine = start_post_action_quarantine(
+                        episode_id=episode_id,
+                        incident_id=state.incident_id,
+                        action_id=last_action.action_id,
+                        action_type=last_action.action_type.value,
+                        pre_action_health=state.pre_action_health or {},
+                        immediate_post_action_health=(
+                            state.immediate_post_action_health or {}
+                        ),
+                        policy=policy,
+                        metadata={
+                            "scenario_name": state.scenario_name,
+                            "source": state.source,
+                        },
+                    )
+                    self.repository.save_quarantine(quarantine)
+                state.active_quarantine_id = quarantine.quarantine_id
+                state.stage = Stage.POST_ACTION_QUARANTINE
+                state.status = CaseStatus.QUARANTINED
+                state.current_owner = "Assurance quarantine"
+                state.append_event(
+                    event_type="post_action_quarantine_started",
+                    title="Post-action quarantine started",
+                    detail=(
+                        "Immediate restoration passed. Closure is blocked until "
+                        "the stability window and repeated health checks pass."
+                    ),
+                    metadata={
+                        "quarantine_id": quarantine.quarantine_id,
+                        "minimum_release_at": (
+                            quarantine.minimum_release_at.isoformat()
+                        ),
+                    },
+                )
+                return state
             state.stage = Stage.RECONCILE
             state.append_event(
                 event_type="verification_passed",
@@ -688,6 +779,7 @@ class PortableWorkflowEngine:
     def _reconcile(self, state: IncidentState) -> IncidentState:
         state.stage = Stage.CLOSED
         state.status = CaseStatus.CLOSED
+        state.active_quarantine_id = None
         state.current_owner = "Closed"
         state.append_event(
             event_type="linked_records_closed",

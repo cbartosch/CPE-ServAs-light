@@ -3,6 +3,8 @@ from __future__ import annotations
 
 import json
 import os
+import urllib.error
+import urllib.request
 from pathlib import Path
 
 from fastapi import Depends, FastAPI, HTTPException, Query
@@ -20,11 +22,14 @@ from .dispatch_projection import (
 from .executive_projection import build_executive_projection
 from .install_assurance import (
     IncompleteInstallAssuranceArtifactError,
+    build_install_handoff_request,
     create_install_assurance_watch,
     install_assurance_contract,
     latest_install_assurance_projection,
     list_install_assurance_watches,
     load_install_assurance_watch,
+    read_install_handoff_receipt,
+    write_install_handoff_receipt,
 )
 from .models import GenerationConfig, HumanDecision
 from .orchestrator import (
@@ -76,6 +81,10 @@ class InstallAssuranceWatchRequest(BaseModel):
     seed: int = Field(default=0, ge=0, le=2_147_483_647)
 
 
+class InstallHandoffPromotionRequest(BaseModel):
+    install_episode_id: str
+
+
 app = FastAPI(title="LPR CPE Digital Twin", version=__version__)
 
 
@@ -111,6 +120,28 @@ def _active_run_id() -> str:
     if run_id is None:
         raise HTTPException(404, "no active run")
     return run_id
+
+
+def _post_workflow_handoff(payload: dict) -> dict:
+    base_url = os.getenv("WORKFLOW_API_URL", "http://api:8000").rstrip("/")
+    body = json.dumps(payload, separators=(",", ":")).encode()
+    request = urllib.request.Request(
+        f"{base_url}/api/assurance/install-handoffs",
+        data=body,
+        headers={"Content-Type": "application/json"},
+        method="POST",
+    )
+    internal_token = os.getenv("WORKFLOW_INTERNAL_TOKEN", "").strip()
+    if internal_token:
+        request.add_header("X-LPR-Internal-Token", internal_token)
+    try:
+        with urllib.request.urlopen(request, timeout=240) as response:
+            return json.loads(response.read().decode("utf-8"))
+    except urllib.error.HTTPError as exc:
+        detail = exc.read().decode("utf-8", errors="replace")
+        raise HTTPException(exc.code, f"workflow handoff rejected: {detail}") from exc
+    except OSError as exc:
+        raise HTTPException(503, f"workflow API unavailable: {exc}") from exc
 
 
 def _build_projection(run_id: str) -> dict:
@@ -159,6 +190,7 @@ def health():
         "release": "DvSum CADDI Python 3.14.7",
         "predictive_care_integration": True, "external_evidence_csv": True, "llm_triangulation": True,
         "install_assurance": True,
+        "unified_assurance": "p1",
         "caddi_integration": "contract_only",
         "run_schema_version": RUN_SCHEMA_VERSION,
         "measurement_schema": "1.0",
@@ -433,6 +465,74 @@ def install_watch_detail(
         raise HTTPException(404, "install assurance watch not found") from exc
     except IncompleteInstallAssuranceArtifactError as exc:
         raise HTTPException(409, exc.detail()) from exc
+
+
+@app.post(
+    "/api/runs/{run_id}/install-assurance/watches/{watch_id}/promote"
+)
+def promote_install_watch_episode(
+    run_id: str,
+    watch_id: str,
+    request: InstallHandoffPromotionRequest,
+    _: dict = Depends(principal),
+):
+    run_path = _run_path(run_id)
+    try:
+        existing = read_install_handoff_receipt(
+            run_path,
+            watch_id,
+            request.install_episode_id,
+        )
+        if existing is not None:
+            return existing
+        payload = build_install_handoff_request(
+            run_path,
+            watch_id,
+            request.install_episode_id,
+        )
+        result = _post_workflow_handoff(payload)
+        receipt = {
+            "version": "1.0",
+            "run_id": run_id,
+            "watch_id": watch_id,
+            "install_episode_id": request.install_episode_id,
+            "workflow_handoff": result,
+            "production_write": False,
+        }
+        return write_install_handoff_receipt(
+            run_path,
+            watch_id,
+            request.install_episode_id,
+            receipt,
+        )
+    except ValueError as exc:
+        raise HTTPException(422, str(exc)) from exc
+    except KeyError as exc:
+        raise HTTPException(404, "install assurance episode not found") from exc
+    except IncompleteInstallAssuranceArtifactError as exc:
+        raise HTTPException(409, exc.detail()) from exc
+
+
+@app.get(
+    "/api/runs/{run_id}/install-assurance/watches/{watch_id}/handoffs/{install_episode_id}"
+)
+def install_watch_handoff_receipt(
+    run_id: str,
+    watch_id: str,
+    install_episode_id: str,
+    _: dict = Depends(principal),
+):
+    try:
+        receipt = read_install_handoff_receipt(
+            _run_path(run_id),
+            watch_id,
+            install_episode_id,
+        )
+    except ValueError as exc:
+        raise HTTPException(400, str(exc)) from exc
+    if receipt is None:
+        raise HTTPException(404, "install assurance handoff not found")
+    return receipt
 
 
 @app.get("/api/runs/{run_id}/install-assurance/projection")
