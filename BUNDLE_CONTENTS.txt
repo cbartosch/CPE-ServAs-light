@@ -1,18 +1,18 @@
-LPR CPE Service Assurance Demo v1.29.1 Unified Assurance P1/P2 Python 3.14.7
+LPR CPE Service Assurance Demo v1.29.2 Unified Assurance P1/P2 Python 3.14.7
 Generated: 2026-09-02
-Indexed files: 328
-Indexed bytes: 13215600
+Indexed files: 329
+Indexed bytes: 13218102
 
 .dockerignore	114 bytes
 .env.example	3592 bytes
 .gitattributes	473 bytes
 .gitignore	152 bytes
 .stage3-manifest-exclusions.txt	89 bytes
-BUILD_TEST_REPORT.txt	6706 bytes
-BUNDLE_CONTENTS.txt	14331 bytes
-CHANGELOG.md	102377 bytes
+BUILD_TEST_REPORT.txt	7221 bytes
+BUNDLE_CONTENTS.txt	14366 bytes
+CHANGELOG.md	102899 bytes
 Dockerfile	1688 bytes
-FILE_MANIFEST.txt	14307 bytes
+FILE_MANIFEST.txt	14342 bytes
 LICENSE.txt	297 bytes
 Makefile	1780 bytes
 README.md	17905 bytes
@@ -63,6 +63,7 @@ docs/RELEASE_v1.27.14.md	1716 bytes
 docs/RELEASE_v1.27.15.md	2015 bytes
 docs/RELEASE_v1.27.16.md	1128 bytes
 docs/RELEASE_v1.29.1.md	1984 bytes
+docs/RELEASE_v1.29.2.md	1352 bytes
 docs/RUNBOOK.md	7019 bytes
 docs/SECURITY.md	1086 bytes
 docs/SECURITY_CONTROLS.md	3254 bytes
@@ -257,7 +258,7 @@ src/lpr_cpe_demo/ui/artwork.py	1152 bytes
 src/lpr_cpe_demo/ui/assets/footprint_map.svg	8947 bytes
 src/lpr_cpe_demo/ui/assets/landmark_band.svg	3469 bytes
 src/lpr_cpe_demo/ui/assets/landmark_watermark.svg	2351 bytes
-src/lpr_cpe_demo/ui/client.py	7061 bytes
+src/lpr_cpe_demo/ui/client.py	7060 bytes
 src/lpr_cpe_demo/ui/common.py	1242 bytes
 src/lpr_cpe_demo/ui/deck.py	5963 bytes
 src/lpr_cpe_demo/ui/executive_theme.py	192 bytes
@@ -323,7 +324,7 @@ tests/test_routing_theme.py	12292 bytes
 tests/test_runtime_connectivity_regressions.py	6785 bytes
 tests/test_security_store.py	8623 bytes
 tests/test_sidebar.py	6467 bytes
-tests/test_target_lint_regressions.py	3322 bytes
+tests/test_target_lint_regressions.py	3366 bytes
 tests/test_telemetry.py	15641 bytes
 tests/test_ui_widgets.py	24099 bytes
 tests/test_unified_assurance_p1.py	3418 bytes

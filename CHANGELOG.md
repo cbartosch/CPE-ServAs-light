@@ -1,3 +1,14 @@
+## 1.29.2 — target Ruff import-block closure
+
+- Corrects the final Ruff 0.13.3 `I001` finding in the Streamlit API client by
+  using the canonical single blank line between the import block and the first
+  module-level constant.
+- Adds an exact regression guard for that source shape.
+- Retains the complete P1 shared assurance episode and P2 durable post-action
+  quarantine lifecycle from v1.29.1.
+- Keeps DvSum CADDI as the sole current product terminology and preserves
+  simulation-only production-write controls.
+
 ## 1.29.1 — unified assurance and post-action quarantine
 
 - Project every repair case and promoted install defect into one durable assurance episode with stable cross-system identifiers and append-only episode events.

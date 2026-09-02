@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from typing import Any
 
-
 DEFAULT_REQUEST_TIMEOUT_SECONDS = 30.0
 DEFAULT_SCENARIO_TIMEOUT_SECONDS = 240.0
 

@@ -33,7 +33,8 @@ def test_ui_client_import_block_is_ruff_stable() -> None:
     source = _source("src/lpr_cpe_demo/ui/client.py")
     expected = (
         "from __future__ import annotations\n\n"
-        "from typing import Any\n"
+        "from typing import Any\n\n"
+        "DEFAULT_REQUEST_TIMEOUT_SECONDS"
     )
     assert source.startswith(expected)
     module = ast.parse(source)

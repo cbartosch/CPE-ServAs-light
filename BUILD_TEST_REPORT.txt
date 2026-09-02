@@ -1,3 +1,13 @@
+LPR CPE SERVICE ASSURANCE DEMO — v1.29.2 TARGET RUFF CLOSURE
+================================================================
+
+PASS  Canonical import trailer in src/lpr_cpe_demo/ui/client.py
+PASS  Exact regression guard for the target Ruff 0.13.3 I001 finding
+PASS  P1 shared repair/install assurance retained
+PASS  P2 durable post-action quarantine retained
+PASS  DvSum CADDI remains canonical and production writes remain disabled
+TARGET Python 3.14.7, pytest 9.0.2, Ruff 0.13.3 and Docker Desktop before push
+
 LPR CPE SERVICE ASSURANCE DEMO — v1.29.1 P1/P2 RELEASE GATES
 ================================================================
 
