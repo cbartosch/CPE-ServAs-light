@@ -39,17 +39,23 @@ from lpr_cpe_demo.mcp_client import HTTPMCPClient, InProcessMCPClient, MCPClient
 from lpr_cpe_demo.mcp_server.store import EffectStore
 from lpr_cpe_demo.mcp_server.tools import ToolRegistry
 from lpr_cpe_demo.measurement import build_operations_projection
-from lpr_cpe_demo.persistence import Repository
+from lpr_cpe_demo.persistence import QuarantineMutation, Repository
 from lpr_cpe_demo.quarantine import (
     PostActionQuarantine,
     QuarantineHealth,
+    QuarantineLeaseError,
     QuarantineObservation,
     QuarantineObservationRequest,
+    QuarantineObservationTimeError,
+    QuarantineObservationTooEarlyError,
     QuarantinePolicy,
     QuarantineStatus,
+    QuarantineTerminalStateError,
     QuarantineTransition,
+    as_utc,
     evaluate_quarantine_observation,
     observation_id_for,
+    observation_request_fingerprint,
 )
 from lpr_cpe_demo.workflow.engine import PortableWorkflowEngine, build_approval_token
 from lpr_cpe_demo.workflow.scenarios import ScenarioCatalog
@@ -215,6 +221,7 @@ class WorkflowService:
         *,
         actor: str = "workflow",
         payload: dict[str, Any] | None = None,
+        occurred_at: datetime | None = None,
     ) -> AssuranceEpisodeEvent:
         return AssuranceEpisodeEvent(
             event_id=stable_id(
@@ -228,6 +235,7 @@ class WorkflowService:
             incident_id=episode.incident_id,
             event_type=event_type,
             actor=actor,
+            occurred_at=occurred_at or utc_now(),
             payload=payload or {},
         )
 
@@ -567,6 +575,9 @@ class WorkflowService:
             ),
             max_extensions=self.settings.post_action_quarantine_max_extensions,
             lease_seconds=self.settings.post_action_quarantine_lease_seconds,
+            max_measurement_clock_skew_seconds=(
+                self.settings.post_action_quarantine_max_measurement_clock_skew_seconds
+            ),
         )
 
     def list_quarantines(
@@ -599,53 +610,86 @@ class WorkflowService:
             ).model_dump(mode="json"),
         }
 
-    def record_quarantine_observation(
+    def _validate_quarantine_observation(
         self,
-        quarantine_id: str,
+        quarantine: PostActionQuarantine,
         request: QuarantineObservationRequest,
-    ) -> dict[str, Any]:
-        existing = self.repository.get_quarantine_observation_by_key(
-            request.idempotency_key
-        )
-        if existing is not None:
-            return {
-                "created": False,
-                "observation": existing.model_dump(mode="json"),
-                **self.get_quarantine(existing.quarantine_id),
-            }
+        *,
+        received_at: datetime,
+        latest: QuarantineObservation | None,
+        lease_owner: str | None,
+        lease_token: str | None,
+    ) -> QuarantineObservationRequest:
+        server_time = as_utc(received_at)
+        if quarantine.status != QuarantineStatus.ACTIVE:
+            raise QuarantineTerminalStateError(
+                f"QUARANTINE_TERMINAL:{quarantine.quarantine_id}:"
+                f"{quarantine.status.value}"
+            )
 
-        quarantine = self.repository.get_quarantine(quarantine_id)
-        if quarantine is None:
-            raise IncidentNotFound(quarantine_id)
-        quarantine, transition = evaluate_quarantine_observation(
-            quarantine,
-            request,
+        lease_until = (
+            as_utc(quarantine.lease_until)
+            if quarantine.lease_until is not None
+            else None
         )
-        observation = QuarantineObservation(
-            observation_id=observation_id_for(
-                quarantine_id,
-                request.idempotency_key,
-            ),
-            quarantine_id=quarantine_id,
-            incident_id=quarantine.incident_id,
-            observed_at=request.observed_at,
-            health=request.health,
-            source=request.source,
-            actor=request.actor,
-            idempotency_key=request.idempotency_key,
-            metrics=request.metrics,
-            transition=transition,
-        )
-        self.repository.append_quarantine_observation(observation)
-        self.repository.save_quarantine(quarantine)
+        lease_is_live = lease_until is not None and lease_until > server_time
+        if lease_token is not None:
+            if (
+                not lease_is_live
+                or quarantine.lease_token != lease_token
+                or quarantine.lease_owner != lease_owner
+            ):
+                raise QuarantineLeaseError("QUARANTINE_LEASE_LOST")
+        elif lease_is_live and quarantine.lease_owner is not None:
+            raise QuarantineLeaseError("QUARANTINE_LEASE_HELD")
 
-        state = self.get_incident(quarantine.incident_id)
+        if (
+            request.health != QuarantineHealth.DEGRADED
+            and server_time < as_utc(quarantine.next_check_at)
+        ):
+            raise QuarantineObservationTooEarlyError(
+                "QUARANTINE_OBSERVATION_TOO_EARLY:"
+                f"{as_utc(quarantine.next_check_at).isoformat()}"
+            )
+
+        measured_at = as_utc(request.observed_at or server_time)
+        skew_seconds = abs((measured_at - server_time).total_seconds())
+        maximum_skew = (
+            self.settings.post_action_quarantine_max_measurement_clock_skew_seconds
+        )
+        if skew_seconds > maximum_skew:
+            raise QuarantineObservationTimeError(
+                "QUARANTINE_MEASUREMENT_CLOCK_SKEW:"
+                f"{skew_seconds:.3f}>{maximum_skew}"
+            )
+        if latest is not None:
+            if measured_at <= as_utc(latest.observed_at):
+                raise QuarantineObservationTimeError(
+                    "QUARANTINE_MEASUREMENT_NOT_MONOTONIC"
+                )
+            if server_time < as_utc(latest.received_at):
+                raise QuarantineObservationTimeError(
+                    "QUARANTINE_RECEIPT_TIME_NOT_MONOTONIC"
+                )
+        return request.model_copy(update={"observed_at": measured_at})
+
+    @staticmethod
+    def _apply_quarantine_incident_transition(
+        state: IncidentState,
+        *,
+        quarantine: PostActionQuarantine,
+        observation: QuarantineObservation,
+        transition: QuarantineTransition,
+        actor: str,
+        received_at: datetime,
+    ) -> IncidentState:
         if transition in {
             QuarantineTransition.CONTINUE,
             QuarantineTransition.EXTEND,
         }:
             state.stage = Stage.POST_ACTION_QUARANTINE
             state.status = CaseStatus.QUARANTINED
+            state.active_quarantine_id = quarantine.quarantine_id
             state.current_owner = "Assurance quarantine"
             state.append_event(
                 event_type=(
@@ -659,14 +703,15 @@ class WorkflowService:
                     else "Post-action health observed"
                 ),
                 detail=(
-                    f"Health={request.health.value}; closure remains blocked."
+                    f"Health={observation.health.value}; closure remains blocked."
                 ),
+                actor=actor,
                 metadata={
-                    "quarantine_id": quarantine_id,
+                    "quarantine_id": quarantine.quarantine_id,
                     "observation_id": observation.observation_id,
+                    "received_at": received_at.isoformat(),
                 },
             )
-            self.repository.save_incident(state)
         elif transition == QuarantineTransition.RELEASE:
             state.stage = Stage.RECONCILE
             state.status = CaseStatus.OPEN
@@ -675,13 +720,28 @@ class WorkflowService:
                 event_type="post_action_quarantine_released",
                 title="Post-action quarantine released",
                 detail=(
-                    "The minimum duration and repeated healthy-check policy "
-                    "passed; linked records may now close."
+                    "The server-authoritative minimum duration and repeated "
+                    "healthy-check policy passed."
                 ),
-                metadata={"quarantine_id": quarantine_id},
+                actor=actor,
+                metadata={
+                    "quarantine_id": quarantine.quarantine_id,
+                    "observation_id": observation.observation_id,
+                },
             )
-            self.repository.save_incident(state)
-            state = self.engine.run_until_pause(state)
+            state.stage = Stage.CLOSED
+            state.status = CaseStatus.CLOSED
+            state.active_quarantine_id = None
+            state.current_owner = "Closed"
+            state.append_event(
+                event_type="linked_records_closed",
+                title="Incident closed",
+                detail=(
+                    "NXT alarm, incident, work orders and jTrack MR were reconciled "
+                    "after stable validation."
+                ),
+                actor=actor,
+            )
         elif transition == QuarantineTransition.REOPEN:
             state.stage = Stage.FAILURE_REVIEW
             state.status = CaseStatus.OPEN
@@ -695,41 +755,135 @@ class WorkflowService:
                     "The case returned to failure review on the same incident "
                     "before any repeat action."
                 ),
+                actor=actor,
                 severity=Severity.WARNING,
-                metadata={"quarantine_id": quarantine_id},
+                metadata={"quarantine_id": quarantine.quarantine_id},
             )
-            self.repository.save_incident(state)
         elif transition == QuarantineTransition.ESCALATE:
             state.stage = Stage.ESCALATED
             state.status = CaseStatus.ESCALATED
             state.current_owner = "L2/SME"
             state.active_quarantine_id = None
-            state.last_error = "Quarantine health remained unknown after extension budget"
+            state.last_error = (
+                "Quarantine health remained unknown after extension budget"
+            )
             state.append_event(
                 event_type="post_action_quarantine_escalated",
                 title="Quarantine escalated",
                 detail=state.last_error,
+                actor=actor,
                 severity=Severity.CRITICAL,
-                metadata={"quarantine_id": quarantine_id},
+                metadata={"quarantine_id": quarantine.quarantine_id},
             )
-            self.repository.save_incident(state)
+        state.updated_at = received_at
+        return state
 
-        episode = self._sync_episode(state)
-        self._record_episode_event(
-            episode,
-            f"quarantine_{transition.value}",
-            actor=request.actor,
-            payload={
-                "quarantine_id": quarantine_id,
-                "observation_id": observation.observation_id,
-                "health": request.health.value,
-            },
+    def record_quarantine_observation(
+        self,
+        quarantine_id: str,
+        request: QuarantineObservationRequest,
+        *,
+        actor: str,
+        source: str,
+        received_at: datetime | None = None,
+        lease_owner: str | None = None,
+        lease_token: str | None = None,
+    ) -> dict[str, Any]:
+        server_time = as_utc(received_at or utc_now())
+        request_fingerprint = observation_request_fingerprint(
+            quarantine_id,
+            request,
+            actor=actor,
+            source=source,
         )
+
+        def build_mutation(
+            quarantine: PostActionQuarantine,
+            state: IncidentState,
+            episode: AssuranceEpisode,
+            latest: QuarantineObservation | None,
+        ) -> QuarantineMutation:
+            normalized_request = self._validate_quarantine_observation(
+                quarantine,
+                request,
+                received_at=server_time,
+                latest=latest,
+                lease_owner=lease_owner,
+                lease_token=lease_token,
+            )
+            quarantine, transition = evaluate_quarantine_observation(
+                quarantine,
+                normalized_request,
+                received_at=server_time,
+            )
+            observation = QuarantineObservation(
+                observation_id=observation_id_for(
+                    quarantine_id,
+                    normalized_request.idempotency_key,
+                ),
+                quarantine_id=quarantine_id,
+                incident_id=quarantine.incident_id,
+                observed_at=normalized_request.observed_at or server_time,
+                received_at=server_time,
+                health=normalized_request.health,
+                source=source,
+                actor=actor,
+                idempotency_key=normalized_request.idempotency_key,
+                request_fingerprint=request_fingerprint,
+                lease_token=lease_token,
+                metrics=normalized_request.metrics,
+                transition=transition,
+                created_at=server_time,
+            )
+            state = self._apply_quarantine_incident_transition(
+                state,
+                quarantine=quarantine,
+                observation=observation,
+                transition=transition,
+                actor=actor,
+                received_at=server_time,
+            )
+            episode.status = self._episode_status(state)
+            episode.workflow_stage = state.stage.value
+            episode.title = state.title
+            episode.updated_at = server_time
+            lineage_event = self._episode_event(
+                episode,
+                f"quarantine_{transition.value}",
+                actor=actor,
+                occurred_at=server_time,
+                payload={
+                    "health": normalized_request.health.value,
+                    "measured_at": observation.observed_at.isoformat(),
+                    "observation_id": observation.observation_id,
+                    "quarantine_id": quarantine_id,
+                    "received_at": server_time.isoformat(),
+                    "request_fingerprint": request_fingerprint,
+                    "source": source,
+                },
+            )
+            return QuarantineMutation(
+                quarantine=quarantine,
+                observation=observation,
+                incident=state,
+                episode=episode,
+                lineage_event=lineage_event,
+            )
+
+        try:
+            result = self.repository.apply_quarantine_observation(
+                quarantine_id=quarantine_id,
+                idempotency_key=request.idempotency_key,
+                request_fingerprint=request_fingerprint,
+                build_mutation=build_mutation,
+            )
+        except KeyError as exc:
+            raise IncidentNotFound(quarantine_id) from exc
         return {
-            "created": True,
-            "observation": observation.model_dump(mode="json"),
-            "quarantine": quarantine.model_dump(mode="json"),
-            "incident": state.model_dump(mode="json"),
+            "created": result.created,
+            "observation": result.observation.model_dump(mode="json"),
+            "quarantine": result.quarantine.model_dump(mode="json"),
+            "incident": result.incident.model_dump(mode="json"),
         }
 
     def run_due_quarantine_jobs(
@@ -739,15 +893,17 @@ class WorkflowService:
         worker_id: str = "workflow-api",
         limit: int = 20,
     ) -> list[dict[str, Any]]:
-        observed_at = now or utc_now()
+        claim_time = as_utc(now or utc_now())
         claimed = self.repository.claim_due_quarantines(
-            now=observed_at,
+            now=claim_time,
             worker_id=worker_id,
             lease_seconds=self.settings.post_action_quarantine_lease_seconds,
             limit=limit,
         )
         results: list[dict[str, Any]] = []
         for quarantine in claimed:
+            if not quarantine.lease_token:
+                raise QuarantineLeaseError("QUARANTINE_LEASE_TOKEN_MISSING")
             state = self.get_incident(quarantine.incident_id)
             raw_sequence = list(
                 state.scenario_context.get("quarantine_health_sequence") or []
@@ -762,11 +918,18 @@ class WorkflowService:
                 if raw_sequence
                 else QuarantineHealth.HEALTHY.value
             )
+            received_at = claim_time if now is not None else as_utc(utc_now())
+            if not self.repository.renew_quarantine_lease(
+                quarantine_id=quarantine.quarantine_id,
+                worker_id=worker_id,
+                lease_token=quarantine.lease_token,
+                now=received_at,
+                lease_seconds=self.settings.post_action_quarantine_lease_seconds,
+            ):
+                raise QuarantineLeaseError("QUARANTINE_LEASE_LOST")
             request = QuarantineObservationRequest(
                 health=QuarantineHealth(raw_health),
-                observed_at=observed_at,
-                source="scheduled_health_check",
-                actor=worker_id,
+                observed_at=received_at,
                 idempotency_key=stable_id(
                     quarantine.quarantine_id,
                     quarantine.next_check_at.isoformat(),
@@ -781,6 +944,11 @@ class WorkflowService:
                 self.record_quarantine_observation(
                     quarantine.quarantine_id,
                     request,
+                    actor=worker_id,
+                    source="scheduled_health_check",
+                    received_at=received_at,
+                    lease_owner=worker_id,
+                    lease_token=quarantine.lease_token,
                 )
             )
         return results

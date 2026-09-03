@@ -30,6 +30,9 @@ class Settings(BaseSettings):
     demo_auth_enabled: bool = False
     demo_default_user: str = "demo.operator"
     demo_default_role: str = "operations_supervisor"
+    workflow_internal_token: str = ""
+    workflow_internal_actor: str = "workflow.internal"
+    workflow_internal_source: str = "authenticated_workflow_client"
 
     database_url: str = "sqlite+pysqlite:///./data/lpr_cpe_demo.db"
     langgraph_postgres_dsn: str = ""
@@ -79,6 +82,11 @@ class Settings(BaseSettings):
     post_action_quarantine_max_extensions: int = Field(default=2, ge=0)
     post_action_quarantine_lease_seconds: int = Field(default=120, ge=5)
     post_action_quarantine_worker_interval_seconds: int = Field(default=15, ge=1)
+    post_action_quarantine_max_measurement_clock_skew_seconds: int = Field(
+        default=300,
+        ge=0,
+        le=86_400,
+    )
 
     install_handoff_lease_seconds: int = Field(default=30, ge=5)
     install_handoff_wait_seconds: float = Field(default=45.0, ge=1.0, le=600.0)
@@ -90,7 +98,6 @@ class Settings(BaseSettings):
         "DEMONSTRATION MODE — NXT, CPE, WFM and jTrack operations are simulated. "
         "No production writes are enabled."
     )
-
 
     @model_validator(mode="after")
     def validate_safe_compatibility_profile(self) -> "Settings":

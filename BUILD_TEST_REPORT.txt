@@ -1,3 +1,21 @@
+LPR CPE SERVICE ASSURANCE DEMO - v1.29.3 P2 HARDENING RC3
+================================================================
+
+PASS  One transaction persists observation, quarantine, incident, episode and lineage
+PASS  Release policy uses server-authoritative receipt time, not client measurement time
+PASS  External measurement timestamps are timezone-aware, bounded and monotonic
+PASS  Terminal quarantines reject new observations while exact replays remain stable
+PASS  Idempotency is scoped by quarantine and protected by a canonical request fingerprint
+PASS  SQLite writes serialize; PostgreSQL locks the quarantine, incident and episode rows
+PASS  Scheduled jobs require a unique lease token and support expiry takeover
+PASS  P2 mutation routes require the internal token and derive actor/source from settings
+PASS  17 portable P2 tests, including rollback, concurrency, replay and migration gates
+PASS  7 PostgreSQL-specific interruption/concurrency/lease/replay/temporal/terminal/migration tests packaged
+PASS  956 tests collected; 947 passed and 9 skipped in the assembly runtime
+PASS  Nine-scenario matrix, Python compileall, Compose structure and Git whitespace gates
+TARGET Python 3.14.7, Ruff 0.13.3, live PostgreSQL and Docker Desktop before push
+NOTE  The 9 skips are 2 inherited framework skips plus 7 live-PostgreSQL gates.
+
 LPR CPE SERVICE ASSURANCE DEMO — v1.29.3 P1 HANDOFF RELIABILITY
 ================================================================
 

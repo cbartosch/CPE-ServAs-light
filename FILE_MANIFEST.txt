@@ -1,21 +1,21 @@
-LPR CPE Service Assurance Demo v1.29.3 File Manifest
+LPR CPE Service Assurance Demo v1.29.3 RC3 File Manifest
 Generated: 2026-09-03
-Indexed files: 330
-Indexed bytes: 13257465
+Indexed files: 333
+Indexed bytes: 13348981
 
 .dockerignore	114 bytes
-.env.example	3592 bytes
+.env.example	3896 bytes
 .gitattributes	473 bytes
 .gitignore	152 bytes
 .stage3-manifest-exclusions.txt	89 bytes
-BUILD_TEST_REPORT.txt	8166 bytes
-BUNDLE_CONTENTS.txt	14401 bytes
-CHANGELOG.md	103891 bytes
+BUILD_TEST_REPORT.txt	9505 bytes
+BUNDLE_CONTENTS.txt	14537 bytes
+CHANGELOG.md	104768 bytes
 Dockerfile	1688 bytes
-FILE_MANIFEST.txt	14378 bytes
+FILE_MANIFEST.txt	14524 bytes
 LICENSE.txt	297 bytes
 Makefile	1780 bytes
-README.md	18035 bytes
+README.md	18228 bytes
 RUN_TESTS_MAC_LINUX.sh	69 bytes
 RUN_TESTS_WINDOWS.ps1	88 bytes
 START_DEMO_MAC_LINUX.sh	66 bytes
@@ -23,7 +23,7 @@ START_DEMO_WINDOWS.ps1	85 bytes
 START_HERE.md	2500 bytes
 data/.gitkeep	0 bytes
 docker-compose.low-resource.yml	348 bytes
-docker-compose.yml	6815 bytes
+docker-compose.yml	7668 bytes
 docker/Dockerfile.digital-twin	1424 bytes
 docker/app.Dockerfile	3393 bytes
 docker/certs/.gitkeep	0 bytes
@@ -64,14 +64,14 @@ docs/RELEASE_v1.27.15.md	2015 bytes
 docs/RELEASE_v1.27.16.md	1128 bytes
 docs/RELEASE_v1.29.1.md	1984 bytes
 docs/RELEASE_v1.29.2.md	1352 bytes
-docs/RELEASE_v1.29.3.md	3538 bytes
+docs/RELEASE_v1.29.3.md	4966 bytes
 docs/RUNBOOK.md	7019 bytes
 docs/SECURITY.md	1086 bytes
 docs/SECURITY_CONTROLS.md	3254 bytes
 docs/SHARED_MEASUREMENT_CONTRACT.md	7078 bytes
 docs/STAGE3_DVSUM_CADDI_AUDIT.md	2624 bytes
-docs/TEST_REPORT.md	11327 bytes
-docs/UNIFIED_ASSURANCE_P1_P2.md	3955 bytes
+docs/TEST_REPORT.md	13029 bytes
+docs/UNIFIED_ASSURANCE_P1_P2.md	4718 bytes
 docs/WAVE_1_COST_DATA_INTEGRITY.md	2447 bytes
 docs/WORKFLOW.md	5876 bytes
 docs/control_tower.html	231328 bytes
@@ -132,7 +132,7 @@ scripts/generate_video_slates.py	29463 bytes
 scripts/import_external_evidence.py	3267 bytes
 scripts/install-host-ca.ps1	1209 bytes
 scripts/install-host-ca.sh	1465 bytes
-scripts/post_action_quarantine_smoke.py	3960 bytes
+scripts/post_action_quarantine_smoke.py	5001 bytes
 scripts/preflight.py	1479 bytes
 scripts/promote_install_assurance.py	1482 bytes
 scripts/registry-doctor.ps1	4592 bytes
@@ -143,7 +143,7 @@ scripts/run_ab_matrix.py	11095 bytes
 scripts/run_commercial_priority.py	9885 bytes
 scripts/run_dispatch_simulation.py	8174 bytes
 scripts/run_predictive_scan.py	7247 bytes
-scripts/run_quarantine_checks.py	1020 bytes
+scripts/run_quarantine_checks.py	1375 bytes
 scripts/run_scenario_matrix.py	10850 bytes
 scripts/runtime_smoke.py	4924 bytes
 scripts/show_northbound_messages.py	5270 bytes
@@ -156,8 +156,10 @@ scripts/start_digital_twin.ps1	786 bytes
 scripts/start_digital_twin.sh	600 bytes
 scripts/stop_demo.ps1	96 bytes
 scripts/stop_demo.sh	70 bytes
-scripts/test_bundle.ps1	161 bytes
-scripts/test_bundle.sh	135 bytes
+scripts/test_bundle.ps1	398 bytes
+scripts/test_bundle.sh	165 bytes
+scripts/test_p2_postgres.ps1	475 bytes
+scripts/test_p2_postgres.sh	207 bytes
 scripts/tls-doctor.ps1	2854 bytes
 scripts/tls-doctor.sh	4202 bytes
 scripts/validate_compose.py	2834 bytes
@@ -165,8 +167,8 @@ scripts/vendor-wheels.ps1	1429 bytes
 scripts/vendor-wheels.sh	664 bytes
 scripts/verify_digital_twin.ps1	796 bytes
 scripts/verify_digital_twin.sh	748 bytes
-scripts/verify_docker.ps1	780 bytes
-scripts/verify_docker.sh	606 bytes
+scripts/verify_docker.ps1	2135 bytes
+scripts/verify_docker.sh	1522 bytes
 scripts/verify_manifest.py	5457 bytes
 src/lpr_cpe_demo/__init__.py	78 bytes
 src/lpr_cpe_demo/ab_metrics.py	7643 bytes
@@ -177,13 +179,13 @@ src/lpr_cpe_demo/agents/guards.py	10119 bytes
 src/lpr_cpe_demo/agents/provider.py	7512 bytes
 src/lpr_cpe_demo/agents/status.py	6892 bytes
 src/lpr_cpe_demo/api/__init__.py	54 bytes
-src/lpr_cpe_demo/api/main.py	13971 bytes
+src/lpr_cpe_demo/api/main.py	15618 bytes
 src/lpr_cpe_demo/assurance.py	3542 bytes
 src/lpr_cpe_demo/benchmarks.py	7091 bytes
 src/lpr_cpe_demo/caddi.py	18452 bytes
 src/lpr_cpe_demo/cadi.py	1031 bytes
 src/lpr_cpe_demo/commercial.py	37376 bytes
-src/lpr_cpe_demo/config.py	4995 bytes
+src/lpr_cpe_demo/config.py	5291 bytes
 src/lpr_cpe_demo/controls.py	5482 bytes
 src/lpr_cpe_demo/dashboard.py	30051 bytes
 src/lpr_cpe_demo/digital_twin/__init__.py	77 bytes
@@ -236,8 +238,8 @@ src/lpr_cpe_demo/northbound/__init__.py	2217 bytes
 src/lpr_cpe_demo/northbound/adapters.py	14800 bytes
 src/lpr_cpe_demo/northbound/contracts.py	11357 bytes
 src/lpr_cpe_demo/northbound/samples.py	8276 bytes
-src/lpr_cpe_demo/persistence/__init__.py	61 bytes
-src/lpr_cpe_demo/persistence/repository.py	44079 bytes
+src/lpr_cpe_demo/persistence/__init__.py	103 bytes
+src/lpr_cpe_demo/persistence/repository.py	69566 bytes
 src/lpr_cpe_demo/plant.py	9165 bytes
 src/lpr_cpe_demo/predictive/__init__.py	1886 bytes
 src/lpr_cpe_demo/predictive/config.py	6984 bytes
@@ -249,7 +251,7 @@ src/lpr_cpe_demo/predictive/scan.py	6685 bytes
 src/lpr_cpe_demo/predictive/scanner.py	8644 bytes
 src/lpr_cpe_demo/predictive/service.py	9982 bytes
 src/lpr_cpe_demo/predictive/signals.py	10198 bytes
-src/lpr_cpe_demo/quarantine.py	6761 bytes
+src/lpr_cpe_demo/quarantine.py	9193 bytes
 src/lpr_cpe_demo/retrieval.py	5728 bytes
 src/lpr_cpe_demo/routing.py	8699 bytes
 src/lpr_cpe_demo/telemetry.py	19978 bytes
@@ -283,9 +285,9 @@ src/lpr_cpe_demo/workflow/__init__.py	164 bytes
 src/lpr_cpe_demo/workflow/engine.py	46189 bytes
 src/lpr_cpe_demo/workflow/langgraph_runtime.py	5532 bytes
 src/lpr_cpe_demo/workflow/scenarios.py	1432 bytes
-src/lpr_cpe_demo/workflow/service.py	32750 bytes
+src/lpr_cpe_demo/workflow/service.py	39603 bytes
 tests/__init__.py	0 bytes
-tests/conftest.py	2289 bytes
+tests/conftest.py	2450 bytes
 tests/test_agents.py	30430 bytes
 tests/test_api.py	3771 bytes
 tests/test_assets.py	2799 bytes
@@ -313,7 +315,8 @@ tests/test_mcp_http.py	5252 bytes
 tests/test_measurement_semantics.py	12137 bytes
 tests/test_northbound.py	13854 bytes
 tests/test_plant_effort.py	14681 bytes
-tests/test_post_action_quarantine_p2.py	8638 bytes
+tests/test_post_action_quarantine_p2.py	30004 bytes
+tests/test_post_action_quarantine_p2_postgres.py	20707 bytes
 tests/test_predictive.py	27924 bytes
 tests/test_predictive_workspace_layout_regression.py	1363 bytes
 tests/test_reachability.py	9964 bytes
@@ -328,7 +331,7 @@ tests/test_sidebar.py	6467 bytes
 tests/test_target_lint_regressions.py	4217 bytes
 tests/test_telemetry.py	15641 bytes
 tests/test_ui_widgets.py	24099 bytes
-tests/test_unified_assurance_p1.py	11481 bytes
+tests/test_unified_assurance_p1.py	11761 bytes
 tests/test_unified_assurance_p1_digital_twin.py	5814 bytes
 tests/test_workflow.py	6186 bytes
 vendor/.gitkeep	0 bytes

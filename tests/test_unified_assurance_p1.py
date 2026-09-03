@@ -292,9 +292,16 @@ def test_assurance_api_exposes_handoff_and_episode_read_model(
 ) -> None:
     app = create_app(settings=settings, service=service)
     with TestClient(app) as client:
+        unauthenticated = client.post(
+            "/api/assurance/install-handoffs",
+            json=_handoff().model_dump(mode="json"),
+        )
+        assert unauthenticated.status_code == 401
+
         response = client.post(
             "/api/assurance/install-handoffs",
             json=_handoff().model_dump(mode="json"),
+            headers={"X-LPR-Internal-Token": settings.workflow_internal_token},
         )
         assert response.status_code == 200, response.text
         payload = response.json()

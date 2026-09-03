@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import secrets
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from typing import Any
@@ -17,6 +18,7 @@ from lpr_cpe_demo.config import Settings, get_settings
 from lpr_cpe_demo.domain import ApprovalDecisionInput, ApprovalStatus, FaultDomain
 from lpr_cpe_demo.measurement import measurement_contract
 from lpr_cpe_demo.quarantine import (
+    QuarantineConflictError,
     QuarantineObservationRequest,
     QuarantineStatus,
 )
@@ -53,8 +55,12 @@ class ResetBody(BaseModel):
 
 
 class RunDueQuarantineBody(BaseModel):
-    worker_id: str = Field(default="operator", min_length=1, max_length=120)
     limit: int = Field(default=20, ge=1, le=200)
+
+
+class TrustedMutationPrincipal(BaseModel):
+    actor: str
+    source: str
 
 
 def create_app(
@@ -121,6 +127,29 @@ def create_app(
     def get_service(request: Request) -> WorkflowService:
         return request.app.state.workflow_service
 
+    def require_trusted_mutation_principal(
+        request: Request,
+    ) -> TrustedMutationPrincipal:
+        configured_token = configured_settings.workflow_internal_token.strip()
+        if not configured_token:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="WORKFLOW_INTERNAL_TOKEN_NOT_CONFIGURED",
+            )
+        supplied_token = request.headers.get("X-LPR-Internal-Token", "")
+        if not supplied_token or not secrets.compare_digest(
+            supplied_token,
+            configured_token,
+        ):
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="TRUSTED_MUTATION_AUTH_REQUIRED",
+            )
+        return TrustedMutationPrincipal(
+            actor=configured_settings.workflow_internal_actor,
+            source=configured_settings.workflow_internal_source,
+        )
+
     @app.get("/api/integrations/caddi", tags=["integrations"])
     @app.get("/api/integrations/caddi", tags=["integrations"], deprecated=True)
     @app.get("/api/integrations/cadi", tags=["integrations"], deprecated=True)
@@ -161,6 +190,9 @@ def create_app(
     @app.post("/api/assurance/install-handoffs", tags=["assurance"])
     def create_install_handoff(
         body: InstallHandoffRequest,
+        _principal: TrustedMutationPrincipal = Depends(
+            require_trusted_mutation_principal
+        ),
         workflow: WorkflowService = Depends(get_service),
     ) -> dict[str, Any]:
         try:
@@ -308,26 +340,39 @@ def create_app(
     def record_quarantine_observation(
         quarantine_id: str,
         body: QuarantineObservationRequest,
+        principal: TrustedMutationPrincipal = Depends(
+            require_trusted_mutation_principal
+        ),
         workflow: WorkflowService = Depends(get_service),
     ) -> dict[str, Any]:
         try:
             return workflow.record_quarantine_observation(
                 quarantine_id,
                 body,
+                actor=principal.actor,
+                source=f"{principal.source}:quarantine-observation",
             )
         except IncidentNotFound as exc:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=quarantine_id,
             ) from exc
+        except QuarantineConflictError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=str(exc),
+            ) from exc
 
     @app.post("/api/assurance/quarantine-jobs/run-due", tags=["assurance"])
     def run_due_quarantine_jobs(
         body: RunDueQuarantineBody,
+        principal: TrustedMutationPrincipal = Depends(
+            require_trusted_mutation_principal
+        ),
         workflow: WorkflowService = Depends(get_service),
     ) -> dict[str, Any]:
         results = workflow.run_due_quarantine_jobs(
-            worker_id=body.worker_id,
+            worker_id=f"{principal.actor}:quarantine-scheduler",
             limit=body.limit,
         )
         return {"processed": len(results), "results": results}

@@ -1,79 +1,89 @@
-# Release v1.29.3 — resumable and concurrent P1 handoff reliability
+# Release v1.29.3 RC3 — reliable P1 handoff and hardened P2 quarantine
 
-This corrective release is a descendant of the immutable v1.29.2 release
-commit. It closes the two highest-severity P1 reliability findings without
-rewriting or moving the v1.29.2 release reference.
+This corrective candidate descends from immutable v1.29.2 and the P1 reliability
+RC2. It retains the atomic, resumable install handoff and closes the minimum P2
+findings required before post-action quarantine can be treated as a mandatory
+closure control.
 
-## RC2 target-lint closure
+## P1 retained from RC2
 
-The target Python 3.14.7/Ruff 0.13.3 gate found two `B904` findings in the
-receipt publication fallback. RC2 explicitly suppresses incidental exception
-context for those deliberate terminal race errors with `raise ... from None`
-and adds an AST regression guard that runs even where Ruff is unavailable.
+- The handoff claim, deterministic repair incident, assurance episode and initial
+  lineage event are created in one database transaction.
+- A bounded durable lease makes interrupted workflow start retryable.
+- Parallel identical requests converge on one episode, incident and workflow
+  owner; incompatible replay is rejected.
+- Concurrent Digital Twin receipt writers converge on one authoritative receipt.
+- The target-reported Ruff `B904` paths use explicit `raise ... from None`.
 
-## Atomic durable claim
+## One atomic P2 transition
 
-The workflow service now creates or adopts the following records in one database
-transaction:
+Each accepted observation is processed under one repository transaction and one
+locked quarantine row. The transaction contains all five durable effects:
 
-- the canonical install handoff claim;
-- the deterministic repair incident;
-- the shared assurance episode; and
-- the initial `install_handoff_claimed` event.
+1. append the scoped quarantine observation;
+2. update the quarantine state and version;
+3. update the canonical incident state and timeline;
+4. synchronize the shared assurance episode; and
+5. append the corresponding episode lineage event.
 
-A failure during canonical-row creation rolls the complete transaction back. A
-retry therefore cannot observe a claim without the incident and episode it owns.
+An exception before commit rolls back the complete transition. Retrying the same
+idempotency key can therefore perform the work instead of returning a stranded
+partial observation.
 
-## Resumable workflow start
+## Server-authoritative time
 
-Each handoff has a durable state:
+`received_at` is assigned by the workflow service and controls due-time checks,
+minimum duration, extensions, completion and lease validity. `observed_at` is an
+external measurement timestamp retained for audit only. It must be timezone-aware,
+monotonic within a quarantine and within the configured clock-skew bound. A future
+measurement cannot release a quarantine before server time reaches the minimum.
 
-```text
-CLAIMED -> WORKFLOW_STARTING -> WORKFLOW_STARTED
-                    |
-                    +-> FAILED_RETRYABLE -> WORKFLOW_STARTING
-```
+## Terminal-state and replay rules
 
-`WORKFLOW_STARTING` is protected by a bounded lease that the active owner renews
-while the workflow executes. An ordinary exception releases the claim as
-`FAILED_RETRYABLE`; process termination stops renewal and is recovered after
-lease expiry. The configured caller wait must exceed the lease duration. A retry
-loads the persisted incident and continues the existing workflow rather than
-returning an incomplete episode as successful.
+Released, reopened and escalated quarantines reject every new observation. An
+exact replay of a previously committed observation remains safe and returns the
+stored observation and current canonical state. Idempotency is unique within
+`(quarantine_id, idempotency_key)`, allowing the same adapter-local key to be used
+for a different quarantine. A canonical request fingerprint detects changed
+health, measurement time, metrics or trusted identity under the same scoped key.
 
-## Concurrent convergence
+## Concurrency and leases
 
-Database-native conflict-free inserts and a conditional lease acquisition make
-parallel identical requests converge on the same source identity. Exactly one
-caller owns workflow startup; all other callers wait for and return the canonical
-result. A changed payload under an existing source key is rejected as a conflict.
+PostgreSQL uses `SELECT ... FOR UPDATE` around observation evaluation and
+persistence, preventing lost counters and competing terminal transitions. SQLite
+uses an in-process lock for the local test profile. Every due-job claim receives a
+new random lease token. Scheduled mutation requires the matching owner, token and
+unexpired lease; after expiry another worker can claim a new token and the stale
+worker is rejected.
 
-## Receipt publication
+## Trusted mutation boundary
 
-Digital Twin receipt writers first create a complete temporary file and then use
-atomic no-replace publication. The winning receipt becomes authoritative and all
-concurrent losers return its stored content. A lock-file fallback covers file
-systems without hard-link support.
+The install handoff, quarantine-observation and run-due endpoints require
+`X-LPR-Internal-Token`. The request body can no longer supply quarantine actor or
+source. Those values are derived from authenticated runtime settings and stored in
+the observation and lineage event. With no configured token, mutation endpoints
+fail closed with HTTP 503.
 
-## Upgrade behavior
+This is a service-to-service demonstration token, not a replacement for production
+OIDC, workload identity, token rotation or signed source artifacts.
 
-`Repository.setup()` creates the additive `assurance_install_handoff` table for
-an existing database. A v1.29.2 episode and incident that predate this table can
-be adopted and resumed using their deterministic identities. No existing source
-watch file is changed.
+## PostgreSQL acceptance profile
 
-## Boundaries retained
+`tests/test_post_action_quarantine_p2_postgres.py` covers:
 
-- Production writes remain disabled.
-- The handoff endpoint is still a simulation integration boundary; production
-  authentication and signed source-artifact verification remain separate work.
-- PostgreSQL remains the deployment database and SQLite remains the local test
-  profile. The release must still pass its PostgreSQL and Docker target gates.
-- The v1.29.2 branch, tag and commit must not be moved.
+- interruption rollback;
+- same-key parallel convergence;
+- serialization of distinct observations without lost updates;
+- unique-token lease exclusion and expiry takeover;
+- scoped replay and changed-payload rejection; and
+- server-time and terminal-state enforcement; and
+- migration of the RC2 standalone global unique index to scoped uniqueness.
 
-## Verification gates
+Run it through `scripts/test_p2_postgres.ps1` or
+`scripts/test_p2_postgres.sh`. Each test uses a disposable PostgreSQL schema and
+drops it after the test.
 
-The corrective release requires:
+## Required target gates
 
 ```text
 python -m ruff check src scripts tests
@@ -81,9 +91,23 @@ python -m pytest
 python scripts/run_scenario_matrix.py
 python scripts/verify_manifest.py
 docker compose config
-docker compose up -d --build --force-recreate
+scripts/test_p2_postgres.ps1
+scripts/verify_docker.ps1
+scripts/test_bundle.ps1
 ```
 
-The focused P1 gate includes interruption recovery, all-or-nothing claim
-creation, v1.29.2 partial-state adoption, changed-payload rejection, 32-way
-parallel handoff convergence and parallel receipt convergence.
+The Docker verifier creates a random local workflow token in an untracked `.env`
+when the value is blank and runs an authenticated degraded-health smoke. The smoke
+uses an immediate reopen transition rather than bypassing or waiting through the
+configured stability duration.
+
+## Retained boundaries
+
+- Production writes remain disabled by default.
+- Health generation remains simulated until approved NXT/service-test adapters
+  are connected.
+- The internal-token boundary is appropriate for the demo, not final production
+  authentication.
+- Live PostgreSQL, Docker Desktop, Python 3.14.7 and Ruff 0.13.3 remain mandatory
+  target-workstation gates.
+- Earlier release commits and tags must not be amended or moved.

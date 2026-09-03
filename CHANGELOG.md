@@ -1,4 +1,4 @@
-## 1.29.3 — resumable and concurrent P1 handoff reliability
+## 1.29.3 — reliable P1 handoff and hardened P2 quarantine
 
 - Close the target Ruff 0.13.3 `B904` findings in the concurrent receipt
   fallback by making deliberate terminal race errors use `raise ... from None`.
@@ -13,6 +13,20 @@
   concurrent writers return the same authoritative receipt.
 - Add failure-injection, rollback, legacy-adoption and parallel replay
   regressions while retaining simulation-only production-write controls.
+- Apply each quarantine observation, quarantine transition, incident update,
+  episode synchronization and lineage event in one locked transaction.
+- Use server receipt time for duration, due-time, completion and lease policy;
+  retain bounded external measurement time only as audit evidence.
+- Reject new observations after release, reopen or escalation while preserving
+  exact committed replay.
+- Scope observation idempotency by quarantine, fingerprint canonical content and
+  serialize competing PostgreSQL updates without lost counters.
+- Bind scheduler work to a unique lease token with expiry takeover and stale-owner
+  rejection.
+- Protect assurance mutation routes with an internal token and derive actor/source
+  from the authenticated runtime identity.
+- Add isolated-schema PostgreSQL interruption, concurrency, lease, replay, temporal
+  and terminal-state gates.
 
 ## 1.29.2 — target Ruff import-block closure
 

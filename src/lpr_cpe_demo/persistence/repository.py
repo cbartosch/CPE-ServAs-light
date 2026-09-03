@@ -1,7 +1,14 @@
 from __future__ import annotations
 
+import hashlib
+import json
+from collections.abc import Callable
+from contextlib import nullcontext
+from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
+from threading import RLock
 from typing import Any
+from uuid import uuid4
 
 from sqlalchemy import (
     JSON,
@@ -9,11 +16,14 @@ from sqlalchemy import (
     Integer,
     String,
     Text,
+    UniqueConstraint,
     create_engine,
     delete,
+    inspect,
     insert,
     or_,
     select,
+    text,
     update,
 )
 from sqlalchemy.dialects.postgresql import insert as postgresql_insert
@@ -42,6 +52,7 @@ from lpr_cpe_demo.quarantine import (
     PostActionQuarantine,
     QuarantineHealth,
     QuarantineObservation,
+    QuarantineObservationConflictError,
     QuarantineStatus,
     QuarantineTransition,
 )
@@ -180,7 +191,9 @@ class QuarantineRow(Base):
     extension_count: Mapped[int] = mapped_column(Integer)
     max_extensions: Mapped[int] = mapped_column(Integer)
     check_interval_seconds: Mapped[int] = mapped_column(Integer)
+    version: Mapped[int] = mapped_column(Integer, default=0)
     lease_owner: Mapped[str | None] = mapped_column(String(120), nullable=True, index=True)
+    lease_token: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
     lease_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     metadata_json: Mapped[dict[str, Any]] = mapped_column(JSON)
@@ -190,24 +203,64 @@ class QuarantineRow(Base):
 
 class QuarantineObservationRow(Base):
     __tablename__ = "assurance_quarantine_observation"
+    __table_args__ = (
+        UniqueConstraint(
+            "quarantine_id",
+            "idempotency_key",
+            name="uq_quarantine_observation_scope",
+        ),
+    )
 
     observation_id: Mapped[str] = mapped_column(String(100), primary_key=True)
     quarantine_id: Mapped[str] = mapped_column(String(100), index=True)
     incident_id: Mapped[str] = mapped_column(String(80), index=True)
     observed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+    received_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
     health: Mapped[str] = mapped_column(String(32), index=True)
     source: Mapped[str] = mapped_column(String(120))
     actor: Mapped[str] = mapped_column(String(120))
-    idempotency_key: Mapped[str] = mapped_column(String(160), unique=True, index=True)
+    idempotency_key: Mapped[str] = mapped_column(String(160), index=True)
+    request_fingerprint: Mapped[str] = mapped_column(String(64))
+    lease_token: Mapped[str | None] = mapped_column(String(64), nullable=True)
     metrics_json: Mapped[dict[str, Any]] = mapped_column(JSON)
     transition: Mapped[str] = mapped_column(String(32), index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
+@dataclass(frozen=True)
+class QuarantineMutation:
+    quarantine: PostActionQuarantine
+    observation: QuarantineObservation
+    incident: IncidentState
+    episode: AssuranceEpisode
+    lineage_event: AssuranceEpisodeEvent
+
+
+@dataclass(frozen=True)
+class QuarantineApplyResult:
+    created: bool
+    quarantine: PostActionQuarantine
+    observation: QuarantineObservation
+    incident: IncidentState
+    episode: AssuranceEpisode
+
+
+QuarantineMutationBuilder = Callable[
+    [
+        PostActionQuarantine,
+        IncidentState,
+        AssuranceEpisode,
+        QuarantineObservation | None,
+    ],
+    QuarantineMutation,
+]
 
 
 class Repository:
     def __init__(self, settings: Settings | None = None, database_url: str | None = None) -> None:
         self.settings = settings or get_settings()
         self.database_url = database_url or self.settings.database_url
+        self._sqlite_quarantine_lock = RLock()
         connect_args: dict[str, Any] = {}
         if self.database_url.startswith("sqlite"):
             connect_args["check_same_thread"] = False
@@ -217,6 +270,342 @@ class Repository:
 
     def setup(self) -> None:
         Base.metadata.create_all(self.engine)
+        self._migrate_quarantine_schema()
+
+    @staticmethod
+    def _legacy_observation_fingerprint(row: dict[str, Any]) -> str:
+        observed_at = row.get("observed_at")
+        if isinstance(observed_at, datetime):
+            if observed_at.tzinfo is None:
+                observed_at = observed_at.replace(tzinfo=UTC)
+            observed_value: str | None = observed_at.astimezone(UTC).isoformat()
+        else:
+            observed_value = str(observed_at) if observed_at is not None else None
+        metrics = row.get("metrics_json") or {}
+        if isinstance(metrics, str):
+            try:
+                metrics = json.loads(metrics)
+            except json.JSONDecodeError:
+                metrics = {"legacy_raw": metrics}
+        payload = {
+            "actor": row.get("actor") or "legacy",
+            "health": row.get("health") or QuarantineHealth.UNKNOWN.value,
+            "idempotency_key": row.get("idempotency_key") or "",
+            "metrics": metrics,
+            "observed_at": observed_value,
+            "quarantine_id": row.get("quarantine_id") or "",
+            "source": row.get("source") or "legacy",
+        }
+        canonical = json.dumps(
+            payload,
+            sort_keys=True,
+            separators=(",", ":"),
+            ensure_ascii=False,
+            default=str,
+        ).encode("utf-8")
+        return hashlib.sha256(canonical).hexdigest()
+
+    def _migrate_quarantine_schema(self) -> None:
+        """Apply the additive/rebuild migration needed by the RC3 P2 contract."""
+
+        dialect = self.engine.dialect.name
+        if dialect == "sqlite":
+            self._migrate_sqlite_quarantine_schema()
+        elif dialect == "postgresql":
+            self._migrate_postgres_quarantine_schema()
+
+    def _migrate_sqlite_quarantine_schema(self) -> None:
+        inspector = inspect(self.engine)
+        tables = set(inspector.get_table_names())
+        if "assurance_quarantine" not in tables:
+            return
+        quarantine_columns = {
+            column["name"] for column in inspector.get_columns("assurance_quarantine")
+        }
+        with self.engine.begin() as connection:
+            if "version" not in quarantine_columns:
+                connection.exec_driver_sql(
+                    "ALTER TABLE assurance_quarantine "
+                    "ADD COLUMN version INTEGER NOT NULL DEFAULT 0"
+                )
+            if "lease_token" not in quarantine_columns:
+                connection.exec_driver_sql(
+                    "ALTER TABLE assurance_quarantine "
+                    "ADD COLUMN lease_token VARCHAR(64)"
+                )
+
+        inspector = inspect(self.engine)
+        observation_columns = {
+            column["name"]
+            for column in inspector.get_columns("assurance_quarantine_observation")
+        }
+        unique_constraints = inspector.get_unique_constraints(
+            "assurance_quarantine_observation"
+        )
+        has_scoped_unique = any(
+            constraint.get("column_names") == ["quarantine_id", "idempotency_key"]
+            for constraint in unique_constraints
+        )
+        has_global_unique = any(
+            constraint.get("column_names") == ["idempotency_key"]
+            for constraint in unique_constraints
+        )
+        required_columns = {"received_at", "request_fingerprint", "lease_token"}
+        if (
+            required_columns.issubset(observation_columns)
+            and has_scoped_unique
+            and not has_global_unique
+        ):
+            return
+
+        with self.engine.begin() as connection:
+            rows = connection.execute(
+                text(
+                    "SELECT observation_id, quarantine_id, incident_id, observed_at, "
+                    "health, source, actor, idempotency_key, metrics_json, transition, "
+                    "created_at FROM assurance_quarantine_observation"
+                )
+            ).mappings().all()
+            connection.exec_driver_sql(
+                "DROP TABLE IF EXISTS assurance_quarantine_observation_rc3"
+            )
+            connection.exec_driver_sql(
+                """
+                CREATE TABLE assurance_quarantine_observation_rc3 (
+                    observation_id VARCHAR(100) NOT NULL PRIMARY KEY,
+                    quarantine_id VARCHAR(100) NOT NULL,
+                    incident_id VARCHAR(80) NOT NULL,
+                    observed_at DATETIME NOT NULL,
+                    received_at DATETIME NOT NULL,
+                    health VARCHAR(32) NOT NULL,
+                    source VARCHAR(120) NOT NULL,
+                    actor VARCHAR(120) NOT NULL,
+                    idempotency_key VARCHAR(160) NOT NULL,
+                    request_fingerprint VARCHAR(64) NOT NULL,
+                    lease_token VARCHAR(64),
+                    metrics_json JSON NOT NULL,
+                    transition VARCHAR(32) NOT NULL,
+                    created_at DATETIME NOT NULL,
+                    CONSTRAINT uq_quarantine_observation_scope
+                        UNIQUE (quarantine_id, idempotency_key)
+                )
+                """
+            )
+            insert_statement = text(
+                """
+                INSERT INTO assurance_quarantine_observation_rc3 (
+                    observation_id, quarantine_id, incident_id, observed_at,
+                    received_at, health, source, actor, idempotency_key,
+                    request_fingerprint, lease_token, metrics_json, transition,
+                    created_at
+                ) VALUES (
+                    :observation_id, :quarantine_id, :incident_id, :observed_at,
+                    :received_at, :health, :source, :actor, :idempotency_key,
+                    :request_fingerprint, NULL, :metrics_json, :transition,
+                    :created_at
+                )
+                """
+            )
+            for raw in rows:
+                row = dict(raw)
+                row["received_at"] = row.get("created_at") or row["observed_at"]
+                row["request_fingerprint"] = self._legacy_observation_fingerprint(row)
+                connection.execute(insert_statement, row)
+            connection.exec_driver_sql("DROP TABLE assurance_quarantine_observation")
+            connection.exec_driver_sql(
+                "ALTER TABLE assurance_quarantine_observation_rc3 "
+                "RENAME TO assurance_quarantine_observation"
+            )
+            for column in (
+                "quarantine_id",
+                "incident_id",
+                "observed_at",
+                "received_at",
+                "health",
+                "idempotency_key",
+                "transition",
+            ):
+                connection.exec_driver_sql(
+                    "CREATE INDEX IF NOT EXISTS "
+                    f"ix_assurance_quarantine_observation_{column} "
+                    "ON assurance_quarantine_observation "
+                    f"({column})"
+                )
+
+    def _migrate_postgres_quarantine_schema(self) -> None:
+        with self.engine.begin() as connection:
+            connection.execute(
+                text(
+                    "ALTER TABLE assurance_quarantine "
+                    "ADD COLUMN IF NOT EXISTS version INTEGER NOT NULL DEFAULT 0"
+                )
+            )
+            connection.execute(
+                text(
+                    "ALTER TABLE assurance_quarantine "
+                    "ADD COLUMN IF NOT EXISTS lease_token VARCHAR(64)"
+                )
+            )
+            connection.execute(
+                text(
+                    "ALTER TABLE assurance_quarantine_observation "
+                    "ADD COLUMN IF NOT EXISTS received_at TIMESTAMPTZ"
+                )
+            )
+            connection.execute(
+                text(
+                    "ALTER TABLE assurance_quarantine_observation "
+                    "ADD COLUMN IF NOT EXISTS request_fingerprint VARCHAR(64)"
+                )
+            )
+            connection.execute(
+                text(
+                    "ALTER TABLE assurance_quarantine_observation "
+                    "ADD COLUMN IF NOT EXISTS lease_token VARCHAR(64)"
+                )
+            )
+            rows = connection.execute(
+                text(
+                    "SELECT observation_id, quarantine_id, incident_id, observed_at, "
+                    "health, source, actor, idempotency_key, metrics_json, transition, "
+                    "created_at FROM assurance_quarantine_observation "
+                    "WHERE received_at IS NULL OR request_fingerprint IS NULL"
+                )
+            ).mappings().all()
+            for raw in rows:
+                row = dict(raw)
+                connection.execute(
+                    text(
+                        "UPDATE assurance_quarantine_observation "
+                        "SET received_at = COALESCE(received_at, :received_at), "
+                        "request_fingerprint = COALESCE("
+                        "request_fingerprint, :request_fingerprint) "
+                        "WHERE observation_id = :observation_id"
+                    ),
+                    {
+                        "observation_id": row["observation_id"],
+                        "received_at": row.get("created_at") or row["observed_at"],
+                        "request_fingerprint": self._legacy_observation_fingerprint(row),
+                    },
+                )
+            connection.execute(
+                text(
+                    "ALTER TABLE assurance_quarantine_observation "
+                    "ALTER COLUMN received_at SET NOT NULL"
+                )
+            )
+            connection.execute(
+                text(
+                    "ALTER TABLE assurance_quarantine_observation "
+                    "ALTER COLUMN request_fingerprint SET NOT NULL"
+                )
+            )
+            old_constraints = connection.execute(
+                text(
+                    """
+                    SELECT constraint_name
+                    FROM information_schema.table_constraints
+                    WHERE table_schema = current_schema()
+                      AND table_name = 'assurance_quarantine_observation'
+                      AND constraint_type = 'UNIQUE'
+                    """
+                )
+            ).scalars().all()
+            for constraint_name in old_constraints:
+                columns = connection.execute(
+                    text(
+                        """
+                        SELECT column_name
+                        FROM information_schema.constraint_column_usage
+                        WHERE table_schema = current_schema()
+                          AND table_name = 'assurance_quarantine_observation'
+                          AND constraint_name = :constraint_name
+                        ORDER BY column_name
+                        """
+                    ),
+                    {"constraint_name": constraint_name},
+                ).scalars().all()
+                if columns == ["idempotency_key"]:
+                    quoted = constraint_name.replace('"', '""')
+                    connection.exec_driver_sql(
+                        "ALTER TABLE assurance_quarantine_observation "
+                        f'DROP CONSTRAINT "{quoted}"'
+                    )
+
+            # RC2 used ``unique=True`` together with ``index=True`` on the
+            # idempotency column. SQLAlchemy renders that combination as a
+            # standalone unique PostgreSQL index rather than a table
+            # constraint. Remove that legacy shape as well, otherwise an
+            # upgraded database would still reject the same adapter-local key
+            # when it is used by a different quarantine.
+            old_unique_indexes = connection.execute(
+                text(
+                    """
+                    SELECT index_class.relname AS index_name,
+                           array_agg(
+                               attribute.attname
+                               ORDER BY key_column.ordinality
+                           ) AS column_names
+                    FROM pg_class AS table_class
+                    JOIN pg_namespace AS namespace
+                      ON namespace.oid = table_class.relnamespace
+                    JOIN pg_index AS index_metadata
+                      ON index_metadata.indrelid = table_class.oid
+                    JOIN pg_class AS index_class
+                      ON index_class.oid = index_metadata.indexrelid
+                    JOIN LATERAL unnest(index_metadata.indkey)
+                         WITH ORDINALITY AS key_column(attnum, ordinality)
+                      ON TRUE
+                    JOIN pg_attribute AS attribute
+                      ON attribute.attrelid = table_class.oid
+                     AND attribute.attnum = key_column.attnum
+                    WHERE namespace.nspname = current_schema()
+                      AND table_class.relname =
+                          'assurance_quarantine_observation'
+                      AND index_metadata.indisunique
+                      AND NOT index_metadata.indisprimary
+                    GROUP BY index_class.relname
+                    """
+                )
+            ).mappings().all()
+            for index in old_unique_indexes:
+                if list(index["column_names"] or []) == ["idempotency_key"]:
+                    quoted = str(index["index_name"]).replace('"', '""')
+                    connection.exec_driver_sql(
+                        f'DROP INDEX IF EXISTS "{quoted}"'
+                    )
+            scoped_exists = connection.execute(
+                text(
+                    """
+                    SELECT 1
+                    FROM information_schema.table_constraints
+                    WHERE table_schema = current_schema()
+                      AND table_name = 'assurance_quarantine_observation'
+                      AND constraint_name = 'uq_quarantine_observation_scope'
+                    """
+                )
+            ).scalar_one_or_none()
+            if scoped_exists is None:
+                connection.execute(
+                    text(
+                        "ALTER TABLE assurance_quarantine_observation "
+                        "ADD CONSTRAINT uq_quarantine_observation_scope "
+                        "UNIQUE (quarantine_id, idempotency_key)"
+                    )
+                )
+            connection.execute(
+                text(
+                    "CREATE INDEX IF NOT EXISTS "
+                    "ix_assurance_quarantine_observation_received_at "
+                    "ON assurance_quarantine_observation (received_at)"
+                )
+            )
+            connection.execute(
+                text(
+                    "CREATE INDEX IF NOT EXISTS ix_assurance_quarantine_lease_token "
+                    "ON assurance_quarantine (lease_token)"
+                )
+            )
 
     def _insert_do_nothing(
         self,
@@ -303,6 +692,62 @@ class Repository:
             "occurred_at": event.occurred_at,
             "payload_json": event.payload,
         }
+
+    @staticmethod
+    def _quarantine_values(quarantine: PostActionQuarantine) -> dict[str, Any]:
+        return {
+            "quarantine_id": quarantine.quarantine_id,
+            "episode_id": quarantine.episode_id,
+            "incident_id": quarantine.incident_id,
+            "action_id": quarantine.action_id,
+            "action_type": quarantine.action_type,
+            "status": quarantine.status.value,
+            "pre_action_health_json": quarantine.pre_action_health,
+            "immediate_post_action_health_json": quarantine.immediate_post_action_health,
+            "started_at": quarantine.started_at,
+            "minimum_release_at": quarantine.minimum_release_at,
+            "next_check_at": quarantine.next_check_at,
+            "required_healthy_checks": quarantine.required_healthy_checks,
+            "healthy_checks": quarantine.healthy_checks,
+            "extension_count": quarantine.extension_count,
+            "max_extensions": quarantine.max_extensions,
+            "check_interval_seconds": quarantine.check_interval_seconds,
+            "version": quarantine.version,
+            "lease_owner": quarantine.lease_owner,
+            "lease_token": quarantine.lease_token,
+            "lease_until": quarantine.lease_until,
+            "completed_at": quarantine.completed_at,
+            "metadata_json": quarantine.metadata,
+            "created_at": quarantine.created_at,
+            "updated_at": quarantine.updated_at,
+        }
+
+    @staticmethod
+    def _quarantine_observation_values(
+        observation: QuarantineObservation,
+    ) -> dict[str, Any]:
+        return {
+            "observation_id": observation.observation_id,
+            "quarantine_id": observation.quarantine_id,
+            "incident_id": observation.incident_id,
+            "observed_at": observation.observed_at,
+            "received_at": observation.received_at,
+            "health": observation.health.value,
+            "source": observation.source,
+            "actor": observation.actor,
+            "idempotency_key": observation.idempotency_key,
+            "request_fingerprint": observation.request_fingerprint,
+            "lease_token": observation.lease_token,
+            "metrics_json": observation.metrics,
+            "transition": observation.transition.value,
+            "created_at": observation.created_at,
+        }
+
+    @staticmethod
+    def _apply_values(row: Any, values: dict[str, Any], *, primary_key: str) -> None:
+        for key, value in values.items():
+            if key != primary_key:
+                setattr(row, key, value)
 
     def save_incident(self, state: IncidentState) -> IncidentState:
         state.updated_at = datetime.now(UTC)
@@ -732,41 +1177,29 @@ class Repository:
             row = session.get(InstallHandoffClaimRow, source_key)
             return self._install_handoff_claim_from_row(row) if row is not None else None
 
+    def _quarantine_write_guard(self):
+        if self.engine.dialect.name == "sqlite":
+            return self._sqlite_quarantine_lock
+        return nullcontext()
+
     def save_quarantine(
         self,
         quarantine: PostActionQuarantine,
     ) -> PostActionQuarantine:
         quarantine.updated_at = datetime.now(UTC)
-        with self.session_factory.begin() as session:
-            row = session.get(QuarantineRow, quarantine.quarantine_id)
-            values = {
-                "episode_id": quarantine.episode_id,
-                "incident_id": quarantine.incident_id,
-                "action_id": quarantine.action_id,
-                "action_type": quarantine.action_type,
-                "status": quarantine.status.value,
-                "pre_action_health_json": quarantine.pre_action_health,
-                "immediate_post_action_health_json": quarantine.immediate_post_action_health,
-                "started_at": quarantine.started_at,
-                "minimum_release_at": quarantine.minimum_release_at,
-                "next_check_at": quarantine.next_check_at,
-                "required_healthy_checks": quarantine.required_healthy_checks,
-                "healthy_checks": quarantine.healthy_checks,
-                "extension_count": quarantine.extension_count,
-                "max_extensions": quarantine.max_extensions,
-                "check_interval_seconds": quarantine.check_interval_seconds,
-                "lease_owner": quarantine.lease_owner,
-                "lease_until": quarantine.lease_until,
-                "completed_at": quarantine.completed_at,
-                "metadata_json": quarantine.metadata,
-                "created_at": quarantine.created_at,
-                "updated_at": quarantine.updated_at,
-            }
-            if row is None:
-                session.add(QuarantineRow(quarantine_id=quarantine.quarantine_id, **values))
-            else:
-                for key, value in values.items():
-                    setattr(row, key, value)
+        with self._quarantine_write_guard():
+            with self.session_factory.begin() as session:
+                row = session.get(QuarantineRow, quarantine.quarantine_id)
+                if row is None:
+                    quarantine.version = max(quarantine.version, 0)
+                    session.add(QuarantineRow(**self._quarantine_values(quarantine)))
+                else:
+                    quarantine.version = row.version + 1
+                    self._apply_values(
+                        row,
+                        self._quarantine_values(quarantine),
+                        primary_key="quarantine_id",
+                    )
         return quarantine
 
     def get_quarantine(self, quarantine_id: str) -> PostActionQuarantine | None:
@@ -803,38 +1236,36 @@ class Repository:
         observation: QuarantineObservation,
     ) -> QuarantineObservation:
         with self.session_factory.begin() as session:
+            self._insert_do_nothing(
+                session,
+                QuarantineObservationRow,
+                self._quarantine_observation_values(observation),
+            )
             existing = session.scalar(
                 select(QuarantineObservationRow).where(
+                    QuarantineObservationRow.quarantine_id == observation.quarantine_id,
                     QuarantineObservationRow.idempotency_key
-                    == observation.idempotency_key
+                    == observation.idempotency_key,
                 )
             )
             if existing is None:
-                session.add(
-                    QuarantineObservationRow(
-                        observation_id=observation.observation_id,
-                        quarantine_id=observation.quarantine_id,
-                        incident_id=observation.incident_id,
-                        observed_at=observation.observed_at,
-                        health=observation.health.value,
-                        source=observation.source,
-                        actor=observation.actor,
-                        idempotency_key=observation.idempotency_key,
-                        metrics_json=observation.metrics,
-                        transition=observation.transition.value,
-                        created_at=observation.created_at,
-                    )
+                raise RuntimeError("QUARANTINE_OBSERVATION_NOT_VISIBLE")
+            if existing.request_fingerprint != observation.request_fingerprint:
+                raise QuarantineObservationConflictError(
+                    "QUARANTINE_IDEMPOTENCY_PAYLOAD_CONFLICT"
                 )
         return observation
 
     def get_quarantine_observation_by_key(
         self,
+        quarantine_id: str,
         idempotency_key: str,
     ) -> QuarantineObservation | None:
         with self.session_factory() as session:
             row = session.scalar(
                 select(QuarantineObservationRow).where(
-                    QuarantineObservationRow.idempotency_key == idempotency_key
+                    QuarantineObservationRow.quarantine_id == quarantine_id,
+                    QuarantineObservationRow.idempotency_key == idempotency_key,
                 )
             )
             return self._quarantine_observation_from_row(row) if row is not None else None
@@ -847,9 +1278,142 @@ class Repository:
             rows = session.scalars(
                 select(QuarantineObservationRow)
                 .where(QuarantineObservationRow.quarantine_id == quarantine_id)
-                .order_by(QuarantineObservationRow.observed_at.asc())
+                .order_by(
+                    QuarantineObservationRow.received_at.asc(),
+                    QuarantineObservationRow.observation_id.asc(),
+                )
             ).all()
             return [self._quarantine_observation_from_row(row) for row in rows]
+
+    def apply_quarantine_observation(
+        self,
+        *,
+        quarantine_id: str,
+        idempotency_key: str,
+        request_fingerprint: str,
+        build_mutation: QuarantineMutationBuilder,
+    ) -> QuarantineApplyResult:
+        """Lock, validate and persist one complete P2 transition atomically."""
+
+        with self._quarantine_write_guard():
+            with self.session_factory.begin() as session:
+                quarantine_statement = select(QuarantineRow).where(
+                    QuarantineRow.quarantine_id == quarantine_id
+                )
+                incident_statement = select(IncidentRow)
+                episode_statement = select(AssuranceEpisodeRow)
+                if self.engine.dialect.name == "postgresql":
+                    quarantine_statement = quarantine_statement.with_for_update()
+                    incident_statement = incident_statement.with_for_update()
+                    episode_statement = episode_statement.with_for_update()
+
+                quarantine_row = session.scalar(quarantine_statement)
+                if quarantine_row is None:
+                    raise KeyError(quarantine_id)
+
+                incident_row = session.scalar(
+                    incident_statement.where(
+                        IncidentRow.incident_id == quarantine_row.incident_id
+                    )
+                )
+                episode_row = session.scalar(
+                    episode_statement.where(
+                        AssuranceEpisodeRow.episode_id == quarantine_row.episode_id
+                    )
+                )
+                if incident_row is None or episode_row is None:
+                    raise RuntimeError("QUARANTINE_CANONICAL_ROWS_MISSING")
+
+                existing_row = session.scalar(
+                    select(QuarantineObservationRow).where(
+                        QuarantineObservationRow.quarantine_id == quarantine_id,
+                        QuarantineObservationRow.idempotency_key == idempotency_key,
+                    )
+                )
+                if existing_row is not None:
+                    if existing_row.request_fingerprint != request_fingerprint:
+                        raise QuarantineObservationConflictError(
+                            "QUARANTINE_IDEMPOTENCY_PAYLOAD_CONFLICT"
+                        )
+                    return QuarantineApplyResult(
+                        created=False,
+                        quarantine=self._quarantine_from_row(quarantine_row),
+                        observation=self._quarantine_observation_from_row(existing_row),
+                        incident=IncidentState.model_validate(incident_row.state_json),
+                        episode=self._assurance_episode_from_row(episode_row),
+                    )
+
+                latest_row = session.scalar(
+                    select(QuarantineObservationRow)
+                    .where(QuarantineObservationRow.quarantine_id == quarantine_id)
+                    .order_by(
+                        QuarantineObservationRow.received_at.desc(),
+                        QuarantineObservationRow.observation_id.desc(),
+                    )
+                    .limit(1)
+                )
+                latest = (
+                    self._quarantine_observation_from_row(latest_row)
+                    if latest_row is not None
+                    else None
+                )
+                mutation = build_mutation(
+                    self._quarantine_from_row(quarantine_row),
+                    IncidentState.model_validate(incident_row.state_json),
+                    self._assurance_episode_from_row(episode_row),
+                    latest,
+                )
+                if (
+                    mutation.quarantine.quarantine_id != quarantine_id
+                    or mutation.observation.quarantine_id != quarantine_id
+                    or mutation.incident.incident_id != quarantine_row.incident_id
+                    or mutation.episode.episode_id != quarantine_row.episode_id
+                    or mutation.observation.request_fingerprint != request_fingerprint
+                ):
+                    raise RuntimeError("QUARANTINE_MUTATION_IDENTITY_MISMATCH")
+
+                mutation.quarantine.version = quarantine_row.version + 1
+                self._apply_values(
+                    quarantine_row,
+                    self._quarantine_values(mutation.quarantine),
+                    primary_key="quarantine_id",
+                )
+                self._apply_values(
+                    incident_row,
+                    self._incident_values(mutation.incident),
+                    primary_key="incident_id",
+                )
+                self._apply_values(
+                    episode_row,
+                    self._assurance_episode_values(mutation.episode),
+                    primary_key="episode_id",
+                )
+                session.add(
+                    QuarantineObservationRow(
+                        **self._quarantine_observation_values(mutation.observation)
+                    )
+                )
+                self._insert_do_nothing(
+                    session,
+                    AssuranceEpisodeEventRow,
+                    self._assurance_event_values(mutation.lineage_event),
+                )
+                session.flush()
+                self._before_quarantine_commit(session, mutation)
+                return QuarantineApplyResult(
+                    created=True,
+                    quarantine=mutation.quarantine,
+                    observation=mutation.observation,
+                    incident=mutation.incident,
+                    episode=mutation.episode,
+                )
+
+    def _before_quarantine_commit(
+        self,
+        _session: Session,
+        _mutation: QuarantineMutation,
+    ) -> None:
+        """Test seam for proving rollback of the complete P2 transaction."""
 
     def claim_due_quarantines(
         self,
@@ -860,25 +1424,60 @@ class Repository:
         limit: int = 20,
     ) -> list[PostActionQuarantine]:
         lease_until = now + timedelta(seconds=lease_seconds)
-        with self.session_factory.begin() as session:
-            statement = (
-                select(QuarantineRow)
-                .where(
-                    QuarantineRow.status == QuarantineStatus.ACTIVE.value,
-                    QuarantineRow.next_check_at <= now,
-                    or_(QuarantineRow.lease_until.is_(None), QuarantineRow.lease_until <= now),
+        with self._quarantine_write_guard():
+            with self.session_factory.begin() as session:
+                statement = (
+                    select(QuarantineRow)
+                    .where(
+                        QuarantineRow.status == QuarantineStatus.ACTIVE.value,
+                        QuarantineRow.next_check_at <= now,
+                        or_(
+                            QuarantineRow.lease_until.is_(None),
+                            QuarantineRow.lease_until <= now,
+                        ),
+                    )
+                    .order_by(QuarantineRow.next_check_at.asc())
+                    .limit(limit)
                 )
-                .order_by(QuarantineRow.next_check_at.asc())
-                .limit(limit)
+                if self.engine.dialect.name == "postgresql":
+                    statement = statement.with_for_update(skip_locked=True)
+                rows = session.scalars(statement).all()
+                for row in rows:
+                    row.lease_owner = worker_id
+                    row.lease_token = uuid4().hex
+                    row.lease_until = lease_until
+                    row.version += 1
+                    row.updated_at = now
+                return [self._quarantine_from_row(row) for row in rows]
+
+    def renew_quarantine_lease(
+        self,
+        *,
+        quarantine_id: str,
+        worker_id: str,
+        lease_token: str,
+        now: datetime,
+        lease_seconds: int,
+    ) -> bool:
+        """Renew only the live lease identified by both owner and unique token."""
+
+        with self.session_factory.begin() as session:
+            result = session.execute(
+                update(QuarantineRow)
+                .where(
+                    QuarantineRow.quarantine_id == quarantine_id,
+                    QuarantineRow.status == QuarantineStatus.ACTIVE.value,
+                    QuarantineRow.lease_owner == worker_id,
+                    QuarantineRow.lease_token == lease_token,
+                    QuarantineRow.lease_until > now,
+                )
+                .values(
+                    lease_until=now + timedelta(seconds=lease_seconds),
+                    version=QuarantineRow.version + 1,
+                    updated_at=now,
+                )
             )
-            if self.database_url.startswith("postgresql"):
-                statement = statement.with_for_update(skip_locked=True)
-            rows = session.scalars(statement).all()
-            for row in rows:
-                row.lease_owner = worker_id
-                row.lease_until = lease_until
-                row.updated_at = now
-            return [self._quarantine_from_row(row) for row in rows]
+            return result.rowcount == 1
 
     def reset(self) -> None:
         with self.session_factory.begin() as session:
@@ -935,7 +1534,9 @@ class Repository:
             extension_count=row.extension_count,
             max_extensions=row.max_extensions,
             check_interval_seconds=row.check_interval_seconds,
+            version=row.version,
             lease_owner=row.lease_owner,
+            lease_token=row.lease_token,
             lease_until=row.lease_until,
             completed_at=row.completed_at,
             metadata=dict(row.metadata_json or {}),
@@ -952,10 +1553,13 @@ class Repository:
             quarantine_id=row.quarantine_id,
             incident_id=row.incident_id,
             observed_at=row.observed_at,
+            received_at=row.received_at,
             health=QuarantineHealth(row.health),
             source=row.source,
             actor=row.actor,
             idempotency_key=row.idempotency_key,
+            request_fingerprint=row.request_fingerprint,
+            lease_token=row.lease_token,
             metrics=dict(row.metrics_json or {}),
             transition=QuarantineTransition(row.transition),
             created_at=row.created_at,

@@ -94,6 +94,7 @@ services:
       POST_ACTION_QUARANTINE_MAX_EXTENSIONS: ${POST_ACTION_QUARANTINE_MAX_EXTENSIONS:-2}
       POST_ACTION_QUARANTINE_LEASE_SECONDS: ${POST_ACTION_QUARANTINE_LEASE_SECONDS:-120}
       POST_ACTION_QUARANTINE_WORKER_INTERVAL_SECONDS: ${POST_ACTION_QUARANTINE_WORKER_INTERVAL_SECONDS:-15}
+      POST_ACTION_QUARANTINE_MAX_MEASUREMENT_CLOCK_SKEW_SECONDS: ${POST_ACTION_QUARANTINE_MAX_MEASUREMENT_CLOCK_SKEW_SECONDS:-300}
     command: >-
       uvicorn lpr_cpe_demo.api.main:app
       --host 0.0.0.0
@@ -194,6 +195,31 @@ services:
       timeout: 5s
       retries: 20
       start_period: 30s
+
+  p2-postgres-test:
+    build:
+      context: .
+      dockerfile: docker/app.Dockerfile
+      target: test
+      args: *build-args
+    env_file:
+      - .env
+    environment:
+      P2_TEST_POSTGRES_URL: postgresql+psycopg://${POSTGRES_USER:-lpr}:${POSTGRES_PASSWORD:-lpr_demo_change_me}@postgres:5432/${POSTGRES_DB:-lpr_cpe_demo}
+      LANGGRAPH_POSTGRES_DSN: ""
+      USE_LANGGRAPH: "false"
+      WORKFLOW_ENGINE: portable
+      MCP_USE_NETWORK: "false"
+      MODEL_PROVIDER: fake
+    profiles: ["postgres-test"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    command: >-
+      python -m pytest -q -m postgres
+      tests/test_post_action_quarantine_p2_postgres.py
+    networks:
+      - lpr-demo
 
   test:
     build:

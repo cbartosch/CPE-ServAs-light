@@ -1,3 +1,30 @@
+# v1.29.3 P2 hardening RC3 validation
+
+RC3 turns each post-action observation into one locked transaction covering the
+observation, quarantine, canonical incident, shared assurance episode and lineage
+event. Release timing is based only on the server receipt time. External
+measurement time is retained separately and must be timezone-aware, monotonic and
+within the configured clock-skew bound. Completed quarantines reject new keys,
+while an exact idempotent replay returns the stored observation and current canonical state.
+
+The schema now scopes idempotency to `(quarantine_id, idempotency_key)`, stores a
+canonical request fingerprint and adds durable quarantine version and lease-token
+fields. SQLite writes are serialized for the portable profile; PostgreSQL uses
+row locks and `SKIP LOCKED` claims. Scheduled execution must present the current
+owner/token pair and supports takeover only after expiry. P2 mutation routes
+require the configured internal token; actor and source are derived from trusted
+server configuration rather than request bodies.
+
+Assembly results: **956 tests collected; 947 passed and 9 skipped**. The skips are
+the two inherited framework-dependent tests plus seven new PostgreSQL-specific
+reliability tests. Those seven tests cover atomic rollback, same-key convergence,
+distinct-update serialization, lease-token takeover, scoped/fingerprinted replay,
+server-time enforcement, terminal immutability and RC2 unique-index migration.
+They are mandatory through the
+Docker PostgreSQL profile on the target workstation. The exact Python 3.14.7,
+Ruff 0.13.3, live PostgreSQL and Docker gates were not available in the assembly
+environment and remain required before push.
+
 # v1.29.3 P1 handoff reliability validation
 
 The corrective P1 gate adds interruption recovery, atomic rollback, adoption of

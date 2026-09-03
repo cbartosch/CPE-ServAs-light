@@ -2,97 +2,121 @@
 
 ## Intent
 
-The platform remains the process orchestrator and operational assurance backbone. Existing source systems retain their authority. Analytics may suggest and explain, but deterministic policy and human approvals govern execution.
+The platform remains the process orchestrator and assurance backbone. Source
+systems retain authority. Analytics may suggest and explain, while deterministic
+policy and approved human gates govern execution.
 
 ## Shared episode
 
-Every repair case is projected into an `AssuranceEpisode`. An install-assurance watch creates an install-origin episode only when an eligible degraded install observation is promoted into the canonical repair workflow. The episode correlates the source install run and watch, service, device, repair incident and later quarantine records.
+Every repair case is projected into an `AssuranceEpisode`. An eligible degraded
+install watch creates an install-origin episode when it is promoted into the
+canonical repair workflow.
 
 ```text
-Install watch ──promote──> Assurance episode ──> Repair incident
-Repair intake ───────────> Assurance episode ──> Repair incident
+Install watch --promote--> Assurance episode --> Repair incident
+Repair intake -----------> Assurance episode --> Repair incident
 ```
 
-The episode is a correlation and lifecycle record. It does not replace NXT, DvSum CADDI, Genesys, JTrack or another source of record.
+The source-derived handoff claim, deterministic incident, shared episode and
+initial event are created atomically. A durable lease lets an interrupted workflow
+start resume, and parallel identical requests converge on the same canonical
+records.
 
-## Install-handoff reliability
-
-The source-derived handoff claim, deterministic repair incident, shared episode
-and initial lineage event are created in one database transaction. The claim is
-then advanced through a durable state machine:
-
-```text
-CLAIMED -> WORKFLOW_STARTING -> WORKFLOW_STARTED
-                    |
-                    +-> FAILED_RETRYABLE -> WORKFLOW_STARTING
-```
-
-Only one caller can hold the bounded workflow-start lease. Concurrent identical
-requests wait for and return the same canonical episode and incident. An
-interrupted attempt is resumed from the persisted incident; a source-key replay
-with different content is rejected.
-
-## Mandatory action-control loop
+## Mandatory P2 loop
 
 ```text
-Pre-action health evidence
-  -> evidence and policy gate
-  -> human approval where required
+Pre-action evidence
+  -> policy and approval gate
   -> controlled simulated action
-  -> immediate post-action health check
-  -> durable quarantine period
-  -> repeated scheduled observations
-  -> release and closure | reopen | extend | escalate
+  -> immediate post-action check
+  -> durable quarantine
+  -> repeated server-timed observations
+  -> release and close | reopen | extend | escalate
 ```
 
-A successful immediate test is necessary but no longer sufficient for closure when P2 is enabled.
+A successful immediate test is necessary but not sufficient for closure.
+
+## Atomic observation contract
+
+One accepted observation produces one database transaction containing:
+
+- the append-only observation;
+- the versioned quarantine transition;
+- the incident transition and timeline event;
+- the synchronized assurance episode; and
+- the append-only episode lineage event.
+
+The PostgreSQL path locks the quarantine row before evaluation. The local SQLite
+profile serializes the same critical section in process. An injected failure before
+commit leaves none of the five effects behind.
+
+## Time semantics
+
+- `received_at`: server-authoritative time used for due checks, minimum duration,
+  extension, completion and lease validity.
+- `observed_at`: external measurement time retained for evidence only.
+- External time must be aware, monotonic and within
+  `POST_ACTION_QUARANTINE_MAX_MEASUREMENT_CLOCK_SKEW_SECONDS` of receipt time.
+- Healthy or unknown checks before `next_check_at` are rejected. Degraded health
+  can reopen immediately.
+
+## Replay and terminal semantics
+
+Observation identity is scoped to `(quarantine_id, idempotency_key)`. A canonical
+SHA-256 fingerprint covers health, measurement time, metrics and trusted actor and
+source. Exact replay returns the stored observation and current canonical state; changed replay is a conflict.
+Released, reopened and escalated quarantines accept no new key, so a late message
+cannot move a closed incident back into quarantine.
+
+## Scheduler lease
+
+Every claim stores owner, random lease token and expiry. Scheduled observation
+requires all three values to match the locked row. A live lease excludes other
+workers. After expiry a new worker receives a new token, and the former owner can
+no longer commit.
+
+## Trusted mutation APIs
+
+These routes require `X-LPR-Internal-Token`:
+
+- `POST /api/assurance/install-handoffs`
+- `POST /api/assurance/quarantines/{quarantine_id}/observations`
+- `POST /api/assurance/quarantine-jobs/run-due`
+
+Actor and source are runtime-derived and cannot be supplied in a quarantine body.
+Read APIs remain available to the demonstration UI. The token is a demo
+service-to-service boundary; production workload identity and signed artifacts
+remain future integration work.
 
 ## Durable records
 
 PostgreSQL stores:
 
-- assurance episodes;
-- append-only episode events;
-- install-handoff state, request fingerprint, attempt count and lease;
-- post-action quarantine state;
-- append-only quarantine observations;
-- scheduler lease owner and expiry;
-- existing incident, approval and idempotency records.
+- assurance episodes and lineage events;
+- install-handoff state, fingerprint and lease;
+- versioned post-action quarantine state;
+- scoped observations with measurement and receipt times;
+- scheduler lease owner, token and expiry; and
+- existing incident, approval and effect-idempotency records.
 
-The Digital Twin retains immutable install-watch files and writes the handoff
-receipt separately. Receipt publication is atomic and concurrent writers
-converge on the first authoritative stored receipt.
+Digital Twin install-watch source files stay immutable, and concurrent receipt
+writers converge on one separate authoritative receipt.
 
-## Quarantine transitions
+## Transition table
 
-| Observation | Transition | Incident outcome |
+| Observation | Server-time condition | Outcome |
 |---|---|---|
-| Healthy before minimum duration or check count | continue | remains quarantined |
-| Healthy after both release conditions | release | reconciles and closes |
-| Degraded | reopen | returns to failure review |
-| Unknown with budget remaining | extend | remains quarantined |
-| Unknown after extension budget | escalate | moves to L2/SME |
+| Healthy | Before duration or required count | Continue; closure blocked |
+| Healthy | Duration and count satisfied | Release, reconcile and close |
+| Degraded | Any time while active | Reopen same incident |
+| Unknown | Extension budget remains | Extend |
+| Unknown | Extension budget exhausted | Escalate |
+| Any new key | Quarantine terminal | Reject |
+| Exact prior key and content | Any later retry | Return stored observation and current state |
 
-## APIs
+## Verification
 
-Main workflow API:
-
-- `POST /api/assurance/install-handoffs`
-- `GET /api/assurance/episodes`
-- `GET /api/assurance/episodes/{episode_id}`
-- `GET /api/assurance/quarantine-policy`
-- `GET /api/assurance/quarantines`
-- `GET /api/assurance/quarantines/{quarantine_id}`
-- `POST /api/assurance/quarantines/{quarantine_id}/observations`
-- `POST /api/assurance/quarantine-jobs/run-due`
-
-Digital Twin API:
-
-- `POST /api/runs/{run_id}/install-assurance/watches/{watch_id}/promote`
-- `GET /api/runs/{run_id}/install-assurance/watches/{watch_id}/handoffs/{install_episode_id}`
-
-## Current boundaries
-
-- All actions remain simulated and production writes are disabled.
-- The in-process scheduler uses durable PostgreSQL claims; a separately scaled worker can be introduced later without changing the data contract.
-- Health observations are generated by the demo adapter until live NXT and service-test integrations are configured.
+The default test suite covers the portable/SQLite profile. The mandatory
+PostgreSQL profile uses disposable schemas and explicitly exercises rollback,
+parallel replay, row-lock serialization, lease takeover, scoped idempotency,
+server-time enforcement and terminal immutability.
