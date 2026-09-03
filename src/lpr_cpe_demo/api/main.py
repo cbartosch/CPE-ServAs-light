@@ -28,7 +28,6 @@ from lpr_cpe_demo.workflow.service import (
     WorkflowService,
 )
 
-
 LOGGER = logging.getLogger(__name__)
 
 

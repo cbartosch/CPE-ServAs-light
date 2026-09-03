@@ -1,15 +1,17 @@
 from __future__ import annotations
 
 import json
+import threading
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
+from lpr_cpe_demo.digital_twin import install_assurance
 from lpr_cpe_demo.digital_twin.install_assurance import (
     build_install_handoff_request,
     read_install_handoff_receipt,
     write_install_handoff_receipt,
 )
 from lpr_cpe_demo.digital_twin.storage import write_jsonl_gz
-
 
 WATCH_ID = "IAW-0123456789ABCDEF"
 EPISODE_ID = "IAE-0123456789AB"
@@ -100,6 +102,45 @@ def test_handoff_receipt_is_idempotent_and_separate(tmp_path: Path) -> None:
         / "workflow_handoffs"
         / f"{EPISODE_ID}.json"
     ).is_file()
+
+
+def test_handoff_receipt_parallel_writers_converge(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    workers = 8
+    run = _watch(tmp_path)
+    barrier = threading.Barrier(workers)
+    local = threading.local()
+    original_read = install_assurance.read_install_handoff_receipt
+
+    def synchronized_read(run_path, watch_id, install_episode_id):
+        result = original_read(run_path, watch_id, install_episode_id)
+        if not getattr(local, "synchronized", False):
+            local.synchronized = True
+            barrier.wait(timeout=10)
+        return result
+
+    monkeypatch.setattr(
+        install_assurance,
+        "read_install_handoff_receipt",
+        synchronized_read,
+    )
+
+    def write(index: int):
+        return install_assurance.write_install_handoff_receipt(
+            run,
+            WATCH_ID,
+            EPISODE_ID,
+            {"workflow_handoff": {"episode_id": f"ase-{index}"}},
+        )
+
+    with ThreadPoolExecutor(max_workers=workers) as pool:
+        results = [future.result() for future in [pool.submit(write, i) for i in range(workers)]]
+
+    final = original_read(run, WATCH_ID, EPISODE_ID)
+    assert final is not None
+    assert results == [final] * workers
 
 
 def test_digital_twin_promotion_endpoint_writes_receipt(

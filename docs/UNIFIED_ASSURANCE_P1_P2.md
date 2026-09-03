@@ -15,6 +15,23 @@ Repair intake ───────────> Assurance episode ──> Repai
 
 The episode is a correlation and lifecycle record. It does not replace NXT, DvSum CADDI, Genesys, JTrack or another source of record.
 
+## Install-handoff reliability
+
+The source-derived handoff claim, deterministic repair incident, shared episode
+and initial lineage event are created in one database transaction. The claim is
+then advanced through a durable state machine:
+
+```text
+CLAIMED -> WORKFLOW_STARTING -> WORKFLOW_STARTED
+                    |
+                    +-> FAILED_RETRYABLE -> WORKFLOW_STARTING
+```
+
+Only one caller can hold the bounded workflow-start lease. Concurrent identical
+requests wait for and return the same canonical episode and incident. An
+interrupted attempt is resumed from the persisted incident; a source-key replay
+with different content is rejected.
+
 ## Mandatory action-control loop
 
 ```text
@@ -36,12 +53,15 @@ PostgreSQL stores:
 
 - assurance episodes;
 - append-only episode events;
+- install-handoff state, request fingerprint, attempt count and lease;
 - post-action quarantine state;
 - append-only quarantine observations;
 - scheduler lease owner and expiry;
 - existing incident, approval and idempotency records.
 
-The Digital Twin retains immutable install-watch files and writes the handoff receipt separately.
+The Digital Twin retains immutable install-watch files and writes the handoff
+receipt separately. Receipt publication is atomic and concurrent writers
+converge on the first authoritative stored receipt.
 
 ## Quarantine transitions
 

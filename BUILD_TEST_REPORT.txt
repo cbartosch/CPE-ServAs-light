@@ -1,3 +1,15 @@
+LPR CPE SERVICE ASSURANCE DEMO — v1.29.3 P1 HANDOFF RELIABILITY
+================================================================
+
+PASS  Atomic claim, incident, episode and initial-event transaction
+PASS  Interrupted workflow startup becomes retryable and resumes in place
+PASS  Concurrent identical handoffs converge on one workflow execution
+PASS  Changed payload under an existing source identity is rejected
+PASS  Concurrent Digital Twin receipt writers return one authoritative receipt
+PASS  Legacy v1.29.2 partial episode/incident state is adopted and resumed
+PASS  Production writes remain disabled and DvSum CADDI remains canonical
+TARGET Python 3.14.7, pytest 9.0.2, Ruff 0.13.3, PostgreSQL and Docker Desktop
+
 LPR CPE SERVICE ASSURANCE DEMO — v1.29.2 TARGET RUFF CLOSURE
 ================================================================
 

@@ -1,7 +1,10 @@
 from __future__ import annotations
 
+import hashlib
 import json
 from datetime import UTC, datetime, timedelta
+from threading import Event, Thread
+from time import monotonic, sleep
 from typing import Any
 from uuid import uuid4
 
@@ -10,8 +13,10 @@ from lpr_cpe_demo.assurance import (
     AssuranceEpisodeEvent,
     AssuranceOrigin,
     EpisodeStatus,
+    InstallHandoffConflictError,
     InstallHandoffRequest,
     InstallHandoffResult,
+    InstallHandoffState,
     episode_id_for_install,
     episode_id_for_repair,
 )
@@ -194,7 +199,24 @@ class WorkflowService:
         actor: str = "workflow",
         payload: dict[str, Any] | None = None,
     ) -> None:
-        event = AssuranceEpisodeEvent(
+        self.repository.append_assurance_event(
+            self._episode_event(
+                episode,
+                event_type,
+                actor=actor,
+                payload=payload,
+            )
+        )
+
+    @staticmethod
+    def _episode_event(
+        episode: AssuranceEpisode,
+        event_type: str,
+        *,
+        actor: str = "workflow",
+        payload: dict[str, Any] | None = None,
+    ) -> AssuranceEpisodeEvent:
+        return AssuranceEpisodeEvent(
             event_id=stable_id(
                 episode.episode_id,
                 event_type,
@@ -208,7 +230,6 @@ class WorkflowService:
             actor=actor,
             payload=payload or {},
         )
-        self.repository.append_assurance_event(event)
 
     def start_scenario(self, name: str, *, run_until_pause: bool = True) -> IncidentState:
         state = self._new_incident(scenario_name=name)
@@ -220,23 +241,98 @@ class WorkflowService:
             self._sync_episode(state)
         return state
 
+    @staticmethod
+    def _install_handoff_fingerprint(request: InstallHandoffRequest) -> str:
+        canonical = json.dumps(
+            request.model_dump(mode="json"),
+            sort_keys=True,
+            separators=(",", ":"),
+        ).encode()
+        return hashlib.sha256(canonical).hexdigest()
+
+    def _install_handoff_result(
+        self,
+        source_key: str,
+        *,
+        created: bool,
+    ) -> InstallHandoffResult:
+        episode = self.repository.get_assurance_episode_by_source(source_key)
+        if episode is None:
+            raise RuntimeError("INSTALL_HANDOFF_EPISODE_MISSING")
+        incident = self.get_incident(episode.incident_id)
+        return InstallHandoffResult(
+            created=created,
+            episode=episode,
+            incident=incident.model_dump(mode="json"),
+        )
+
+    def _run_install_handoff_attempt(
+        self,
+        *,
+        source_key: str,
+        incident_id: str,
+        owner: str,
+    ) -> None:
+        """Run one leased workflow attempt and keep its lease alive."""
+
+        stop_heartbeat = Event()
+        lease_lost = Event()
+        heartbeat_interval = max(
+            1.0,
+            self.settings.install_handoff_lease_seconds / 3,
+        )
+
+        def heartbeat() -> None:
+            while not stop_heartbeat.wait(heartbeat_interval):
+                try:
+                    renewed = self.repository.renew_install_handoff_lease(
+                        source_key=source_key,
+                        owner=owner,
+                        now=utc_now(),
+                        lease_seconds=self.settings.install_handoff_lease_seconds,
+                    )
+                except Exception:
+                    lease_lost.set()
+                    return
+                if not renewed:
+                    lease_lost.set()
+                    return
+
+        thread = Thread(
+            target=heartbeat,
+            name=f"install-handoff-heartbeat-{owner[-8:]}",
+            daemon=True,
+        )
+        thread.start()
+        try:
+            state = self.get_incident(incident_id)
+            state = self.engine.run_until_pause(state)
+            if lease_lost.is_set():
+                raise RuntimeError("INSTALL_HANDOFF_LEASE_LOST")
+            episode = self._sync_episode(state)
+            self._record_episode_event(episode, "repair_workflow_started")
+            if lease_lost.is_set():
+                raise RuntimeError("INSTALL_HANDOFF_LEASE_LOST")
+            self.repository.mark_install_handoff_started(
+                source_key=source_key,
+                owner=owner,
+                now=utc_now(),
+            )
+        finally:
+            stop_heartbeat.set()
+            thread.join(timeout=heartbeat_interval + 1.0)
+
     def create_install_handoff(
         self,
         request: InstallHandoffRequest,
     ) -> InstallHandoffResult:
         if request.production_write:
             raise ApprovalConflict("PRODUCTION_WRITE_NOT_PERMITTED")
-        existing = self.repository.get_assurance_episode_by_source(request.source_key)
-        if existing is not None:
-            incident = self.get_incident(existing.incident_id)
-            return InstallHandoffResult(
-                created=False,
-                episode=existing,
-                incident=incident.model_dump(mode="json"),
-            )
 
         scenario_name = (
-            "pon_odp_handover" if request.technology == "PON" else "hfc_remote_fail_clean_success"
+            "pon_odp_handover"
+            if request.technology == "PON"
+            else "hfc_remote_fail_clean_success"
         )
         state = self._new_incident(
             scenario_name=scenario_name,
@@ -258,7 +354,6 @@ class WorkflowService:
                 "install_source_evidence": request.evidence,
             },
         )
-        self.repository.save_incident(state)
         episode = AssuranceEpisode(
             episode_id=episode_id_for_install(request),
             origin=AssuranceOrigin.INSTALL,
@@ -278,8 +373,7 @@ class WorkflowService:
                 "source_summary": request.source_summary,
             },
         )
-        self.repository.save_assurance_episode(episode)
-        self._record_episode_event(
+        claim_event = self._episode_event(
             episode,
             "install_handoff_claimed",
             actor="digital_twin_api",
@@ -289,14 +383,52 @@ class WorkflowService:
                 "install_episode_id": request.install_episode_id,
             },
         )
-        state = self.engine.run_until_pause(state)
-        episode = self._sync_episode(state)
-        self._record_episode_event(episode, "repair_workflow_started")
-        return InstallHandoffResult(
-            created=True,
-            episode=episode,
-            incident=state.model_dump(mode="json"),
-        )
+        try:
+            _claim, created = self.repository.claim_install_handoff(
+                request_fingerprint=self._install_handoff_fingerprint(request),
+                incident=state,
+                episode=episode,
+                claim_event=claim_event,
+            )
+        except InstallHandoffConflictError as exc:
+            raise ApprovalConflict(str(exc)) from exc
+
+        owner = f"handoff-{uuid4().hex}"
+        deadline = monotonic() + self.settings.install_handoff_wait_seconds
+        while True:
+            claim = self.repository.get_install_handoff_claim(request.source_key)
+            if claim is None:
+                raise RuntimeError("INSTALL_HANDOFF_CLAIM_MISSING")
+            if claim.state == InstallHandoffState.WORKFLOW_STARTED:
+                return self._install_handoff_result(request.source_key, created=created)
+
+            acquired = self.repository.try_acquire_install_handoff(
+                source_key=request.source_key,
+                owner=owner,
+                now=utc_now(),
+                lease_seconds=self.settings.install_handoff_lease_seconds,
+            )
+            if acquired is not None:
+                try:
+                    self._run_install_handoff_attempt(
+                        source_key=request.source_key,
+                        incident_id=acquired.incident_id,
+                        owner=owner,
+                    )
+                except Exception as exc:
+                    self.repository.mark_install_handoff_retryable(
+                        source_key=request.source_key,
+                        owner=owner,
+                        now=utc_now(),
+                        error=f"{type(exc).__name__}: {exc}",
+                    )
+                    raise
+                return self._install_handoff_result(request.source_key, created=created)
+
+            remaining = deadline - monotonic()
+            if remaining <= 0:
+                raise ApprovalConflict("INSTALL_HANDOFF_IN_PROGRESS")
+            sleep(min(self.settings.install_handoff_poll_seconds, remaining))
 
     def list_assurance_episodes(self, limit: int = 200) -> list[AssuranceEpisode]:
         return self.repository.list_assurance_episodes(limit=limit)
@@ -305,7 +437,7 @@ class WorkflowService:
         episode = self.repository.get_assurance_episode(episode_id)
         if episode is None:
             raise IncidentNotFound(episode_id)
-        return {
+        detail: dict[str, Any] = {
             "episode": episode.model_dump(mode="json"),
             "events": [
                 event.model_dump(mode="json")
@@ -313,6 +445,10 @@ class WorkflowService:
             ],
             "incident": self.get_incident(episode.incident_id).model_dump(mode="json"),
         }
+        handoff = self.repository.get_install_handoff_claim(episode.source_key)
+        if handoff is not None:
+            detail["handoff"] = handoff.model_dump(mode="json")
+        return detail
 
     def get_incident(self, incident_id: str) -> IncidentState:
         state = self.repository.get_incident(incident_id)

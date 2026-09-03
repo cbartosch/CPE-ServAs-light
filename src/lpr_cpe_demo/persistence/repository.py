@@ -11,9 +11,14 @@ from sqlalchemy import (
     Text,
     create_engine,
     delete,
+    insert,
     or_,
     select,
+    update,
 )
+from sqlalchemy.dialects.postgresql import insert as postgresql_insert
+from sqlalchemy.dialects.sqlite import insert as sqlite_insert
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column, sessionmaker
 
 from lpr_cpe_demo.assurance import (
@@ -21,6 +26,9 @@ from lpr_cpe_demo.assurance import (
     AssuranceEpisodeEvent,
     AssuranceOrigin,
     EpisodeStatus,
+    InstallHandoffClaim,
+    InstallHandoffConflictError,
+    InstallHandoffState,
 )
 from lpr_cpe_demo.config import Settings, get_settings
 from lpr_cpe_demo.domain import (
@@ -134,6 +142,25 @@ class AssuranceEpisodeEventRow(Base):
     payload_json: Mapped[dict[str, Any]] = mapped_column(JSON)
 
 
+class InstallHandoffClaimRow(Base):
+    __tablename__ = "assurance_install_handoff"
+
+    source_key: Mapped[str] = mapped_column(String(300), primary_key=True)
+    episode_id: Mapped[str] = mapped_column(String(80), unique=True, index=True)
+    incident_id: Mapped[str] = mapped_column(String(80), unique=True, index=True)
+    request_fingerprint: Mapped[str] = mapped_column(String(64))
+    state: Mapped[str] = mapped_column(String(32), index=True)
+    lease_owner: Mapped[str | None] = mapped_column(String(120), nullable=True, index=True)
+    lease_until: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True, index=True
+    )
+    attempt_count: Mapped[int] = mapped_column(Integer, default=0)
+    last_error: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
 class QuarantineRow(Base):
     __tablename__ = "assurance_quarantine"
 
@@ -184,42 +211,105 @@ class Repository:
         connect_args: dict[str, Any] = {}
         if self.database_url.startswith("sqlite"):
             connect_args["check_same_thread"] = False
+            connect_args["timeout"] = 30.0
         self.engine = create_engine(self.database_url, future=True, connect_args=connect_args)
         self.session_factory = sessionmaker(self.engine, expire_on_commit=False, class_=Session)
 
     def setup(self) -> None:
         Base.metadata.create_all(self.engine)
 
+    def _insert_do_nothing(
+        self,
+        session: Session,
+        row_type: type[Any],
+        values: dict[str, Any],
+    ) -> bool:
+        """Insert one row without leaking a concurrent uniqueness conflict."""
+
+        dialect = self.engine.dialect.name
+        if dialect == "postgresql":
+            statement = postgresql_insert(row_type).values(**values).on_conflict_do_nothing()
+            return session.execute(statement).rowcount == 1
+        if dialect == "sqlite":
+            statement = sqlite_insert(row_type).values(**values).on_conflict_do_nothing()
+            return session.execute(statement).rowcount == 1
+        try:
+            with session.begin_nested():
+                session.execute(insert(row_type).values(**values))
+            return True
+        except IntegrityError:
+            return False
+
+    @staticmethod
+    def _incident_values(state: IncidentState) -> dict[str, Any]:
+        return {
+            "incident_id": state.incident_id,
+            "scenario_name": state.scenario_name,
+            "title": state.title,
+            "technology": state.technology.value,
+            "priority": state.priority,
+            "status": state.status.value,
+            "stage": state.stage.value,
+            "current_owner": state.current_owner,
+            "parent_incident_id": state.parent_incident_id,
+            "sla_mode": state.sla_mode,
+            "parent_sla_deadline": state.parent_sla_deadline,
+            "sla_deadline": state.sla_deadline,
+            "pending_approval_id": state.pending_approval_id,
+            "rca_domain_deterministic": (
+                state.rca_domain_deterministic.value
+                if state.rca_domain_deterministic
+                else None
+            ),
+            "rca_domain_llm": state.rca_domain_llm.value if state.rca_domain_llm else None,
+            "domain_agreement": state.domain_agreement,
+            "selected_action": (
+                state.selected_action.action_type.value if state.selected_action else None
+            ),
+            "state_json": state.model_dump(mode="json"),
+            "created_at": state.created_at,
+            "updated_at": state.updated_at,
+        }
+
+    @staticmethod
+    def _assurance_episode_values(episode: AssuranceEpisode) -> dict[str, Any]:
+        return {
+            "episode_id": episode.episode_id,
+            "source_key": episode.source_key,
+            "origin": episode.origin.value,
+            "incident_id": episode.incident_id,
+            "install_run_id": episode.install_run_id,
+            "install_watch_id": episode.install_watch_id,
+            "install_episode_id": episode.install_episode_id,
+            "service_id": episode.service_id,
+            "device_id": episode.device_id,
+            "technology": episode.technology,
+            "status": episode.status.value,
+            "workflow_stage": episode.workflow_stage,
+            "title": episode.title,
+            "metadata_json": episode.metadata,
+            "created_at": episode.created_at,
+            "updated_at": episode.updated_at,
+        }
+
+    @staticmethod
+    def _assurance_event_values(event: AssuranceEpisodeEvent) -> dict[str, Any]:
+        return {
+            "event_id": event.event_id,
+            "episode_id": event.episode_id,
+            "incident_id": event.incident_id,
+            "event_type": event.event_type,
+            "actor": event.actor,
+            "occurred_at": event.occurred_at,
+            "payload_json": event.payload,
+        }
+
     def save_incident(self, state: IncidentState) -> IncidentState:
         state.updated_at = datetime.now(UTC)
-        payload = state.model_dump(mode="json")
         with self.session_factory.begin() as session:
             row = session.get(IncidentRow, state.incident_id)
-            values = {
-                "scenario_name": state.scenario_name,
-                "title": state.title,
-                "technology": state.technology.value,
-                "priority": state.priority,
-                "status": state.status.value,
-                "stage": state.stage.value,
-                "current_owner": state.current_owner,
-                "parent_incident_id": state.parent_incident_id,
-                "sla_mode": state.sla_mode,
-                "parent_sla_deadline": state.parent_sla_deadline,
-                "sla_deadline": state.sla_deadline,
-                "pending_approval_id": state.pending_approval_id,
-                "rca_domain_deterministic": (
-                    state.rca_domain_deterministic.value if state.rca_domain_deterministic else None
-                ),
-                "rca_domain_llm": state.rca_domain_llm.value if state.rca_domain_llm else None,
-                "domain_agreement": state.domain_agreement,
-                "selected_action": (
-                    state.selected_action.action_type.value if state.selected_action else None
-                ),
-                "state_json": payload,
-                "created_at": state.created_at,
-                "updated_at": state.updated_at,
-            }
+            values = self._incident_values(state)
+            values.pop("incident_id")
             if row is None:
                 row = IncidentRow(incident_id=state.incident_id, **values)
                 session.add(row)
@@ -328,23 +418,8 @@ class Repository:
                         AssuranceEpisodeRow.source_key == episode.source_key
                     )
                 )
-            values = {
-                "source_key": episode.source_key,
-                "origin": episode.origin.value,
-                "incident_id": episode.incident_id,
-                "install_run_id": episode.install_run_id,
-                "install_watch_id": episode.install_watch_id,
-                "install_episode_id": episode.install_episode_id,
-                "service_id": episode.service_id,
-                "device_id": episode.device_id,
-                "technology": episode.technology,
-                "status": episode.status.value,
-                "workflow_stage": episode.workflow_stage,
-                "title": episode.title,
-                "metadata_json": episode.metadata,
-                "created_at": episode.created_at,
-                "updated_at": episode.updated_at,
-            }
+            values = self._assurance_episode_values(episode)
+            values.pop("episode_id")
             if row is None:
                 session.add(AssuranceEpisodeRow(episode_id=episode.episode_id, **values))
             else:
@@ -389,18 +464,11 @@ class Repository:
         event: AssuranceEpisodeEvent,
     ) -> AssuranceEpisodeEvent:
         with self.session_factory.begin() as session:
-            if session.get(AssuranceEpisodeEventRow, event.event_id) is None:
-                session.add(
-                    AssuranceEpisodeEventRow(
-                        event_id=event.event_id,
-                        episode_id=event.episode_id,
-                        incident_id=event.incident_id,
-                        event_type=event.event_type,
-                        actor=event.actor,
-                        occurred_at=event.occurred_at,
-                        payload_json=event.payload,
-                    )
-                )
+            self._insert_do_nothing(
+                session,
+                AssuranceEpisodeEventRow,
+                self._assurance_event_values(event),
+            )
         return event
 
     def list_assurance_events(self, episode_id: str) -> list[AssuranceEpisodeEvent]:
@@ -422,6 +490,247 @@ class Repository:
                 )
                 for row in rows
             ]
+
+    def claim_install_handoff(
+        self,
+        *,
+        request_fingerprint: str,
+        incident: IncidentState,
+        episode: AssuranceEpisode,
+        claim_event: AssuranceEpisodeEvent,
+    ) -> tuple[InstallHandoffClaim, bool]:
+        """Atomically create or adopt a canonical install handoff.
+
+        The durable claim, incident, assurance episode and first audit event are
+        committed together. Concurrent callers use conflict-free inserts and
+        converge on the same source identity.
+        """
+
+        now = datetime.now(UTC)
+        incident.updated_at = now
+        episode.updated_at = now
+        claim_values = {
+            "source_key": episode.source_key,
+            "episode_id": episode.episode_id,
+            "incident_id": episode.incident_id,
+            "request_fingerprint": request_fingerprint,
+            "state": InstallHandoffState.CLAIMED.value,
+            "lease_owner": None,
+            "lease_until": None,
+            "attempt_count": 0,
+            "last_error": None,
+            "created_at": now,
+            "updated_at": now,
+            "completed_at": None,
+        }
+
+        with self.session_factory.begin() as session:
+            self._insert_do_nothing(session, InstallHandoffClaimRow, claim_values)
+            claim_row = session.get(InstallHandoffClaimRow, episode.source_key)
+            if claim_row is None:
+                raise RuntimeError("INSTALL_HANDOFF_CLAIM_NOT_VISIBLE")
+            if claim_row.request_fingerprint != request_fingerprint:
+                raise InstallHandoffConflictError(
+                    "INSTALL_HANDOFF_SOURCE_PAYLOAD_CONFLICT"
+                )
+            if (
+                claim_row.episode_id != episode.episode_id
+                or claim_row.incident_id != episode.incident_id
+            ):
+                raise InstallHandoffConflictError(
+                    "INSTALL_HANDOFF_SOURCE_IDENTITY_CONFLICT"
+                )
+
+            existing_episode = session.scalar(
+                select(AssuranceEpisodeRow).where(
+                    AssuranceEpisodeRow.source_key == episode.source_key
+                )
+            )
+            episode_created = existing_episode is None
+            if existing_episode is not None:
+                expected = {
+                    "episode_id": episode.episode_id,
+                    "incident_id": episode.incident_id,
+                    "origin": episode.origin.value,
+                    "install_run_id": episode.install_run_id,
+                    "install_watch_id": episode.install_watch_id,
+                    "install_episode_id": episode.install_episode_id,
+                    "service_id": episode.service_id,
+                    "device_id": episode.device_id,
+                    "technology": episode.technology,
+                }
+                actual = {key: getattr(existing_episode, key) for key in expected}
+                if actual != expected:
+                    raise InstallHandoffConflictError(
+                        "INSTALL_HANDOFF_EPISODE_IDENTITY_CONFLICT"
+                    )
+
+            self._insert_do_nothing(
+                session,
+                IncidentRow,
+                self._incident_values(incident),
+            )
+            self._insert_do_nothing(
+                session,
+                AssuranceEpisodeRow,
+                self._assurance_episode_values(episode),
+            )
+            self._insert_do_nothing(
+                session,
+                AssuranceEpisodeEventRow,
+                self._assurance_event_values(claim_event),
+            )
+            session.flush()
+
+            stored_episode = session.scalar(
+                select(AssuranceEpisodeRow).where(
+                    AssuranceEpisodeRow.source_key == episode.source_key
+                )
+            )
+            stored_incident = session.get(IncidentRow, episode.incident_id)
+            if stored_episode is None or stored_incident is None:
+                raise RuntimeError("INSTALL_HANDOFF_CANONICAL_ROWS_MISSING")
+            if (
+                stored_episode.episode_id != episode.episode_id
+                or stored_episode.incident_id != episode.incident_id
+            ):
+                raise InstallHandoffConflictError(
+                    "INSTALL_HANDOFF_CANONICAL_ROW_CONFLICT"
+                )
+            claim = self._install_handoff_claim_from_row(claim_row)
+        return claim, episode_created
+
+    def get_install_handoff_claim(self, source_key: str) -> InstallHandoffClaim | None:
+        with self.session_factory() as session:
+            row = session.get(InstallHandoffClaimRow, source_key)
+            return self._install_handoff_claim_from_row(row) if row is not None else None
+
+    def try_acquire_install_handoff(
+        self,
+        *,
+        source_key: str,
+        owner: str,
+        now: datetime,
+        lease_seconds: int,
+    ) -> InstallHandoffClaim | None:
+        """Acquire the single workflow-start lease for an incomplete handoff."""
+
+        lease_until = now + timedelta(seconds=lease_seconds)
+        with self.session_factory.begin() as session:
+            result = session.execute(
+                update(InstallHandoffClaimRow)
+                .where(
+                    InstallHandoffClaimRow.source_key == source_key,
+                    InstallHandoffClaimRow.state
+                    != InstallHandoffState.WORKFLOW_STARTED.value,
+                    or_(
+                        InstallHandoffClaimRow.lease_until.is_(None),
+                        InstallHandoffClaimRow.lease_until <= now,
+                    ),
+                )
+                .values(
+                    state=InstallHandoffState.WORKFLOW_STARTING.value,
+                    lease_owner=owner,
+                    lease_until=lease_until,
+                    attempt_count=InstallHandoffClaimRow.attempt_count + 1,
+                    last_error=None,
+                    updated_at=now,
+                )
+            )
+            if result.rowcount != 1:
+                return None
+            row = session.get(InstallHandoffClaimRow, source_key)
+            if row is None:
+                raise RuntimeError("INSTALL_HANDOFF_CLAIM_DISAPPEARED")
+            return self._install_handoff_claim_from_row(row)
+
+    def mark_install_handoff_started(
+        self,
+        *,
+        source_key: str,
+        owner: str,
+        now: datetime,
+    ) -> InstallHandoffClaim:
+        with self.session_factory.begin() as session:
+            result = session.execute(
+                update(InstallHandoffClaimRow)
+                .where(
+                    InstallHandoffClaimRow.source_key == source_key,
+                    InstallHandoffClaimRow.lease_owner == owner,
+                    InstallHandoffClaimRow.state
+                    == InstallHandoffState.WORKFLOW_STARTING.value,
+                )
+                .values(
+                    state=InstallHandoffState.WORKFLOW_STARTED.value,
+                    lease_owner=None,
+                    lease_until=None,
+                    last_error=None,
+                    updated_at=now,
+                    completed_at=now,
+                )
+            )
+            if result.rowcount != 1:
+                raise RuntimeError("INSTALL_HANDOFF_LEASE_LOST")
+            row = session.get(InstallHandoffClaimRow, source_key)
+            if row is None:
+                raise RuntimeError("INSTALL_HANDOFF_CLAIM_DISAPPEARED")
+            return self._install_handoff_claim_from_row(row)
+
+    def renew_install_handoff_lease(
+        self,
+        *,
+        source_key: str,
+        owner: str,
+        now: datetime,
+        lease_seconds: int,
+    ) -> bool:
+        """Extend a live workflow-start lease without reviving a stolen claim."""
+
+        with self.session_factory.begin() as session:
+            result = session.execute(
+                update(InstallHandoffClaimRow)
+                .where(
+                    InstallHandoffClaimRow.source_key == source_key,
+                    InstallHandoffClaimRow.lease_owner == owner,
+                    InstallHandoffClaimRow.state
+                    == InstallHandoffState.WORKFLOW_STARTING.value,
+                )
+                .values(
+                    lease_until=now + timedelta(seconds=lease_seconds),
+                    updated_at=now,
+                )
+            )
+            return result.rowcount == 1
+
+    def mark_install_handoff_retryable(
+        self,
+        *,
+        source_key: str,
+        owner: str,
+        now: datetime,
+        error: str,
+    ) -> InstallHandoffClaim | None:
+        with self.session_factory.begin() as session:
+            result = session.execute(
+                update(InstallHandoffClaimRow)
+                .where(
+                    InstallHandoffClaimRow.source_key == source_key,
+                    InstallHandoffClaimRow.lease_owner == owner,
+                    InstallHandoffClaimRow.state
+                    == InstallHandoffState.WORKFLOW_STARTING.value,
+                )
+                .values(
+                    state=InstallHandoffState.FAILED_RETRYABLE.value,
+                    lease_owner=None,
+                    lease_until=None,
+                    last_error=error[:4000],
+                    updated_at=now,
+                )
+            )
+            if result.rowcount != 1:
+                return None
+            row = session.get(InstallHandoffClaimRow, source_key)
+            return self._install_handoff_claim_from_row(row) if row is not None else None
 
     def save_quarantine(
         self,
@@ -575,6 +884,7 @@ class Repository:
         with self.session_factory.begin() as session:
             session.execute(delete(QuarantineObservationRow))
             session.execute(delete(QuarantineRow))
+            session.execute(delete(InstallHandoffClaimRow))
             session.execute(delete(AssuranceEpisodeEventRow))
             session.execute(delete(AssuranceEpisodeRow))
             session.execute(delete(IdempotencyRow))
@@ -670,6 +980,25 @@ class Repository:
             metadata=dict(row.metadata_json or {}),
             created_at=row.created_at,
             updated_at=row.updated_at,
+        )
+
+    @staticmethod
+    def _install_handoff_claim_from_row(
+        row: InstallHandoffClaimRow,
+    ) -> InstallHandoffClaim:
+        return InstallHandoffClaim(
+            source_key=row.source_key,
+            episode_id=row.episode_id,
+            incident_id=row.incident_id,
+            request_fingerprint=row.request_fingerprint,
+            state=InstallHandoffState(row.state),
+            lease_owner=row.lease_owner,
+            lease_until=row.lease_until,
+            attempt_count=row.attempt_count,
+            last_error=row.last_error,
+            created_at=row.created_at,
+            updated_at=row.updated_at,
+            completed_at=row.completed_at,
         )
 
     @staticmethod

@@ -1,21 +1,21 @@
-LPR CPE Service Assurance Demo v1.29.2 Unified Assurance P1/P2 Python 3.14.7
-Generated: 2026-09-02
-Indexed files: 329
-Indexed bytes: 13218102
+LPR CPE Service Assurance Demo v1.29.3 P1 Handoff Reliability Python 3.14.7
+Generated: 2026-09-03
+Indexed files: 330
+Indexed bytes: 13255631
 
 .dockerignore	114 bytes
 .env.example	3592 bytes
 .gitattributes	473 bytes
 .gitignore	152 bytes
 .stage3-manifest-exclusions.txt	89 bytes
-BUILD_TEST_REPORT.txt	7221 bytes
-BUNDLE_CONTENTS.txt	14366 bytes
-CHANGELOG.md	102899 bytes
+BUILD_TEST_REPORT.txt	7942 bytes
+BUNDLE_CONTENTS.txt	14401 bytes
+CHANGELOG.md	103738 bytes
 Dockerfile	1688 bytes
-FILE_MANIFEST.txt	14342 bytes
+FILE_MANIFEST.txt	14378 bytes
 LICENSE.txt	297 bytes
 Makefile	1780 bytes
-README.md	17905 bytes
+README.md	18035 bytes
 RUN_TESTS_MAC_LINUX.sh	69 bytes
 RUN_TESTS_WINDOWS.ps1	88 bytes
 START_DEMO_MAC_LINUX.sh	66 bytes
@@ -64,13 +64,14 @@ docs/RELEASE_v1.27.15.md	2015 bytes
 docs/RELEASE_v1.27.16.md	1128 bytes
 docs/RELEASE_v1.29.1.md	1984 bytes
 docs/RELEASE_v1.29.2.md	1352 bytes
+docs/RELEASE_v1.29.3.md	3205 bytes
 docs/RUNBOOK.md	7019 bytes
 docs/SECURITY.md	1086 bytes
 docs/SECURITY_CONTROLS.md	3254 bytes
 docs/SHARED_MEASUREMENT_CONTRACT.md	7078 bytes
 docs/STAGE3_DVSUM_CADDI_AUDIT.md	2624 bytes
-docs/TEST_REPORT.md	10696 bytes
-docs/UNIFIED_ASSURANCE_P1_P2.md	3123 bytes
+docs/TEST_REPORT.md	11128 bytes
+docs/UNIFIED_ASSURANCE_P1_P2.md	3955 bytes
 docs/WAVE_1_COST_DATA_INTEGRITY.md	2447 bytes
 docs/WORKFLOW.md	5876 bytes
 docs/control_tower.html	231328 bytes
@@ -176,13 +177,13 @@ src/lpr_cpe_demo/agents/guards.py	10119 bytes
 src/lpr_cpe_demo/agents/provider.py	7512 bytes
 src/lpr_cpe_demo/agents/status.py	6892 bytes
 src/lpr_cpe_demo/api/__init__.py	54 bytes
-src/lpr_cpe_demo/api/main.py	13972 bytes
-src/lpr_cpe_demo/assurance.py	2676 bytes
+src/lpr_cpe_demo/api/main.py	13971 bytes
+src/lpr_cpe_demo/assurance.py	3542 bytes
 src/lpr_cpe_demo/benchmarks.py	7091 bytes
 src/lpr_cpe_demo/caddi.py	18452 bytes
 src/lpr_cpe_demo/cadi.py	1031 bytes
 src/lpr_cpe_demo/commercial.py	37376 bytes
-src/lpr_cpe_demo/config.py	4493 bytes
+src/lpr_cpe_demo/config.py	4995 bytes
 src/lpr_cpe_demo/controls.py	5482 bytes
 src/lpr_cpe_demo/dashboard.py	30051 bytes
 src/lpr_cpe_demo/digital_twin/__init__.py	77 bytes
@@ -194,7 +195,7 @@ src/lpr_cpe_demo/digital_twin/dispatch_projection.py	71189 bytes
 src/lpr_cpe_demo/digital_twin/executive_projection.py	23420 bytes
 src/lpr_cpe_demo/digital_twin/executive_style.py	15025 bytes
 src/lpr_cpe_demo/digital_twin/external_evidence.py	100205 bytes
-src/lpr_cpe_demo/digital_twin/install_assurance.py	45023 bytes
+src/lpr_cpe_demo/digital_twin/install_assurance.py	47874 bytes
 src/lpr_cpe_demo/digital_twin/models.py	2839 bytes
 src/lpr_cpe_demo/digital_twin/orchestrator.py	85299 bytes
 src/lpr_cpe_demo/digital_twin/predictive_bridge.py	15672 bytes
@@ -236,7 +237,7 @@ src/lpr_cpe_demo/northbound/adapters.py	14800 bytes
 src/lpr_cpe_demo/northbound/contracts.py	11357 bytes
 src/lpr_cpe_demo/northbound/samples.py	8276 bytes
 src/lpr_cpe_demo/persistence/__init__.py	61 bytes
-src/lpr_cpe_demo/persistence/repository.py	31224 bytes
+src/lpr_cpe_demo/persistence/repository.py	44079 bytes
 src/lpr_cpe_demo/plant.py	9165 bytes
 src/lpr_cpe_demo/predictive/__init__.py	1886 bytes
 src/lpr_cpe_demo/predictive/config.py	6984 bytes
@@ -282,7 +283,7 @@ src/lpr_cpe_demo/workflow/__init__.py	164 bytes
 src/lpr_cpe_demo/workflow/engine.py	46189 bytes
 src/lpr_cpe_demo/workflow/langgraph_runtime.py	5532 bytes
 src/lpr_cpe_demo/workflow/scenarios.py	1432 bytes
-src/lpr_cpe_demo/workflow/service.py	27919 bytes
+src/lpr_cpe_demo/workflow/service.py	32750 bytes
 tests/__init__.py	0 bytes
 tests/conftest.py	2289 bytes
 tests/test_agents.py	30430 bytes
@@ -327,8 +328,8 @@ tests/test_sidebar.py	6467 bytes
 tests/test_target_lint_regressions.py	3366 bytes
 tests/test_telemetry.py	15641 bytes
 tests/test_ui_widgets.py	24099 bytes
-tests/test_unified_assurance_p1.py	3418 bytes
-tests/test_unified_assurance_p1_digital_twin.py	4482 bytes
+tests/test_unified_assurance_p1.py	11481 bytes
+tests/test_unified_assurance_p1_digital_twin.py	5814 bytes
 tests/test_workflow.py	6186 bytes
 vendor/.gitkeep	0 bytes
 vendor/README.md	446 bytes

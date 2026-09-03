@@ -15,9 +15,17 @@ A Docker Desktop demonstration of an HFC/PON customer-premises-equipment service
 
 > **Simulation only.** No production system is connected and production writes are disabled by default.
 
-## Current release: v1.29.2
+## Current release: v1.29.3
 
-The current application release uses **DvSum CADDI** as the canonical analytics/context product name, targets Python 3.14.7, and unifies repair and install assurance under one durable episode. P2 adds the mandatory pre-action health, controlled action, immediate post-action health, and scheduled quarantine loop before closure. See [`docs/RELEASE_v1.29.2.md`](docs/RELEASE_v1.29.2.md), [`docs/UNIFIED_ASSURANCE_P1_P2.md`](docs/UNIFIED_ASSURANCE_P1_P2.md), and [`docs/CURRENT_SCHEMA_RUN_RECOVERY.md`](docs/CURRENT_SCHEMA_RUN_RECOVERY.md).
+The current application release uses **DvSum CADDI** as the canonical
+analytics/context product name, targets Python 3.14.7, and unifies repair and
+install assurance under one durable episode. P1 install-to-repair handoffs are
+now atomically claimed, resumable after interruption and convergent under
+concurrent replay. P2 retains the mandatory pre-action health, controlled
+action, immediate post-action health, and scheduled quarantine loop before
+closure. See [`docs/RELEASE_v1.29.3.md`](docs/RELEASE_v1.29.3.md),
+[`docs/UNIFIED_ASSURANCE_P1_P2.md`](docs/UNIFIED_ASSURANCE_P1_P2.md), and
+[`docs/CURRENT_SCHEMA_RUN_RECOVERY.md`](docs/CURRENT_SCHEMA_RUN_RECOVERY.md).
 
 
 ## Three-wave remediation

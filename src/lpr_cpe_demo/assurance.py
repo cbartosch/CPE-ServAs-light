@@ -29,6 +29,19 @@ class EpisodeStatus(StrEnum):
     ESCALATED = "escalated"
 
 
+class InstallHandoffState(StrEnum):
+    """Durable progress of one install-to-repair workflow handoff."""
+
+    CLAIMED = "claimed"
+    WORKFLOW_STARTING = "workflow_starting"
+    WORKFLOW_STARTED = "workflow_started"
+    FAILED_RETRYABLE = "failed_retryable"
+
+
+class InstallHandoffConflictError(ValueError):
+    """One source identity was replayed with incompatible content."""
+
+
 class AssuranceEpisode(StrictModel):
     episode_id: str
     origin: AssuranceOrigin
@@ -56,6 +69,21 @@ class AssuranceEpisodeEvent(StrictModel):
     actor: str
     occurred_at: datetime = Field(default_factory=utc_now)
     payload: dict[str, Any] = Field(default_factory=dict)
+
+
+class InstallHandoffClaim(StrictModel):
+    source_key: str
+    episode_id: str
+    incident_id: str
+    request_fingerprint: str
+    state: InstallHandoffState = InstallHandoffState.CLAIMED
+    lease_owner: str | None = None
+    lease_until: datetime | None = None
+    attempt_count: int = 0
+    last_error: str | None = None
+    created_at: datetime = Field(default_factory=utc_now)
+    updated_at: datetime = Field(default_factory=utc_now)
+    completed_at: datetime | None = None
 
 
 class InstallHandoffRequest(StrictModel):

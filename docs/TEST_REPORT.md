@@ -1,3 +1,11 @@
+# v1.29.3 P1 handoff reliability validation
+
+The corrective P1 gate adds interruption recovery, atomic rollback, adoption of
+pre-fix partial state, changed-payload rejection, 32-way concurrent request
+convergence and parallel receipt-writer convergence. The focused implementation
+tests pass in the assembly environment. The exact Ruff 0.13.3, Python 3.14.7,
+PostgreSQL and Docker gates remain mandatory on the target workstation.
+
 # v1.29.2 P1/P2 unified assurance validation
 
 The release adds dedicated tests for shared assurance episodes, install-to-repair handoff, durable post-action quarantine, repeated health observations, idempotent retries, lease-based due-job claims, healthy release, degraded reopen and unknown-health escalation.

@@ -80,6 +80,10 @@ class Settings(BaseSettings):
     post_action_quarantine_lease_seconds: int = Field(default=120, ge=5)
     post_action_quarantine_worker_interval_seconds: int = Field(default=15, ge=1)
 
+    install_handoff_lease_seconds: int = Field(default=30, ge=5)
+    install_handoff_wait_seconds: float = Field(default=45.0, ge=1.0, le=600.0)
+    install_handoff_poll_seconds: float = Field(default=0.05, ge=0.01, le=1.0)
+
     log_level: str = "INFO"
     tz: str = "America/Puerto_Rico"
     demo_banner: str = (
@@ -95,6 +99,11 @@ class Settings(BaseSettings):
             raise ValueError(
                 f"MCP protocol {self.mcp_protocol_version} does not match "
                 f"profile {self.mcp_profile} (expected {expected})"
+            )
+        if self.install_handoff_wait_seconds <= self.install_handoff_lease_seconds:
+            raise ValueError(
+                "install_handoff_wait_seconds must exceed "
+                "install_handoff_lease_seconds so a caller can recover an expired lease"
             )
         return self
 

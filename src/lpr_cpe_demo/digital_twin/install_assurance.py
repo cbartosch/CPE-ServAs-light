@@ -14,6 +14,7 @@ import json
 import math
 import os
 import shutil
+import time
 import uuid
 from collections import defaultdict
 from collections.abc import Iterable
@@ -1202,7 +1203,12 @@ def write_install_handoff_receipt(
     install_episode_id: str,
     receipt: dict[str, Any],
 ) -> dict[str, Any]:
-    """Persist one idempotent handoff receipt beside immutable watch evidence."""
+    """Persist one convergent handoff receipt beside immutable watch evidence.
+
+    A fully written temporary file is published with an atomic no-replace hard
+    link. Concurrent writers therefore return the same authoritative bytes. A
+    lock-file fallback covers filesystems that do not support hard links.
+    """
 
     path = install_handoff_receipt_path(run_path, watch_id, install_episode_id)
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -1210,12 +1216,72 @@ def write_install_handoff_receipt(
     if existing is not None:
         return existing
     temporary = path.with_name(f".{path.name}.tmp-{os.getpid()}-{uuid.uuid4().hex}")
-    temporary.write_text(
-        json.dumps(receipt, indent=2, sort_keys=True),
-        encoding="utf-8",
-    )
+    payload = json.dumps(receipt, indent=2, sort_keys=True).encode()
+    with temporary.open("xb") as stream:
+        stream.write(payload)
+        stream.flush()
+        os.fsync(stream.fileno())
     try:
-        replace_with_retry(temporary, path)
+        try:
+            os.link(temporary, path)
+        except FileExistsError:
+            stored = read_install_handoff_receipt(run_path, watch_id, install_episode_id)
+            if stored is None:
+                raise RuntimeError("handoff receipt exists but cannot be read")
+            return stored
+        except OSError:
+            lock = path.with_name(f".{path.name}.lock")
+            deadline = time.monotonic() + 30.0
+            while True:
+                stored = read_install_handoff_receipt(
+                    run_path,
+                    watch_id,
+                    install_episode_id,
+                )
+                if stored is not None:
+                    return stored
+                try:
+                    descriptor = os.open(
+                        lock,
+                        os.O_CREAT | os.O_EXCL | os.O_WRONLY,
+                        0o600,
+                    )
+                except FileExistsError:
+                    if time.monotonic() >= deadline:
+                        try:
+                            stale = time.time() - lock.stat().st_mtime > 30.0
+                        except FileNotFoundError:
+                            stale = False
+                        if stale:
+                            lock.unlink(missing_ok=True)
+                            deadline = time.monotonic() + 30.0
+                            continue
+                        raise TimeoutError("timed out waiting for handoff receipt writer")
+                    time.sleep(0.01)
+                    continue
+                try:
+                    stored = read_install_handoff_receipt(
+                        run_path,
+                        watch_id,
+                        install_episode_id,
+                    )
+                    if stored is not None:
+                        return stored
+                    replace_with_retry(temporary, path)
+                    stored = read_install_handoff_receipt(
+                        run_path,
+                        watch_id,
+                        install_episode_id,
+                    )
+                    if stored is None:
+                        raise RuntimeError("handoff receipt publish did not persist")
+                    return stored
+                finally:
+                    os.close(descriptor)
+                    lock.unlink(missing_ok=True)
+        stored = read_install_handoff_receipt(run_path, watch_id, install_episode_id)
+        if stored is None:
+            raise RuntimeError("handoff receipt publish did not persist")
+        return stored
     finally:
         temporary.unlink(missing_ok=True)
-    return receipt

@@ -1,3 +1,17 @@
+## 1.29.3 — resumable and concurrent P1 handoff reliability
+
+- Commit the install handoff claim, canonical repair incident, assurance episode
+  and initial lineage event in one database transaction.
+- Persist a handoff state machine with a bounded lease so an interrupted
+  workflow start becomes retryable instead of permanently stranded.
+- Make concurrent identical handoffs converge on one episode, one incident and
+  one workflow owner without leaking database uniqueness errors.
+- Reject a replay that reuses a source identity with different content.
+- Publish Digital Twin handoff receipts with atomic no-replace semantics so
+  concurrent writers return the same authoritative receipt.
+- Add failure-injection, rollback, legacy-adoption and parallel replay
+  regressions while retaining simulation-only production-write controls.
+
 ## 1.29.2 — target Ruff import-block closure
 
 - Corrects the final Ruff 0.13.3 `I001` finding in the Streamlit API client by
