@@ -1,16 +1,16 @@
 LPR CPE Service Assurance Demo v1.29.3 P1 Handoff Reliability Python 3.14.7
 Generated: 2026-09-03
 Indexed files: 330
-Indexed bytes: 13255631
+Indexed bytes: 13257465
 
 .dockerignore	114 bytes
 .env.example	3592 bytes
 .gitattributes	473 bytes
 .gitignore	152 bytes
 .stage3-manifest-exclusions.txt	89 bytes
-BUILD_TEST_REPORT.txt	7942 bytes
+BUILD_TEST_REPORT.txt	8166 bytes
 BUNDLE_CONTENTS.txt	14401 bytes
-CHANGELOG.md	103738 bytes
+CHANGELOG.md	103891 bytes
 Dockerfile	1688 bytes
 FILE_MANIFEST.txt	14378 bytes
 LICENSE.txt	297 bytes
@@ -64,13 +64,13 @@ docs/RELEASE_v1.27.15.md	2015 bytes
 docs/RELEASE_v1.27.16.md	1128 bytes
 docs/RELEASE_v1.29.1.md	1984 bytes
 docs/RELEASE_v1.29.2.md	1352 bytes
-docs/RELEASE_v1.29.3.md	3205 bytes
+docs/RELEASE_v1.29.3.md	3538 bytes
 docs/RUNBOOK.md	7019 bytes
 docs/SECURITY.md	1086 bytes
 docs/SECURITY_CONTROLS.md	3254 bytes
 docs/SHARED_MEASUREMENT_CONTRACT.md	7078 bytes
 docs/STAGE3_DVSUM_CADDI_AUDIT.md	2624 bytes
-docs/TEST_REPORT.md	11128 bytes
+docs/TEST_REPORT.md	11327 bytes
 docs/UNIFIED_ASSURANCE_P1_P2.md	3955 bytes
 docs/WAVE_1_COST_DATA_INTEGRITY.md	2447 bytes
 docs/WORKFLOW.md	5876 bytes
@@ -195,7 +195,7 @@ src/lpr_cpe_demo/digital_twin/dispatch_projection.py	71189 bytes
 src/lpr_cpe_demo/digital_twin/executive_projection.py	23420 bytes
 src/lpr_cpe_demo/digital_twin/executive_style.py	15025 bytes
 src/lpr_cpe_demo/digital_twin/external_evidence.py	100205 bytes
-src/lpr_cpe_demo/digital_twin/install_assurance.py	47874 bytes
+src/lpr_cpe_demo/digital_twin/install_assurance.py	47948 bytes
 src/lpr_cpe_demo/digital_twin/models.py	2839 bytes
 src/lpr_cpe_demo/digital_twin/orchestrator.py	85299 bytes
 src/lpr_cpe_demo/digital_twin/predictive_bridge.py	15672 bytes
@@ -325,7 +325,7 @@ tests/test_routing_theme.py	12292 bytes
 tests/test_runtime_connectivity_regressions.py	6785 bytes
 tests/test_security_store.py	8623 bytes
 tests/test_sidebar.py	6467 bytes
-tests/test_target_lint_regressions.py	3366 bytes
+tests/test_target_lint_regressions.py	4217 bytes
 tests/test_telemetry.py	15641 bytes
 tests/test_ui_widgets.py	24099 bytes
 tests/test_unified_assurance_p1.py	11481 bytes

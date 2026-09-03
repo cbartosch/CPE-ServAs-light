@@ -1,5 +1,7 @@
 ## 1.29.3 — resumable and concurrent P1 handoff reliability
 
+- Close the target Ruff 0.13.3 `B904` findings in the concurrent receipt
+  fallback by making deliberate terminal race errors use `raise ... from None`.
 - Commit the install handoff claim, canonical repair incident, assurance episode
   and initial lineage event in one database transaction.
 - Persist a handoff state machine with a bounded lease so an interrupted

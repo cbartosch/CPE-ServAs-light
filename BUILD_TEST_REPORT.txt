@@ -1,6 +1,9 @@
 LPR CPE SERVICE ASSURANCE DEMO — v1.29.3 P1 HANDOFF RELIABILITY
 ================================================================
 
+PASS  Target-reported Ruff 0.13.3 B904 receipt errors use raise ... from None
+PASS  AST regression guard covers both deliberate terminal race errors
+PASS  939 tests collected; 937 passed and 2 skipped in bounded file groups
 PASS  Atomic claim, incident, episode and initial-event transaction
 PASS  Interrupted workflow startup becomes retryable and resumes in place
 PASS  Concurrent identical handoffs converge on one workflow execution

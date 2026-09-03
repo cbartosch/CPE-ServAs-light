@@ -4,6 +4,13 @@ This corrective release is a descendant of the immutable v1.29.2 release
 commit. It closes the two highest-severity P1 reliability findings without
 rewriting or moving the v1.29.2 release reference.
 
+## RC2 target-lint closure
+
+The target Python 3.14.7/Ruff 0.13.3 gate found two `B904` findings in the
+receipt publication fallback. RC2 explicitly suppresses incidental exception
+context for those deliberate terminal race errors with `raise ... from None`
+and adds an AST regression guard that runs even where Ruff is unavailable.
+
 ## Atomic durable claim
 
 The workflow service now creates or adopts the following records in one database

@@ -1227,7 +1227,7 @@ def write_install_handoff_receipt(
         except FileExistsError:
             stored = read_install_handoff_receipt(run_path, watch_id, install_episode_id)
             if stored is None:
-                raise RuntimeError("handoff receipt exists but cannot be read")
+                raise RuntimeError("handoff receipt exists but cannot be read") from None
             return stored
         except OSError:
             lock = path.with_name(f".{path.name}.lock")
@@ -1256,7 +1256,9 @@ def write_install_handoff_receipt(
                             lock.unlink(missing_ok=True)
                             deadline = time.monotonic() + 30.0
                             continue
-                        raise TimeoutError("timed out waiting for handoff receipt writer")
+                        raise TimeoutError(
+                            "timed out waiting for handoff receipt writer"
+                        ) from None
                     time.sleep(0.01)
                     continue
                 try:

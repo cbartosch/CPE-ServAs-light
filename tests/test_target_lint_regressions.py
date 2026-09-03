@@ -69,6 +69,27 @@ def test_install_assurance_generator_calls_are_not_double_parenthesized() -> Non
     assert not re.search(r"\b(?:all|any|sum)\(\(", source)
 
 
+def test_receipt_writer_terminal_race_errors_suppress_exception_context() -> None:
+    tree = ast.parse(_source("src/lpr_cpe_demo/digital_twin/install_assurance.py"))
+    expected = {
+        "handoff receipt exists but cannot be read",
+        "timed out waiting for handoff receipt writer",
+    }
+    observed: dict[str, bool] = {}
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Raise) or not isinstance(node.exc, ast.Call):
+            continue
+        if not node.exc.args or not isinstance(node.exc.args[0], ast.Constant):
+            continue
+        message = node.exc.args[0].value
+        if message not in expected:
+            continue
+        observed[message] = (
+            isinstance(node.cause, ast.Constant) and node.cause.value is None
+        )
+    assert observed == {message: True for message in expected}
+
+
 def test_first_party_imports_keep_canonical_module_order() -> None:
     api = _source("src/lpr_cpe_demo/api/main.py")
     dashboard = _source("src/lpr_cpe_demo/dashboard.py")

@@ -2,9 +2,12 @@
 
 The corrective P1 gate adds interruption recovery, atomic rollback, adoption of
 pre-fix partial state, changed-payload rejection, 32-way concurrent request
-convergence and parallel receipt-writer convergence. The focused implementation
-tests pass in the assembly environment. The exact Ruff 0.13.3, Python 3.14.7,
-PostgreSQL and Docker gates remain mandatory on the target workstation.
+convergence and parallel receipt-writer convergence. RC2 also closes the two
+target-reported Ruff 0.13.3 `B904` findings with explicit `raise ... from None`
+semantics and an AST regression guard. The complete 939-test inventory passed in
+bounded groups with 937 passes and 2 expected skips in the assembly environment.
+The exact Ruff 0.13.3, Python 3.14.7, PostgreSQL and Docker gates remain mandatory
+on the target workstation.
 
 # v1.29.2 P1/P2 unified assurance validation
 
